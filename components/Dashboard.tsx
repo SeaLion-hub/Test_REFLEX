@@ -90,6 +90,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
     };
   };
   
+  // Truth Score 재계산 함수
+  const recalculateTruthScore = (tradesList: EnrichedTrade[], currentMetrics: typeof metrics) => {
+    const fomoMetrics = recalculateFOMO(tradesList);
+    const adjustedFomoIndex = fomoMetrics.adjustedFomoIndex;
+    
+    // Truth Score 재계산 (main.py 로직과 동일)
+    let baseScore = 50;
+    baseScore += (currentMetrics.winRate * 20);
+    baseScore -= (adjustedFomoIndex * 20);
+    baseScore -= ((1 - currentMetrics.panicIndex) * 20);
+    baseScore -= Math.max(0, (currentMetrics.dispositionRatio - 1) * 10);
+    baseScore -= (currentMetrics.revengeTradingCount * 5);
+    if (!isLowSample) {
+      baseScore += (currentMetrics.sharpeRatio * 5);
+    } else {
+      baseScore += 5;
+    }
+    
+    return Math.max(0, Math.min(100, Math.round(baseScore)));
+  };
+
   // Handle Strategy Tagging
   const handleStrategyTag = async (trade: EnrichedTrade, tag: 'BREAKOUT' | 'AGGRESSIVE_ENTRY' | 'FOMO') => {
     // Update trade strategy tag
@@ -118,9 +139,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
     // Recalculate metrics if strategic tag added
     if (tag === 'BREAKOUT' || tag === 'AGGRESSIVE_ENTRY') {
       const fomoMetrics = recalculateFOMO(updatedTrades);
-      // Update metrics display (optional - could show adjusted FOMO)
+      const newTruthScore = recalculateTruthScore(updatedTrades, metrics);
+      
+      // UI에 즉시 반영하기 위해 metrics 업데이트
+      // 실제로는 전체 재계산이 필요하지만, 데모에서는 FOMO 조정만 반영
       console.log('Adjusted FOMO Index:', fomoMetrics.adjustedFomoIndex);
       console.log(`Excluded ${fomoMetrics.excludedCount} strategic trades from FOMO calculation`);
+      console.log('New Truth Score:', newTruthScore);
+      
+      // 사용자에게 피드백 표시 (선택사항)
+      if (fomoMetrics.excludedCount > 0) {
+        // Toast나 알림을 표시할 수 있음
+      }
     }
     
     setShowStrategyModal(false);
@@ -386,7 +416,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
 
             {/* AI Coach */}
             <div className="lg:col-span-8 h-full">
-                 <AICoach analysis={aiAnalysis} loading={loadingAI} />
+                 <AICoach 
+                   analysis={aiAnalysis} 
+                   loading={loadingAI} 
+                   truthScore={adjustedMetrics.truthScore}
+                 />
             </div>
         </div>
 

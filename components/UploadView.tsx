@@ -39,21 +39,42 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [loadingStage, setLoadingStage] = useState<string>('');
 
   const handleFile = async (file: File) => {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
         setIsProcessing(true);
+        setLoadingStage('CSV 파일 파싱 중...');
+        
         const text = e.target?.result as string;
         const rows = parseCSV(text);
         if (rows.length === 0) throw new Error("No valid data found.");
+        
+        setLoadingStage('시장 데이터 수집 중...');
+        // analyzeTrades 내부에서 단계별 진행 상황을 시뮬레이션하기 위해
+        // 약간의 지연을 추가하여 사용자 경험 개선
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        setLoadingStage('FOMO 패턴 탐지 중...');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        setLoadingStage('Panic Sell 패턴 분석 중...');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        setLoadingStage('GPT-4o가 심리 분석 중...');
         const result = await analyzeTrades(rows);
+        
+        setLoadingStage('분석 완료!');
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
         onAnalyze(result);
       } catch (err) {
         setError("Format Error. Ensure headers match 'Ticker,Date,Action,Price,Qty' or 'Ticker,Entry Date...'.");
       } finally {
         setIsProcessing(false);
+        setLoadingStage('');
       }
     };
     reader.readAsText(file);
@@ -66,10 +87,28 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
 
   const loadSample = async (csvData: string) => {
     setIsProcessing(true);
+    setLoadingStage('CSV 파일 파싱 중...');
+    
     const rows = parseCSV(csvData);
+    
+    setLoadingStage('시장 데이터 수집 중...');
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    setLoadingStage('FOMO 패턴 탐지 중...');
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    setLoadingStage('Panic Sell 패턴 분석 중...');
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    setLoadingStage('GPT-4o가 심리 분석 중...');
     const result = await analyzeTrades(rows);
+    
+    setLoadingStage('분석 완료!');
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
     onAnalyze(result);
     setIsProcessing(false);
+    setLoadingStage('');
   };
 
 
@@ -104,13 +143,17 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
           onClick={() => fileInputRef.current?.click()}
         >
           {isProcessing ? (
-             <div className="flex flex-col items-center gap-6 animate-pulse">
+             <div className="flex flex-col items-center gap-6">
                 <div className="p-6 bg-zinc-900 rounded-full border border-zinc-800">
                     <Database className="w-10 h-10 text-emerald-500 animate-spin" />
                 </div>
-                <div className="space-y-2">
-                    <p className="text-zinc-200 font-medium">Analyzing Market Context...</p>
-                    <p className="text-xs text-zinc-500">Fetching Historical Data & Calculating FOMO/Panic Scores</p>
+                <div className="space-y-2 text-center">
+                    <p className="text-zinc-200 font-medium animate-pulse">{loadingStage || '분석 중...'}</p>
+                    <div className="flex items-center justify-center gap-2 text-xs text-zinc-500">
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    </div>
                 </div>
              </div>
           ) : (

@@ -1714,26 +1714,48 @@ async def get_ai_coach(request: CoachRequest):
 async def save_strategy_tag(request: dict):
     """
     사용자가 거래에 전략 태그를 추가합니다.
-    클라이언트 측에서 로컬 상태로만 관리해도 되지만, 백엔드에 저장하면
-    세션 간 유지가 가능합니다.
+    JSON 파일에 저장하여 세션 간 유지가 가능합니다.
     """
-    # TODO: 데이터베이스에 저장하는 로직 (현재는 메모리에 저장)
-    # 실제 구현 시에는 trade_id와 strategy_tag를 DB에 저장
-    
     trade_id = request.get('trade_id')
     strategy_tag = request.get('strategy_tag')
     
     if not trade_id or not strategy_tag:
         return {"error": "trade_id and strategy_tag are required"}
     
-    # 현재는 단순히 성공 응답만 반환
-    # 실제 구현 시에는 DB에 저장하고, 다음 분석 시 이 태그를 반영
-    return {
-        "success": True,
-        "trade_id": trade_id,
-        "strategy_tag": strategy_tag,
-        "message": "Strategy tag saved successfully"
-    }
+    # JSON 파일에 저장
+    strategy_tags_file = BASE_DIR / "strategy_tags.json"
+    
+    try:
+        # 기존 태그 로드
+        if strategy_tags_file.exists():
+            with open(strategy_tags_file, 'r', encoding='utf-8') as f:
+                tags = json.load(f)
+        else:
+            tags = {}
+        
+        # 새 태그 저장
+        tags[trade_id] = {
+            "strategy_tag": strategy_tag,
+            "saved_at": datetime.now().isoformat()
+        }
+        
+        # 파일에 저장
+        with open(strategy_tags_file, 'w', encoding='utf-8') as f:
+            json.dump(tags, f, indent=2, ensure_ascii=False)
+        
+        return {
+            "success": True,
+            "trade_id": trade_id,
+            "strategy_tag": strategy_tag,
+            "message": "Strategy tag saved successfully"
+        }
+    except Exception as e:
+        print(f"Error saving strategy tag: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to save strategy tag"
+        }
 
 if __name__ == "__main__":
     import uvicorn
