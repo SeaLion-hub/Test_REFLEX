@@ -23,5 +23,5 @@ dist-ssr
 *.sln
 *.sw?
 
-# RAG Embeddings (generated file)
-rag_embeddings.npy
+# RAG Embeddings should be committed to Git for deployment stability
+# rag_embeddings.npy

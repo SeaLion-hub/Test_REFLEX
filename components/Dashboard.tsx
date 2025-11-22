@@ -69,27 +69,65 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   ];
   const topIssues = issues.filter(i => i.severity).slice(0, 3);
 
-  // Prepare Evidence JSON for display
-  const evidenceJSON = {
-    trade_count: metrics.totalTrades,
-    behavior_bias: {
-      fomo_score: metrics.fomoIndex,
-      panic_sell_score: metrics.panicIndex,
-      disposition_ratio: metrics.dispositionRatio,
-      revenge_count: metrics.revengeTradingCount
+  // Prepare Evidence items for checklist display
+  const evidenceItems = [
+    {
+      label: 'FOMO Score',
+      value: (metrics.fomoIndex * 100).toFixed(0) + '%',
+      threshold: '>70%',
+      status: metrics.fomoIndex > 0.7 ? 'warning' : 'normal',
+      description: 'Entry vs Daily High - Clinical FOMO threshold: >70%',
+      aiTransmitted: true
     },
-    execution_quality: {
-      profit_factor: metrics.profitFactor,
-      win_rate: metrics.winRate
+    {
+      label: 'Panic Sell Score',
+      value: (metrics.panicIndex * 100).toFixed(0) + '%',
+      threshold: '<30%',
+      status: metrics.panicIndex < 0.3 ? 'warning' : 'normal',
+      description: 'Exit vs Daily Low - Clinical Panic threshold: <30%',
+      aiTransmitted: true
     },
-    regret: {
-        total_regret: metrics.totalRegret
+    {
+      label: 'Disposition Ratio',
+      value: metrics.dispositionRatio.toFixed(1) + 'x',
+      threshold: '>1.5x',
+      status: metrics.dispositionRatio > 1.5 ? 'warning' : 'normal',
+      description: 'Hold losers vs winners - Clinical threshold: >1.5x',
+      aiTransmitted: true
     },
-    personal_baseline: data.personalBaseline,
-    bias_loss_mapping: data.biasLossMapping,
-    bias_priority: data.biasPriority,
-    behavior_shift: data.behaviorShift
-  };
+    {
+      label: 'Revenge Trading',
+      value: metrics.revengeTradingCount + ' trades',
+      threshold: '>0',
+      status: metrics.revengeTradingCount > 0 ? 'warning' : 'normal',
+      description: 'Re-entry <24h after loss',
+      aiTransmitted: true
+    },
+    {
+      label: 'Total Regret',
+      value: '$' + metrics.totalRegret.toFixed(0),
+      threshold: 'Any amount',
+      status: metrics.totalRegret > 0 ? 'info' : 'normal',
+      description: 'Money left on table',
+      aiTransmitted: true
+    },
+    {
+      label: 'Profit Factor',
+      value: metrics.profitFactor.toFixed(2),
+      threshold: '>1.0',
+      status: metrics.profitFactor > 1.0 ? 'normal' : 'warning',
+      description: 'Win vs Loss ratio',
+      aiTransmitted: true
+    },
+    {
+      label: 'Win Rate',
+      value: (metrics.winRate * 100).toFixed(0) + '%',
+      threshold: '>50%',
+      status: metrics.winRate > 0.5 ? 'normal' : 'warning',
+      description: 'Percentage of winning trades',
+      aiTransmitted: true
+    }
+  ];
 
   // 편향 제거 시뮬레이션 계산
   const biasFreeMetrics = React.useMemo(() => {
@@ -203,11 +241,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                  }`}>
                     <span className={`text-7xl font-bold tracking-tighter ${scoreColor}`}>{metrics.truthScore}</span>
                     {isLowSample && (
-                         <div className={`absolute bottom-8 text-[10px] px-2 py-1 rounded ${
-                           isDarkMode 
-                             ? 'bg-zinc-800 text-zinc-400' 
-                             : 'bg-zinc-200 text-zinc-600'
-                         }`}>Low Sample</div>
+                        <div className={`absolute bottom-8 text-xs px-2 py-1 rounded ${
+                          isDarkMode 
+                            ? 'bg-zinc-800 text-zinc-400' 
+                            : 'bg-zinc-200 text-zinc-600'
+                        }`}>Low Sample</div>
                     )}
                  </div>
                  
@@ -217,7 +255,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                          {topIssues.map((issue, idx) => (
                              <div key={idx} className="flex items-center gap-2 px-3 py-1.5 bg-red-950/30 border border-red-900/40 rounded-full">
                                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
-                                 <span className="text-[10px] font-bold text-red-400 uppercase tracking-wide">{issue.label}: {issue.value}</span>
+                                 <span className="text-xs font-bold text-red-400 uppercase tracking-wide">{issue.label}: {issue.value}</span>
                              </div>
                          ))}
                      </div>
@@ -229,7 +267,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                      : 'bg-zinc-200/50 border-zinc-200'
                  }`}>
                     <div className={`p-3 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>
-                        <div className={`text-[10px] uppercase ${
+                        <div className={`text-xs uppercase ${
                           isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
                         }`}>Win Rate</div>
                         <div className={`font-mono font-semibold ${
@@ -237,7 +275,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                         }`}>{(metrics.winRate * 100).toFixed(0)}%</div>
                     </div>
                     <div className={`p-3 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>
-                        <div className={`text-[10px] uppercase ${
+                        <div className={`text-xs uppercase ${
                           isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
                         }`}>Profit F.</div>
                         <div className={`font-mono font-semibold ${
@@ -245,7 +283,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                         }`}>{metrics.profitFactor.toFixed(2)}</div>
                     </div>
                     <div className={`p-3 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>
-                        <div className={`text-[10px] uppercase ${
+                        <div className={`text-xs uppercase ${
                           isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
                         }`}>Total PnL</div>
                         <div className={`font-mono font-semibold ${totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -335,7 +373,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                           isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
                         }`}>
                             <TrendingUp className="w-3 h-3" />
-                            <span className="text-[10px] uppercase font-bold">FOMO Index</span>
+                            <span className="text-xs uppercase font-bold">FOMO Index</span>
                         </div>
                         <div className={`text-2xl font-mono ${
                           metrics.fomoIndex > 0.7 
@@ -344,11 +382,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                         }`}>
                             {(metrics.fomoIndex * 100).toFixed(0)}%
                         </div>
-                        <div className={`text-[10px] mt-1 ${
+                        <div className={`text-xs mt-1 ${
                           isDarkMode ? 'text-zinc-600' : 'text-zinc-500'
                         }`}>
                           Entry vs Daily High
-                          <div className="text-[9px] mt-0.5 italic">
+                          <div className="text-[10px] mt-0.5 italic">
                             Clinical threshold: &gt;70% = FOMO
                           </div>
                         </div>
@@ -363,7 +401,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                           isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
                         }`}>
                             <Skull className="w-3 h-3" />
-                            <span className="text-[10px] uppercase font-bold">Revenge Trades</span>
+                            <span className="text-xs uppercase font-bold">Revenge Trades</span>
                         </div>
                         <div className={`text-2xl font-mono ${
                           metrics.revengeTradingCount > 0 
@@ -372,7 +410,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                         }`}>
                             {metrics.revengeTradingCount}
                         </div>
-                        <div className={`text-[10px] mt-1 ${
+                        <div className={`text-xs mt-1 ${
                           isDarkMode ? 'text-zinc-600' : 'text-zinc-500'
                         }`}>Re-entry &lt; 24h after loss</div>
                      </div>
@@ -386,7 +424,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                           isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
                         }`}>
                             <RefreshCcw className="w-3 h-3" />
-                            <span className="text-[10px] uppercase font-bold">Disposition</span>
+                            <span className="text-xs uppercase font-bold">Disposition</span>
                         </div>
                         <div className={`text-2xl font-mono ${
                           metrics.dispositionRatio > 1.5 
@@ -395,7 +433,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                         }`}>
                             {metrics.dispositionRatio.toFixed(1)}x
                         </div>
-                        <div className={`text-[10px] mt-1 ${
+                        <div className={`text-xs mt-1 ${
                           isDarkMode ? 'text-zinc-600' : 'text-zinc-500'
                         }`}>Hold time: Losers vs Winners</div>
                      </div>
@@ -409,7 +447,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                           isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
                         }`}>
                             <HelpCircle className="w-3 h-3" />
-                            <span className="text-[10px] uppercase font-bold">Skill/Luck</span>
+                            <span className="text-xs uppercase font-bold">Skill/Luck</span>
                         </div>
                         {isLowSample ? (
                             <div className={`text-xs italic mt-1 ${
@@ -422,7 +460,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                 {metrics.luckPercentile.toFixed(0)}%
                             </div>
                         )}
-                        {!isLowSample && <div className={`text-[10px] mt-1 ${
+                        {!isLowSample && <div className={`text-xs mt-1 ${
                           isDarkMode ? 'text-zinc-600' : 'text-zinc-500'
                         }`}>Monte Carlo Pctl</div>}
                      </div>
@@ -778,7 +816,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
             {showDeepDive && (
                 <div className="w-full mt-8 space-y-8 animate-in fade-in slide-in-from-top-4 duration-300">
                     
-                    {/* EVIDENCE INSPECTOR */}
+                    {/* EVIDENCE INSPECTOR - 체크리스트 UI로 개선 */}
                     <div className={`rounded-xl p-6 border ${
                       isDarkMode 
                         ? 'bg-zinc-950 border-zinc-800' 
@@ -789,38 +827,84 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                 <Database className={`w-4 h-4 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
                                 <h3 className={`font-medium text-sm ${
                                   isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
-                                }`}>Evidence JSON Inspector</h3>
+                                }`}>AI가 분석한 핵심 근거</h3>
                             </div>
-                            <span className={`text-[10px] uppercase px-2 py-1 rounded ${
+                            <span className={`text-xs uppercase px-2 py-1 rounded ${
                               isDarkMode 
-                                ? 'text-zinc-500 bg-zinc-900' 
-                                : 'text-zinc-600 bg-zinc-200'
-                            }`}>Read-Only Evidence</span>
+                                ? 'text-emerald-500 bg-emerald-950/30 border border-emerald-900/30' 
+                                : 'text-emerald-600 bg-emerald-50 border border-emerald-200'
+                            }`}>AI 전달됨</span>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className={`font-mono text-xs p-4 rounded-lg border overflow-auto max-h-[200px] ${
-                              isDarkMode 
-                                ? 'text-zinc-400 bg-[#050505] border-zinc-900' 
-                                : 'text-zinc-700 bg-white border-zinc-300'
-                            }`}>
-                                <pre>{JSON.stringify(evidenceJSON, null, 2)}</pre>
-                            </div>
-                            <div className={`flex flex-col justify-center space-y-4 text-sm ${
-                              isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
-                            }`}>
-                                <p className="leading-relaxed">
-                                    <span className={`font-bold ${
-                                      isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
-                                    }`}>AI does not calculate.</span> It only interprets this JSON.
-                                </p>
-                                <ul className={`space-y-2 list-disc list-inside text-xs ${
-                                  isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                        <div className="space-y-3 mb-4">
+                            {evidenceItems.map((item, idx) => (
+                                <div key={idx} className={`p-4 rounded-lg border flex items-start justify-between gap-4 ${
+                                  item.status === 'warning' 
+                                    ? (isDarkMode 
+                                        ? 'bg-orange-950/20 border-orange-900/30' 
+                                        : 'bg-orange-50 border-orange-200')
+                                    : item.status === 'info'
+                                    ? (isDarkMode 
+                                        ? 'bg-blue-950/20 border-blue-900/30' 
+                                        : 'bg-blue-50 border-blue-200')
+                                    : (isDarkMode 
+                                        ? 'bg-zinc-900/50 border-zinc-800' 
+                                        : 'bg-white border-zinc-200')
                                 }`}>
-                                    <li>Engine calculates metrics (FOMO, Panic, etc.) deterministically.</li>
-                                    <li>AI reads "fomo_score: {metrics.fomoIndex.toFixed(2)}" and diagnoses behavior.</li>
-                                    <li>This ensures <span className={isDarkMode ? 'text-zinc-300' : 'text-zinc-800'}>Zero Hallucination</span> on mathematical facts.</li>
-                                </ul>
-                            </div>
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <CheckCircle2 className={`w-4 h-4 ${
+                                              item.aiTransmitted 
+                                                ? (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')
+                                                : (isDarkMode ? 'text-zinc-600' : 'text-zinc-400')
+                                            }`} />
+                                            <span className={`font-semibold text-sm ${
+                                              isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                                            }`}>{item.label}</span>
+                                            {item.aiTransmitted && (
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                                  isDarkMode 
+                                                    ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-800/50' 
+                                                    : 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                                                }`}>AI 전달됨</span>
+                                            )}
+                                        </div>
+                                        <div className={`text-xs mt-1 ${
+                                          isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+                                        }`}>
+                                            {item.description}
+                                        </div>
+                                        <div className={`text-[10px] mt-1 ${
+                                          isDarkMode ? 'text-zinc-500' : 'text-zinc-500'
+                                        }`}>
+                                            Clinical threshold: {item.threshold}
+                                        </div>
+                                    </div>
+                                    <div className={`text-lg font-mono font-bold ${
+                                      item.status === 'warning'
+                                        ? 'text-orange-400'
+                                        : item.status === 'info'
+                                        ? 'text-blue-400'
+                                        : (isDarkMode ? 'text-zinc-300' : 'text-zinc-700')
+                                    }`}>
+                                        {item.value}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className={`p-3 rounded-lg border ${
+                          isDarkMode 
+                            ? 'bg-purple-950/20 border-purple-900/30' 
+                            : 'bg-purple-50 border-purple-200'
+                        }`}>
+                            <p className={`text-xs leading-relaxed ${
+                              isDarkMode ? 'text-purple-200/80' : 'text-purple-800'
+                            }`}>
+                                <span className={`font-bold ${
+                                  isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
+                                }`}>AI는 계산하지 않습니다.</span> 위의 수치들만 해석합니다. 
+                                엔진이 결정적으로 계산한 메트릭(FOMO, Panic 등)을 AI가 읽어 행동을 진단합니다. 
+                                이를 통해 수학적 사실에 대한 <span className={isDarkMode ? 'text-zinc-300' : 'text-zinc-800'}>Zero Hallucination</span>이 보장됩니다.
+                            </p>
                         </div>
                     </div>
 
@@ -915,7 +999,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 rounded text-[10px] font-bold border ${
+                                            <span className={`px-2 py-1 rounded text-xs font-bold border ${
                                                 trade.marketRegime === 'BULL' ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-100 text-emerald-700 border-emerald-300') : 
                                                 trade.marketRegime === 'BEAR' ? (isDarkMode ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-red-100 text-red-700 border-red-300') : 
                                                 (isDarkMode ? 'bg-zinc-800/50 text-zinc-500 border-zinc-700' : 'bg-zinc-200 text-zinc-600 border-zinc-300')

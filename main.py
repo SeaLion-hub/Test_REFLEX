@@ -95,52 +95,27 @@ def load_rag_index():
         
         print(f"✓ Loaded {len(RAG_CARDS)} RAG cards from {RAG_FILE_PATH}")
         
-        # 2. Load or Create Embeddings
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            print("⚠ Warning: OPENAI_API_KEY not set. RAG embeddings not generated.")
-            RAG_EMBEDDINGS = None
-            return
-        
-        client = OpenAI(api_key=api_key)
-        
-        # Check if embeddings file exists and matches card count
+        # 2. Load Embeddings (파일이 없으면 예외 처리 - 생성은 관리자 스크립트로 분리)
         if RAG_EMBED_PATH.exists():
             try:
                 RAG_EMBEDDINGS = np.load(RAG_EMBED_PATH)
-                # 카드 개수와 임베딩 개수가 다르면 재생성
+                # 카드 개수와 임베딩 개수가 다르면 경고
                 if len(RAG_EMBEDDINGS) != len(RAG_CARDS):
-                    print("⚠ Card count mismatch. Regenerating embeddings...")
-                    raise ValueError("Mismatch")
-                print(f"✓ Loaded {len(RAG_EMBEDDINGS)} embeddings from {RAG_EMBED_PATH}")
-            except Exception:
-                # 재생성 로직
-                print("Generating new embeddings...")
-                texts = [
-                    f"{c['title']} {c['content']} {c.get('action', '')} {' '.join(c['tags'])}" 
-                    for c in RAG_CARDS
-                ]
-                embeddings = get_embeddings_batch(texts, client)
-                if embeddings:
-                    RAG_EMBEDDINGS = np.array(embeddings)
-                    np.save(RAG_EMBED_PATH, RAG_EMBEDDINGS)
-                    print(f"✓ Generated and saved {len(RAG_EMBEDDINGS)} embeddings to {RAG_EMBED_PATH}")
-                else:
+                    print(f"⚠ Warning: Embeddings count ({len(RAG_EMBEDDINGS)}) doesn't match cards count ({len(RAG_CARDS)}).")
+                    print("⚠ RAG feature disabled. Please regenerate embeddings using generate_embeddings.py")
                     RAG_EMBEDDINGS = None
-        else:
-            # 최초 생성
-            print("Generating embeddings for the first time...")
-            texts = [
-                f"{c['title']} {c['content']} {c.get('action', '')} {' '.join(c['tags'])}" 
-                for c in RAG_CARDS
-            ]
-            embeddings = get_embeddings_batch(texts, client)
-            if embeddings:
-                RAG_EMBEDDINGS = np.array(embeddings)
-                np.save(RAG_EMBED_PATH, RAG_EMBEDDINGS)
-                print(f"✓ Generated and saved {len(RAG_EMBEDDINGS)} embeddings to {RAG_EMBED_PATH}")
-            else:
+                else:
+                    print(f"✓ Loaded {len(RAG_EMBEDDINGS)} embeddings from {RAG_EMBED_PATH}")
+            except Exception as e:
+                print(f"⚠ Error loading embeddings file: {e}")
+                print("⚠ RAG feature disabled. Please regenerate embeddings using generate_embeddings.py")
                 RAG_EMBEDDINGS = None
+        else:
+            # 파일이 없으면 경고만 출력 (생성은 하지 않음)
+            print(f"⚠ Warning: {RAG_EMBED_PATH} not found. RAG feature disabled.")
+            print("⚠ To enable RAG, generate embeddings using: python generate_embeddings.py")
+            print("⚠ Or ensure rag_embeddings.npy is committed to Git repository.")
+            RAG_EMBEDDINGS = None
                 
     except Exception as e:
         print(f"❌ Error loading RAG index: {e}")
@@ -285,7 +260,9 @@ class AnalysisResponse(BaseModel):
     equity_curve: List[EquityCurvePoint] = []
 
 class CoachRequest(BaseModel):
-    trades: List[dict]
+    # 최적화: trades 전체 대신 요약 데이터만 수신 (데이터 핑퐁 구조 제거)
+    top_regrets: List[dict]  # Top 3 regrets만
+    revenge_details: List[dict]  # Revenge trades 요약만
     metrics: dict
     is_low_sample: bool
     personal_baseline: Optional[dict] = None
@@ -1046,12 +1023,10 @@ async def get_ai_coach(request: CoachRequest):
             retrieved_cards_for_response = []
             # 코칭은 계속 진행
     
-    # Prompt 생성 (기존 openaiService.ts와 동일한 로직)
-    top_regrets = sorted(request.trades, key=lambda x: x.get('regret', 0), reverse=True)[:3]
-    top_regrets_str = [f"{t['ticker']} (Missed ${t.get('regret', 0):.0f})" for t in top_regrets]
+    # Prompt 생성 (프론트엔드에서 이미 요약 데이터로 전송됨)
+    top_regrets_str = [f"{t['ticker']} (Missed ${t.get('regret', 0):.0f})" for t in request.top_regrets]
     
-    revenge_details = [t for t in request.trades if t.get('is_revenge')]
-    revenge_str = ', '.join([f"{t['ticker']} (-${abs(t.get('pnl', 0)):.0f})" for t in revenge_details]) if revenge_details else "None"
+    revenge_str = ', '.join([f"{t['ticker']} (-${abs(t.get('pnl', 0)):.0f})" for t in request.revenge_details]) if request.revenge_details else "None"
     
     # Personal Baseline 텍스트
     personal_baseline_text = ''
@@ -1087,13 +1062,17 @@ async def get_ai_coach(request: CoachRequest):
     # Behavior Shift 텍스트
     behavior_shift_text = ''
     if request.behavior_shift and len(request.behavior_shift) > 0:
+        behavior_shift_lines = [
+            f"    - {s['bias']}: {s['trend']} ({(s['change_percent']:+.1f)}%)" 
+            for s in request.behavior_shift
+        ]
         behavior_shift_text = f"""
     BEHAVIOR SHIFT (Recent 3 vs Baseline):
-    {chr(10).join([f"    - {s['bias']}: {s['trend']} ({(s['change_percent']:+.1f)}%)" for s in request.behavior_shift])}
+    {chr(10).join(behavior_shift_lines)}
     """
     
-    # Total Regret 계산
-    total_regret = sum(t.get('regret', 0) for t in request.trades)
+    # Total Regret 계산 (metrics에서 가져옴)
+    total_regret = request.metrics.get('total_regret', 0)
     
     # Total Bias Loss 계산
     total_bias_loss = 0
@@ -1102,6 +1081,44 @@ async def get_ai_coach(request: CoachRequest):
                           request.bias_loss_mapping['panic_loss'] + 
                           request.bias_loss_mapping['revenge_loss'] + 
                           request.bias_loss_mapping['disposition_loss'])
+    
+    # 프롬프트 구성 요소를 변수로 분리 (복잡도 개선)
+    primary_bias_info = ""
+    if request.bias_priority and len(request.bias_priority) > 0:
+        primary_bias = request.bias_priority[0]['bias']
+        primary_loss = request.bias_priority[0]['financial_loss']
+        primary_bias_info = f"Focus on {primary_bias} (Priority #1, Loss: -${primary_loss:.0f})."
+    
+    personal_baseline_note = "Compare to your personal baseline when relevant." if request.personal_baseline else ""
+    bias_loss_note = "Mention specific loss amounts from Bias Loss Mapping if significant." if request.bias_loss_mapping else ""
+    behavior_shift_warning = ""
+    if request.behavior_shift and any(s['trend'] == 'WORSENING' for s in request.behavior_shift):
+        behavior_shift_warning = "Note any worsening trends from Behavior Shift."
+    
+    evidence_fomo_text = f"Evidence #1: FOMO Score {(request.metrics['fomo_score'] * 100):.0f}% (Clinical threshold > 70% = FOMO)"
+    if request.personal_baseline:
+        evidence_fomo_text += f" vs Your Average {(request.personal_baseline['avg_fomo'] * 100):.0f}%"
+    
+    evidence_panic_text = f"Evidence #2: Panic Sell Score {(request.metrics['panic_score'] * 100):.0f}% (Clinical threshold < 30% = Panic)"
+    if request.personal_baseline:
+        evidence_panic_text += f" vs Your Average {(request.personal_baseline['avg_panic'] * 100):.0f}%"
+    
+    evidence_disposition_text = f"Evidence #3: Disposition Ratio {request.metrics['disposition_ratio']:.1f}x (Clinical threshold > 1.5x = Disposition Effect)"
+    if request.personal_baseline:
+        evidence_disposition_text += f" vs Your Average {request.personal_baseline['avg_disposition_ratio']:.1f}x"
+    
+    evidence_priority_text = ""
+    if request.bias_priority and len(request.bias_priority) > 0:
+        evidence_priority_text = f"- Evidence #7: Priority Fix #1 is {request.bias_priority[0]['bias']} (Loss: -${request.bias_priority[0]['financial_loss']:.0f})"
+    
+    rule_target_note = f"Target {request.bias_priority[0]['bias']} specifically." if request.bias_priority and len(request.bias_priority) > 0 else ""
+    rule_rag_note = "If RAG KNOWLEDGE BASE is provided above, base your rule on the 'ACTION' items from RAG principles." if rag_context_text else ""
+    
+    bias_name_note = f"Use: {request.bias_priority[0]['bias']}" if request.bias_priority and len(request.bias_priority) > 0 else ""
+    fix_target_note = f"Focus on fixing {request.bias_priority[0]['bias']} first (highest financial impact)." if request.bias_priority and len(request.bias_priority) > 0 else ""
+    fix_rag_note = "Combine the RAG 'ACTION' items with the user's specific context from Evidence above." if rag_context_text else ""
+    
+    references_field = f',\n      "references": [{{"title": "...", "content": "...", "action": "..."}}]' if rag_context_text else ''
     
     prompt = f"""
     Act as the "Truth Pipeline" AI. You are an objective, slightly ruthless, data-driven Trading Coach.
@@ -1142,13 +1159,13 @@ async def get_ai_coach(request: CoachRequest):
     {behavior_shift_text}
 
     EVIDENCE STRUCTURE (You MUST reference these numbers in your diagnosis):
-    - Evidence #1: FOMO Score {(request.metrics['fomo_score'] * 100):.0f}% (Clinical threshold > 70% = FOMO){f" vs Your Average {(request.personal_baseline['avg_fomo'] * 100):.0f}%" if request.personal_baseline else ''}
-    - Evidence #2: Panic Sell Score {(request.metrics['panic_score'] * 100):.0f}% (Clinical threshold < 30% = Panic){f" vs Your Average {(request.personal_baseline['avg_panic'] * 100):.0f}%" if request.personal_baseline else ''}
-    - Evidence #3: Disposition Ratio {request.metrics['disposition_ratio']:.1f}x (Clinical threshold > 1.5x = Disposition Effect){f" vs Your Average {request.personal_baseline['avg_disposition_ratio']:.1f}x" if request.personal_baseline else ''}
+    - {evidence_fomo_text}
+    - {evidence_panic_text}
+    - {evidence_disposition_text}
     - Evidence #4: Revenge Trading Count {request.metrics['revenge_trading_count']} (Any count > 0 = Revenge Trading)
     - Evidence #5: Total Regret ${total_regret:.0f}
     {f"- Evidence #6: Total Bias Loss -${total_bias_loss:.0f}" if total_bias_loss > 0 else ''}
-    {f"- Evidence #7: Priority Fix #1 is {request.bias_priority[0]['bias']} (Loss: -${request.bias_priority[0]['financial_loss']:.0f})" if request.bias_priority and len(request.bias_priority) > 0 else ''}
+    {evidence_priority_text}
 
     {rag_context_text}
 
@@ -1160,19 +1177,19 @@ async def get_ai_coach(request: CoachRequest):
 
     INSTRUCTIONS:
     1. DIAGNOSIS (3 sentences, EVIDENCE-BASED, NO VAGUE LANGUAGE): 
-       - Sentence 1: Direct, slightly harsh observation of their biggest flaw. {f"Focus on {request.bias_priority[0]['bias']} (Priority #1, Loss: -${request.bias_priority[0]['financial_loss']:.0f})." if request.bias_priority and len(request.bias_priority) > 0 else ''}
-       - Sentence 2: EVIDENCE-BASED FACT. You MUST strictly follow this format: "According to Evidence #X, you [specific action] on [Ticker] at [specific price/percentage]." {f"Compare to your personal baseline when relevant." if request.personal_baseline else ''} Example: "According to Evidence #1, you bought GME at 93% of the day's range ($347.51), exceeding the clinical FOMO threshold of 70% and your average of 78%."
-       - Sentence 3: The financial impact with specific numbers. {f"Mention specific loss amounts from Bias Loss Mapping if significant." if request.bias_loss_mapping else ''} {f"Note any worsening trends from Behavior Shift." if request.behavior_shift and any(s['trend'] == 'WORSENING' for s in request.behavior_shift) else ''}
-    2. RULE (1 sentence): A catchy, memorable trading commandment to fix this specific flaw. {f"Target {request.bias_priority[0]['bias']} specifically." if request.bias_priority and len(request.bias_priority) > 0 else ''} {f"If RAG KNOWLEDGE BASE is provided above, base your rule on the 'ACTION' items from RAG principles." if rag_context_text else ''}
-    3. BIAS: Name the single dominant psychological bias. {f"Use: {request.bias_priority[0]['bias']}" if request.bias_priority and len(request.bias_priority) > 0 else ''} (e.g. Disposition Effect, Action Bias, Revenge Trading, FOMO).
-    4. FIX: One specific, actionable step to take immediately. {f"Focus on fixing {request.bias_priority[0]['bias']} first (highest financial impact)." if request.bias_priority and len(request.bias_priority) > 0 else ''} {f"Combine the RAG 'ACTION' items with the user's specific context from Evidence above." if rag_context_text else ''}
-
+       - Sentence 1: Direct, slightly harsh observation of their biggest flaw. {primary_bias_info}
+       - Sentence 2: EVIDENCE-BASED FACT. You MUST strictly follow this format: "According to Evidence #X, you [specific action] on [Ticker] at [specific price/percentage]." {personal_baseline_note} Example: "According to Evidence #1, you bought GME at 93% of the day's range ($347.51), exceeding the clinical FOMO threshold of 70% and your average of 78%."
+       - Sentence 3: The financial impact with specific numbers. {bias_loss_note} {behavior_shift_warning}
+    2. RULE (1 sentence): A catchy, memorable trading commandment to fix this specific flaw. {rule_target_note} {rule_rag_note}
+    3. BIAS: Name the single dominant psychological bias. {bias_name_note} (e.g. Disposition Effect, Action Bias, Revenge Trading, FOMO).
+    4. FIX: One specific, actionable step to take immediately. {fix_target_note} {fix_rag_note}
+    
     Output valid JSON only with this exact structure:
     {{
       "diagnosis": "3 sentences. Must mention a ticker.",
       "rule": "1 sentence rule.",
       "bias": "Primary bias.",
-      "fix": "Priority fix."{f',\n      "references": [{{"title": "...", "content": "...", "action": "..."}}]' if rag_context_text else ''}
+      "fix": "Priority fix."{references_field}
     }}
     
     NOTE: "references" field is optional. Include it only if RAG KNOWLEDGE BASE was provided above.
