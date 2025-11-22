@@ -45,6 +45,10 @@ export interface EnrichedTrade {
   marketRegime: MarketRegime;
   isRevenge: boolean;
   
+  // Strategy Tagging (사용자 피드백)
+  strategyTag?: 'BREAKOUT' | 'AGGRESSIVE_ENTRY' | 'FOMO' | null; // 전략 태그
+  userAcknowledged?: boolean; // 사용자가 소명했는지 여부
+  
   // Computed Trade Metrics
   fomoScore: number; // 0-1 (Entry relative to day range, 1 = Bought Top)
   panicScore: number; // 0-1 (Exit relative to day range, 0 = Sold Bottom)
@@ -86,12 +90,20 @@ export interface RAGReference {
   action: string;
 }
 
+export interface TradeStrength {
+  ticker: string;
+  execution: string; // "완벽한 손절", "최적 진입점", "고점 매도" 등
+  lesson: string; // "이 원칙을 다른 종목에도..."
+  reason: string; // "FOMO 점수 5%로 저점 매수", "손실 3%에서 즉시 청산" 등
+}
+
 export interface AIAnalysis {
   diagnosis: string; // 3 sentences
   rule: string; // 1 sentence behavioral rule
   bias: string; // Primary bias
   fix: string; // Priority fix
   references?: RAGReference[]; // RAG 카드 (옵션)
+  strengths?: TradeStrength[]; // 잘한 매매 (이달의 명장면)
 }
 
 // Perfect Edition: Personal Baseline
@@ -129,6 +141,16 @@ export interface BehaviorShift {
   trend: 'IMPROVING' | 'WORSENING' | 'STABLE'; // 개선/악화/안정
 }
 
+// Pattern Recognition (과정 평가)
+export interface PatternMetric {
+  pattern: 'FOMO' | 'EXIT_EFFICIENCY' | 'EARLY_EXIT' | 'REVENGE' | 'DISPOSITION';
+  description: string; // "최근 10번 거래 중 8번이나..."
+  count: number; // 패턴 발생 횟수
+  total: number; // 전체 거래 수 (분모)
+  percentage: number; // 발생 비율
+  significance: 'HIGH' | 'MEDIUM' | 'LOW'; // 통계적 유의성
+}
+
 export interface EquityCurvePoint {
   date: string;
   cumulative_pnl: number;
@@ -152,4 +174,7 @@ export interface AnalysisResult {
   biasPriority?: BiasPriority[];
   behaviorShift?: BehaviorShift[];
   equityCurve?: EquityCurvePoint[];
+  
+  // Pattern Recognition (과정 평가)
+  patterns?: PatternMetric[]; // 반복되는 패턴 감지
 }

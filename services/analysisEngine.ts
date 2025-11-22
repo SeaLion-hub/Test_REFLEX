@@ -235,6 +235,15 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
                     is_revenge: p.is_revenge,
                     ticker: p.ticker,
                     pnl: p.pnl
+                })) : undefined,
+                // 패턴은 프론트엔드에서 계산 (또는 백엔드에서 오면 사용)
+                patterns: json.patterns ? json.patterns.map((p: any) => ({
+                    pattern: p.pattern,
+                    description: p.description,
+                    count: p.count,
+                    total: p.total,
+                    percentage: p.percentage,
+                    significance: p.significance
                 })) : undefined
             };
 

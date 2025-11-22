@@ -1,10 +1,11 @@
 
 import React, { useEffect, useState } from 'react';
-import { AnalysisResult, AIAnalysis } from '../types';
+import { AnalysisResult, AIAnalysis, EnrichedTrade } from '../types';
 import { getAIInterpretation } from '../services/openaiService';
 import { BehavioralRadar, RegretChart, EquityCurveChart } from './Charts';
 import { AICoach } from './AICoach';
-import { ShieldAlert, TrendingUp, RefreshCcw, Award, BarChart2, HelpCircle, ArrowLeft, ChevronDown, ChevronUp, Database, ServerCrash, Skull, TrendingDown, DollarSign, AlertCircle, CheckCircle2, XCircle, Moon, Sun, BookOpen } from 'lucide-react';
+import { StrategyTagModal } from './StrategyTagModal';
+import { ShieldAlert, TrendingUp, RefreshCcw, Award, BarChart2, HelpCircle, ArrowLeft, ChevronDown, ChevronUp, Database, ServerCrash, Skull, TrendingDown, DollarSign, AlertCircle, CheckCircle2, XCircle, Moon, Sun, BookOpen, MessageSquare } from 'lucide-react';
 
 interface DashboardProps {
   data: AnalysisResult;
@@ -17,6 +18,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   const [showDeepDive, setShowDeepDive] = useState(false);
   const [showBiasFreeSimulation, setShowBiasFreeSimulation] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
+  
+  // Strategy Tagging State
+  const [selectedTrade, setSelectedTrade] = useState<EnrichedTrade | null>(null);
+  const [showStrategyModal, setShowStrategyModal] = useState(false);
+  const [trades, setTrades] = useState<EnrichedTrade[]>(data.trades);
 
   useEffect(() => {
     // Load theme preference from localStorage
@@ -42,27 +48,110 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
     }
   };
 
+  // Sync trades when data changes
+  useEffect(() => {
+    setTrades(data.trades);
+  }, [data.trades]);
+
   useEffect(() => {
     const fetchAI = async () => {
         setLoadingAI(true);
-        const result = await getAIInterpretation(data);
+        // Update data with tagged trades
+        const updatedData = { ...data, trades };
+        const result = await getAIInterpretation(updatedData);
         setAiAnalysis(result);
         setLoadingAI(false);
     };
     fetchAI();
-  }, [data]);
+  }, [data, trades]);
+  
+  // Recalculate FOMO metrics excluding strategic trades
+  const recalculateFOMO = (tradesList: EnrichedTrade[]) => {
+    // FOMO 계산에서 제외할 거래: BREAKOUT 또는 AGGRESSIVE_ENTRY 태그가 있는 거래
+    const excludedFromFOMO = tradesList.filter(t => 
+      t.strategyTag === 'BREAKOUT' || t.strategyTag === 'AGGRESSIVE_ENTRY'
+    );
+    
+    // FOMO 계산 대상 거래 (유효하고 전략 태그가 없는 거래)
+    const fomoEligibleTrades = tradesList.filter(t => 
+      t.fomoScore !== -1 && 
+      t.strategyTag !== 'BREAKOUT' && 
+      t.strategyTag !== 'AGGRESSIVE_ENTRY'
+    );
+    
+    const adjustedFomoIndex = fomoEligibleTrades.length > 0
+      ? fomoEligibleTrades.reduce((sum, t) => sum + t.fomoScore, 0) / fomoEligibleTrades.length
+      : data.metrics.fomoIndex; // 기본값 사용
+    
+    return {
+      adjustedFomoIndex,
+      excludedCount: excludedFromFOMO.length,
+      eligibleCount: fomoEligibleTrades.length
+    };
+  };
+  
+  // Handle Strategy Tagging
+  const handleStrategyTag = async (trade: EnrichedTrade, tag: 'BREAKOUT' | 'AGGRESSIVE_ENTRY' | 'FOMO') => {
+    // Update trade strategy tag
+    const updatedTrades = trades.map(t => 
+      t.id === trade.id 
+        ? { ...t, strategyTag: tag, userAcknowledged: true }
+        : t
+    );
+    setTrades(updatedTrades);
+    
+    // Send to backend to persist
+    try {
+      await fetch('http://localhost:8000/strategy-tag', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trade_id: trade.id,
+          strategy_tag: tag
+        })
+      });
+    } catch (error) {
+      console.error('Failed to save strategy tag:', error);
+      // Continue anyway - local state is updated
+    }
+    
+    // Recalculate metrics if strategic tag added
+    if (tag === 'BREAKOUT' || tag === 'AGGRESSIVE_ENTRY') {
+      const fomoMetrics = recalculateFOMO(updatedTrades);
+      // Update metrics display (optional - could show adjusted FOMO)
+      console.log('Adjusted FOMO Index:', fomoMetrics.adjustedFomoIndex);
+      console.log(`Excluded ${fomoMetrics.excludedCount} strategic trades from FOMO calculation`);
+    }
+    
+    setShowStrategyModal(false);
+    setSelectedTrade(null);
+  };
+  
+  const openStrategyModal = (trade: EnrichedTrade) => {
+    setSelectedTrade(trade);
+    setShowStrategyModal(true);
+  };
 
   const { metrics, isLowSample } = data;
   // Ensure types are safe for display
-  const totalPnL = data.trades.reduce((a, b) => a + (b.pnl || 0), 0);
+  const totalPnL = trades.reduce((a, b) => a + (b.pnl || 0), 0);
   
-  // Color logic
-  const scoreColor = metrics.truthScore >= 75 ? 'text-emerald-400' : metrics.truthScore >= 50 ? 'text-yellow-400' : 'text-red-400';
-  const scoreRing = metrics.truthScore >= 75 ? 'border-emerald-500' : metrics.truthScore >= 50 ? 'border-yellow-500' : 'border-red-500';
+  // Calculate adjusted FOMO metrics (excluding strategic trades)
+  const fomoMetrics = recalculateFOMO(trades);
+  const adjustedMetrics = {
+    ...metrics,
+    fomoIndex: fomoMetrics.excludedCount > 0 
+      ? fomoMetrics.adjustedFomoIndex 
+      : metrics.fomoIndex
+  };
+  
+  // Color logic (use adjusted metrics)
+  const scoreColor = adjustedMetrics.truthScore >= 75 ? 'text-emerald-400' : adjustedMetrics.truthScore >= 50 ? 'text-yellow-400' : 'text-red-400';
+  const scoreRing = adjustedMetrics.truthScore >= 75 ? 'border-emerald-500' : adjustedMetrics.truthScore >= 50 ? 'border-yellow-500' : 'border-red-500';
 
-  // Identify Top Issues
+  // Identify Top Issues (use adjusted metrics)
   const issues = [
-    { label: 'FOMO', value: (metrics.fomoIndex * 100).toFixed(0) + '%', severity: metrics.fomoIndex > 0.6 },
+    { label: 'FOMO', value: (adjustedMetrics.fomoIndex * 100).toFixed(0) + '%', severity: adjustedMetrics.fomoIndex > 0.6 },
     { label: 'Panic Sell', value: (metrics.panicIndex * 100).toFixed(0) + '%', severity: metrics.panicIndex > 0.6 },
     { label: 'Revenge', value: metrics.revengeTradingCount + 'x', severity: metrics.revengeTradingCount > 0 },
     { label: 'Holding Losers', value: metrics.dispositionRatio.toFixed(1) + 'x', severity: metrics.dispositionRatio > 1.2 }
@@ -72,19 +161,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   // Prepare Evidence items for checklist display
   const evidenceItems = [
     {
-      label: 'FOMO Score',
-      value: (metrics.fomoIndex * 100).toFixed(0) + '%',
+      label: 'FOMO Score' + (fomoMetrics.excludedCount > 0 ? ` (${fomoMetrics.excludedCount}건 제외)` : ''),
+      value: (adjustedMetrics.fomoIndex * 100).toFixed(0) + '%',
       threshold: '>70%',
-      status: metrics.fomoIndex > 0.7 ? 'warning' : 'normal',
-      description: 'Entry vs Daily High - Clinical FOMO threshold: >70%',
+      status: adjustedMetrics.fomoIndex > 0.7 ? 'warning' : 'normal',
+      description: fomoMetrics.excludedCount > 0 
+        ? `Entry vs Daily High - 전략 태그된 ${fomoMetrics.excludedCount}건 제외 후 계산`
+        : 'Entry vs Daily High - Clinical FOMO threshold: >70%',
       aiTransmitted: true
     },
     {
-      label: 'Panic Sell Score',
+      label: 'Exit Efficiency',
       value: (metrics.panicIndex * 100).toFixed(0) + '%',
       threshold: '<30%',
       status: metrics.panicIndex < 0.3 ? 'warning' : 'normal',
-      description: 'Exit vs Daily Low - Clinical Panic threshold: <30%',
+      description: 'Exit vs Daily Low - Low efficiency (<30%) indicates inefficient exit timing',
       aiTransmitted: true
     },
     {
@@ -239,7 +330,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                  <div className={`w-48 h-48 rounded-full border-8 ${scoreRing} flex items-center justify-center mb-8 shadow-[0_0_30px_rgba(0,0,0,0.5)] relative ${
                    isDarkMode ? 'bg-[#0c0c0e]' : 'bg-white'
                  }`}>
-                    <span className={`text-7xl font-bold tracking-tighter ${scoreColor}`}>{metrics.truthScore}</span>
+                    <span className={`text-7xl font-bold tracking-tighter ${scoreColor}`}>{adjustedMetrics.truthScore}</span>
                     {isLowSample && (
                         <div className={`absolute bottom-8 text-xs px-2 py-1 rounded ${
                           isDarkMode 
@@ -272,7 +363,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                         }`}>Win Rate</div>
                         <div className={`font-mono font-semibold ${
                           isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
-                        }`}>{(metrics.winRate * 100).toFixed(0)}%</div>
+                        }`}>{(adjustedMetrics.winRate * 100).toFixed(0)}%</div>
                     </div>
                     <div className={`p-3 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>
                         <div className={`text-xs uppercase ${
@@ -280,7 +371,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                         }`}>Profit F.</div>
                         <div className={`font-mono font-semibold ${
                           isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
-                        }`}>{metrics.profitFactor.toFixed(2)}</div>
+                        }`}>{adjustedMetrics.profitFactor.toFixed(2)}</div>
                     </div>
                     <div className={`p-3 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>
                         <div className={`text-xs uppercase ${
@@ -317,13 +408,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                 isDarkMode ? 'text-blue-200/80' : 'text-blue-800'
               }`}>
                 <p>• <strong>FOMO:</strong> Entry &gt;70% of day's range = Clinical FOMO (행동경제학 연구 기반)</p>
-                <p>• <strong>Panic Sell:</strong> Exit &lt;30% of day's range = Clinical Panic (행동경제학 연구 기반)</p>
+                <p>• <strong>Exit Efficiency:</strong> Exit &lt;30% of day's range = Low Efficiency (행동경제학 연구 기반)</p>
                 <p>• <strong>Disposition Effect:</strong> Hold losers &gt;1.5x longer = Clinical Disposition (Shefrin & Statman 연구)</p>
                 <p className={`mt-2 pt-2 border-t ${
                   isDarkMode ? 'border-blue-900/30' : 'border-blue-200'
                 }`}>
                   <strong>중요:</strong> 이 지표는 <strong>행동 편향</strong>을 탐지합니다. 기술적 돌파매매나 모멘텀 전략과는 다릅니다. 
                   높은 FOMO 점수는 "돌파 전략"이 아니라 "놓칠까봐 두려워서 고가에 매수"를 의미합니다.
+                </p>
+                <p className={`mt-2 pt-2 border-t ${
+                  isDarkMode ? 'border-blue-900/30' : 'border-blue-200'
+                }`}>
+                  <strong>과정 평가 (Process Evaluation):</strong> 단일 거래의 결과가 아니라 <strong>반복되는 패턴</strong>에 집중합니다. 
+                  "한두 번은 운 탓일 수 있지만, 10번 반복되면 실력(편향)입니다."
                 </p>
               </div>
             </div>
@@ -376,11 +473,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                             <span className="text-xs uppercase font-bold">FOMO Index</span>
                         </div>
                         <div className={`text-2xl font-mono ${
-                          metrics.fomoIndex > 0.7 
+                          adjustedMetrics.fomoIndex > 0.7 
                             ? 'text-red-400' 
                             : isDarkMode ? 'text-white' : 'text-zinc-900'
                         }`}>
-                            {(metrics.fomoIndex * 100).toFixed(0)}%
+                            {(adjustedMetrics.fomoIndex * 100).toFixed(0)}%
+                            {fomoMetrics.excludedCount > 0 && (
+                              <div className="text-xs text-blue-400 mt-1">
+                                ({fomoMetrics.excludedCount}건 제외)
+                              </div>
+                            )}
                         </div>
                         <div className={`text-xs mt-1 ${
                           isDarkMode ? 'text-zinc-600' : 'text-zinc-500'
@@ -473,10 +575,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                      <div className="flex items-center justify-between mb-4">
                         <h4 className={`text-xs font-bold uppercase tracking-wide ${
                           isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
-                        }`}>Regret Zone: Top 5 Missed Opportunities</h4>
+                        }`}>Regret Zone: 누적 패턴 분석</h4>
                         <div className="flex items-center gap-2 text-xs">
                             <span className="w-2 h-2 rounded-full bg-orange-500/50"></span>
-                            <span className={isDarkMode ? 'text-zinc-500' : 'text-zinc-600'}>Money left on table</span>
+                            <span className={isDarkMode ? 'text-zinc-500' : 'text-zinc-600'}>
+                              총 ${data.trades.reduce((sum, t) => sum + (t.regret || 0), 0).toFixed(0)} 놓침 (누적)
+                            </span>
                         </div>
                      </div>
                      <RegretChart trades={data.trades} />
@@ -590,6 +694,67 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                         </div>
                     </div>
                 )}
+            </div>
+        )}
+
+        {/* PATTERN RECOGNITION (과정 평가) */}
+        {data.patterns && data.patterns.length > 0 && (
+            <div className={`rounded-xl p-6 border ${
+              isDarkMode 
+                ? 'bg-purple-950/20 border-purple-900/30' 
+                : 'bg-purple-50 border-purple-200'
+            }`}>
+                <div className="flex items-center gap-2 mb-6">
+                    <BarChart2 className={`w-5 h-5 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+                    <h3 className={`text-sm font-bold uppercase tracking-wider ${
+                      isDarkMode ? 'text-purple-300' : 'text-purple-900'
+                    }`}>Pattern Recognition (반복되는 패턴 - 과정 평가)</h3>
+                </div>
+                <div className={`mb-4 p-3 rounded-lg border ${
+                  isDarkMode 
+                    ? 'bg-purple-950/30 border-purple-900/40' 
+                    : 'bg-white border-purple-200'
+                }`}>
+                    <p className={`text-xs leading-relaxed ${
+                      isDarkMode ? 'text-purple-200/80' : 'text-purple-800'
+                    }`}>
+                        <strong>💡 중요:</strong> 단일 거래의 결과가 아니라 <strong>반복되는 패턴</strong>에 집중합니다. 
+                        "한두 번은 운 탓일 수 있지만, 10번 반복되면 실력(편향)입니다."
+                    </p>
+                </div>
+                <div className="space-y-3">
+                    {data.patterns.map((pattern, idx) => (
+                        <div key={idx} className={`p-4 rounded-lg border ${
+                          pattern.significance === 'HIGH' 
+                            ? (isDarkMode ? 'bg-red-950/20 border-red-900/30' : 'bg-red-50 border-red-200')
+                            : pattern.significance === 'MEDIUM'
+                            ? (isDarkMode ? 'bg-orange-950/20 border-orange-900/30' : 'bg-orange-50 border-orange-200')
+                            : (isDarkMode ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200')
+                        }`}>
+                            <div className="flex items-start justify-between mb-2">
+                                <span className={`text-sm font-semibold ${
+                                  isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                                }`}>
+                                    {pattern.description}
+                                </span>
+                                <span className={`text-xs px-2 py-1 rounded-full ${
+                                  pattern.significance === 'HIGH'
+                                    ? (isDarkMode ? 'bg-red-900/40 text-red-300 border border-red-800' : 'bg-red-100 text-red-700 border border-red-300')
+                                    : pattern.significance === 'MEDIUM'
+                                    ? (isDarkMode ? 'bg-orange-900/40 text-orange-300 border border-orange-800' : 'bg-orange-100 text-orange-700 border border-orange-300')
+                                    : (isDarkMode ? 'bg-zinc-800 text-zinc-400 border border-zinc-700' : 'bg-zinc-100 text-zinc-600 border border-zinc-300')
+                                }`}>
+                                    {pattern.significance}
+                                </span>
+                            </div>
+                            <div className={`text-xs ${
+                              isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+                            }`}>
+                                발생률: {pattern.percentage.toFixed(0)}% ({pattern.count}/{pattern.total}건)
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
         )}
 
@@ -980,13 +1145,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                     <th className="px-6 py-3 font-semibold">Market Regime</th>
                                     <th className="px-6 py-3 font-semibold">Entry / Exit</th>
                                     <th className="px-6 py-3 text-right font-semibold">Realized PnL</th>
-                                    <th className="px-6 py-3 text-center font-semibold">FOMO (Entry)</th>
+                                    <th className="px-6 py-3 text-center font-semibold">FOMO (Entry) / 소명</th>
                                     <th className="px-6 py-3 text-center font-semibold">Panic (Exit)</th>
                                     <th className="px-6 py-3 text-right font-semibold text-orange-400/80">Regret ($)</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-800/50">
-                                {data.trades.map((trade) => (
+                                {trades.map((trade) => (
                                     <tr key={trade.id} className="hover:bg-zinc-800/20 transition-colors">
                                         <td className="px-6 py-4 font-medium text-zinc-200">
                                             <div className="flex items-center gap-2">
@@ -1020,10 +1185,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                             {trade.fomoScore === -1 ? (
                                                 <span className={`text-xs ${isDarkMode ? 'text-zinc-700' : 'text-zinc-400'}`}>-</span>
                                             ) : (
-                                                <div className="flex items-center justify-center gap-2">
+                                                <div className="flex flex-col items-center gap-2">
                                                     <span className={`text-xs font-mono ${(trade.fomoScore > 0.8) ? 'text-red-400 font-bold' : (isDarkMode ? 'text-zinc-400' : 'text-zinc-600')}`}>
                                                         {(trade.fomoScore * 100).toFixed(0)}%
                                                     </span>
+                                                    {/* Strategy Tag Badge */}
+                                                    {trade.strategyTag && (
+                                                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
+                                                            trade.strategyTag === 'BREAKOUT' || trade.strategyTag === 'AGGRESSIVE_ENTRY'
+                                                                ? (isDarkMode ? 'bg-blue-950/50 text-blue-400 border-blue-900/50' : 'bg-blue-100 text-blue-700 border-blue-300')
+                                                                : (isDarkMode ? 'bg-red-950/50 text-red-400 border-red-900/50' : 'bg-red-100 text-red-700 border-red-300')
+                                                        }`}>
+                                                            {trade.strategyTag === 'BREAKOUT' ? '돌파' : 
+                                                             trade.strategyTag === 'AGGRESSIVE_ENTRY' ? '공격적 진입' : 'FOMO'}
+                                                        </span>
+                                                    )}
+                                                    {/* 소명하기 버튼 (FOMO > 0.7이고 아직 소명 안 했을 때) */}
+                                                    {trade.fomoScore > 0.7 && !trade.userAcknowledged && (
+                                                        <button
+                                                            onClick={() => openStrategyModal(trade)}
+                                                            className={`px-2 py-1 text-[10px] font-medium rounded transition-colors flex items-center gap-1 ${
+                                                                isDarkMode
+                                                                    ? 'bg-orange-950/50 text-orange-400 border border-orange-900/50 hover:bg-orange-900/50'
+                                                                    : 'bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-100'
+                                                            }`}
+                                                        >
+                                                            <MessageSquare className="w-3 h-3" />
+                                                            소명하기
+                                                        </button>
+                                                    )}
                                                 </div>
                                             )}
                                         </td>
@@ -1049,6 +1239,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
             )}
         </div>
       </div>
+      
+      {/* Strategy Tag Modal */}
+      {selectedTrade && (
+        <StrategyTagModal
+          trade={selectedTrade}
+          isOpen={showStrategyModal}
+          onClose={() => {
+            setShowStrategyModal(false);
+            setSelectedTrade(null);
+          }}
+          onConfirm={(tag) => handleStrategyTag(selectedTrade, tag)}
+          isDarkMode={isDarkMode}
+        />
+      )}
     </div>
   );
 };

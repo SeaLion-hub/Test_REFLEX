@@ -197,6 +197,10 @@ class EnrichedTrade(BaseModel):
     market_regime: str = "UNKNOWN"
     is_revenge: bool = False
     
+    # Strategy Tagging (사용자 피드백)
+    strategy_tag: Optional[str] = None  # 'BREAKOUT', 'AGGRESSIVE_ENTRY', 'FOMO'
+    user_acknowledged: bool = False
+    
     # Metrics
     fomo_score: float = -1.0
     panic_score: float = -1.0
@@ -263,6 +267,8 @@ class CoachRequest(BaseModel):
     # 최적화: trades 전체 대신 요약 데이터만 수신 (데이터 핑퐁 구조 제거)
     top_regrets: List[dict]  # Top 3 regrets만
     revenge_details: List[dict]  # Revenge trades 요약만
+    best_executions: List[dict]  # 잘한 매매 (이달의 명장면)
+    patterns: List[dict]  # 반복되는 패턴 (과정 평가)
     metrics: dict
     is_low_sample: bool
     personal_baseline: Optional[dict] = None
@@ -1082,6 +1088,38 @@ async def get_ai_coach(request: CoachRequest):
                           request.bias_loss_mapping['revenge_loss'] + 
                           request.bias_loss_mapping['disposition_loss'])
     
+    # Best Executions (이달의 명장면)
+    best_executions_text = ''
+    if request.best_executions and len(request.best_executions) > 0:
+        best_lines = []
+        for be in request.best_executions:
+            type_map = {
+                'PERFECT_ENTRY': '완벽한 진입',
+                'PERFECT_EXIT': '완벽한 청산',
+                'CLEAN_CUT': '칼손절',
+                'PERFECT_TRADE': '완벽한 거래'
+            }
+            exec_type_kr = type_map.get(be.get('execution_type', ''), be.get('execution_type', ''))
+            pnl_str = f" (PnL: ${be.get('pnl', 0):.0f})" if 'pnl' in be and be['pnl'] else ""
+            best_lines.append(f"    - {be['ticker']}: {exec_type_kr} - {be.get('reason', '')}{pnl_str}")
+        best_executions_text = f"""
+    BEST EXECUTIONS (이달의 명장면 - 잘한 매매):
+    {chr(10).join(best_lines)}
+    """
+    
+    # Pattern Recognition (과정 평가)
+    patterns_text = ''
+    if request.patterns and len(request.patterns) > 0:
+        pattern_lines = []
+        for pattern in request.patterns:
+            pattern_lines.append(f"    - {pattern.get('description', '')} (발생률: {pattern.get('percentage', 0):.0f}%, 유의성: {pattern.get('significance', 'LOW')})")
+        patterns_text = f"""
+    PATTERN RECOGNITION (반복되는 패턴 - 과정 평가):
+    IMPORTANT: These patterns show REPEATED behavior, not single-trade luck.
+    "한두 번은 운 탓일 수 있지만, 10번 반복되면 실력(편향)입니다."
+    {chr(10).join(pattern_lines)}
+    """
+    
     # 프롬프트 구성 요소를 변수로 분리 (복잡도 개선)
     primary_bias_info = ""
     if request.bias_priority and len(request.bias_priority) > 0:
@@ -1121,12 +1159,17 @@ async def get_ai_coach(request: CoachRequest):
     references_field = f',\n      "references": [{{"title": "...", "content": "...", "action": "..."}}]' if rag_context_text else ''
     
     prompt = f"""
-    Act as the "Truth Pipeline" AI. You are an objective, slightly ruthless, data-driven Trading Coach.
-    Your goal is to correct behavior, not predict markets.
+    Act as the "Truth Pipeline" AI. You are an objective, tough but growth-oriented (Tough Love) Trading Coach.
+    Your goal is to correct behavior while preserving user's self-esteem. Use Positive Reinforcement psychology.
     
     CRITICAL RULES (STRICTLY ENFORCED):
     - EVIDENCE IS KING: Your diagnosis must be based 100% on the HARD EVIDENCE numbers below.
     - RAG IS QUEEN: Your advice (Rule/Fix) must be inspired by the RAG KNOWLEDGE BASE provided (if available).
+    - SANDWICH FEEDBACK: Always start with praise (strengths), then criticize (weaknesses), then encourage growth.
+    - PROCESS EVALUATION (과정 평가): Focus on REPEATED PATTERNS, not single-trade results.
+    - NEVER say "You could have made 50% more on this trade" (hindsight bias). Instead, say "최근 10번 거래 중 8번이나 너무 일찍 팔았습니다."
+    - ALWAYS use PATTERN-BASED language: "최근 N번 중 X번", "반복되는 패턴", "한두 번은 운, 10번은 실력"
+    - NEVER evaluate single trades in isolation. Always contextualize as part of a pattern.
     - NEVER use vague language like "~may be", "~could be", "~might be", "~seems like", "~appears to"
     - ALWAYS state facts with certainty based on Evidence numbers
     - NEVER repeat template phrases. Each response must be unique and specific to this user's data
@@ -1136,6 +1179,7 @@ async def get_ai_coach(request: CoachRequest):
     - RAG CONTEXT is for educational reference ONLY. It must NOT alter Evidence-based diagnosis.
     - If RAG CONTEXT conflicts with Evidence, Evidence takes ABSOLUTE PRIORITY.
     - RAG CONTEXT should be used to EXPLAIN why the Evidence indicates a problem, not to create new conclusions.
+    - PERSONA: "Ruthless" is OUT. "Tough Love" is IN. Say "이것만 고치면 완벽해" instead of "너는 틀렸어".
     
     USER PROFILE:
     - Mode: {"NOVICE / LOW SAMPLE (Focus on specific mistakes)" if request.is_low_sample else "EXPERIENCED (Focus on statistics)"}
@@ -1157,6 +1201,8 @@ async def get_ai_coach(request: CoachRequest):
     {bias_loss_text}
     {bias_priority_text}
     {behavior_shift_text}
+    {best_executions_text}
+    {patterns_text}
 
     EVIDENCE STRUCTURE (You MUST reference these numbers in your diagnosis):
     - {evidence_fomo_text}
@@ -1175,22 +1221,49 @@ async def get_ai_coach(request: CoachRequest):
     - Low Panic score does NOT mean "stop-loss discipline" - it means selling near day's low due to panic
     - This system analyzes PSYCHOLOGICAL ERRORS, not trading strategies
 
-    INSTRUCTIONS:
-    1. DIAGNOSIS (3 sentences, EVIDENCE-BASED, NO VAGUE LANGUAGE): 
-       - Sentence 1: Direct, slightly harsh observation of their biggest flaw. {primary_bias_info}
-       - Sentence 2: EVIDENCE-BASED FACT. You MUST strictly follow this format: "According to Evidence #X, you [specific action] on [Ticker] at [specific price/percentage]." {personal_baseline_note} Example: "According to Evidence #1, you bought GME at 93% of the day's range ($347.51), exceeding the clinical FOMO threshold of 70% and your average of 78%."
-       - Sentence 3: The financial impact with specific numbers. {bias_loss_note} {behavior_shift_warning}
+    INSTRUCTIONS (SANDWICH FEEDBACK + PROCESS EVALUATION):
+    
+    0. STRENGTHS (이달의 명장면 - NEW!): 
+       - If BEST EXECUTIONS are provided above, mention 1-2 of them positively FIRST.
+       - Format: "전반적으로 손실이 컸지만, '{Ticker}' 매매에서의 {execution_type}은 완벽했습니다. {reason}. 이런 원칙을 다른 종목에도 적용해 봅시다."
+       - This should appear at the START of your diagnosis, BEFORE criticism.
+       - Purpose: Build self-esteem and motivation. "행동 교정 이론에 따르면, 긍정적 강화가 습관 형성에 효과적입니다."
+    
+    1. DIAGNOSIS (3 sentences, PATTERN-BASED, NOT SINGLE-TRADE):
+       - Sentence 1: If strengths exist, mention them first (see STRENGTHS above). Otherwise, use PATTERN-BASED observation.
+       - Sentence 2: PATTERN-BASED FACT (CRITICAL). Use PATTERN RECOGNITION data if available. 
+         * If patterns exist: "최근 {count}번 거래 중 {pattern_count}번이나 {pattern_description}. 한두 번은 운 탓일 수 있지만, {total}번 반복되면 실력(편향)입니다."
+         * Example: "최근 10번 거래 중 8번이나 너무 일찍 팔았습니다 (Exit Efficiency < 30%). 한두 번은 운 탓일 수 있지만, 10번 반복되면 실력(편향)입니다."
+         * NEVER say "이 거래에서 50% 더 먹을 수 있었다" (hindsight bias). Always focus on the pattern.
+         * If no patterns: Use Evidence-based format with pattern context.
+       - Sentence 3: Financial impact WITH cumulative pattern emphasis. {bias_loss_note} {behavior_shift_warning} 
+         * Format: "이 패턴으로 인해 총 ${total}를 놓쳤습니다. 하지만 이것만 고치면 {improvement}할 수 있습니다."
+    
     2. RULE (1 sentence): A catchy, memorable trading commandment to fix this specific flaw. {rule_target_note} {rule_rag_note}
+    
     3. BIAS: Name the single dominant psychological bias. {bias_name_note} (e.g. Disposition Effect, Action Bias, Revenge Trading, FOMO).
+    
     4. FIX: One specific, actionable step to take immediately. {fix_target_note} {fix_rag_note}
     
     Output valid JSON only with this exact structure:
     {{
-      "diagnosis": "3 sentences. Must mention a ticker.",
+      "diagnosis": "3 sentences. Must mention a ticker. Use Sandwich Feedback if strengths exist.",
       "rule": "1 sentence rule.",
       "bias": "Primary bias.",
-      "fix": "Priority fix."{references_field}
+      "fix": "Priority fix."{references_field},
+      "strengths": [
+        {{
+          "ticker": "TICKER",
+          "execution": "완벽한 손절 / 최적 진입점 / 고점 매도 / 완벽한 거래",
+          "lesson": "이 원칙을 다른 종목에도 적용해 봅시다.",
+          "reason": "FOMO 점수 5%로 저점 매수 / 손실 3%에서 즉시 청산 / Panic 점수 85%로 고점 매도"
+        }}
+      ]
     }}
+    
+    IMPORTANT: "strengths" field is REQUIRED if BEST EXECUTIONS are provided above. 
+    Extract 1-3 best executions and format them as above.
+    If no best executions exist, return empty array: "strengths": []
     
     NOTE: "references" field is optional. Include it only if RAG KNOWLEDGE BASE was provided above.
     If RAG was not provided, omit the "references" field entirely.
@@ -1234,6 +1307,10 @@ async def get_ai_coach(request: CoachRequest):
             if retrieved_cards_for_response and "references" not in result:
                 result["references"] = retrieved_cards_for_response
             
+            # Ensure strengths field exists (default to empty array if missing)
+            if "strengths" not in result:
+                result["strengths"] = []
+            
             return result
         except json.JSONDecodeError as json_err:
             print(f"JSON parsing error: {json_err}")
@@ -1256,6 +1333,31 @@ async def get_ai_coach(request: CoachRequest):
             "bias": "Service Error",
             "fix": "Check API Key or Network."
         }
+
+@app.post("/strategy-tag")
+async def save_strategy_tag(request: dict):
+    """
+    사용자가 거래에 전략 태그를 추가합니다.
+    클라이언트 측에서 로컬 상태로만 관리해도 되지만, 백엔드에 저장하면
+    세션 간 유지가 가능합니다.
+    """
+    # TODO: 데이터베이스에 저장하는 로직 (현재는 메모리에 저장)
+    # 실제 구현 시에는 trade_id와 strategy_tag를 DB에 저장
+    
+    trade_id = request.get('trade_id')
+    strategy_tag = request.get('strategy_tag')
+    
+    if not trade_id or not strategy_tag:
+        return {"error": "trade_id and strategy_tag are required"}
+    
+    # 현재는 단순히 성공 응답만 반환
+    # 실제 구현 시에는 DB에 저장하고, 다음 분석 시 이 태그를 반영
+    return {
+        "success": True,
+        "trade_id": trade_id,
+        "strategy_tag": strategy_tag,
+        "message": "Strategy tag saved successfully"
+    }
 
 if __name__ == "__main__":
     import uvicorn
