@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, AlertCircle, Target, Zap } from 'lucide-react';
 import { EnrichedTrade } from '../types';
+import confetti from 'canvas-confetti';
 
 interface StrategyTagModalProps {
   trade: EnrichedTrade;
@@ -20,8 +21,19 @@ export const StrategyTagModal: React.FC<StrategyTagModalProps> = ({
   if (!isOpen) return null;
 
   const handleSelect = (tag: 'BREAKOUT' | 'AGGRESSIVE_ENTRY' | 'FOMO') => {
+    // 전략적 태그 선택 시에만 폭죽
+    if (tag === 'BREAKOUT' || tag === 'AGGRESSIVE_ENTRY') {
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#10b981', '#34d399', '#6ee7b7'] // emerald 색상
+      });
+    }
+    
     onConfirm(tag);
-    onClose();
+    // 약간의 딜레이 후 모달 닫기 (폭죽 보여주기)
+    setTimeout(() => onClose(), 500);
   };
 
   return (

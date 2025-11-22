@@ -90,7 +90,17 @@ export const RegretChart: React.FC<{ trades: EnrichedTrade[] }> = ({ trades }) =
   );
 };
 
-export const EquityCurveChart: React.FC<{ equityCurve: EquityCurvePoint[] }> = ({ equityCurve }) => {
+interface EquityCurveChartProps {
+  equityCurve: EquityCurvePoint[];
+  biasFreeMetrics?: { improvement: number } | null;
+  showBiasFree?: boolean;
+}
+
+export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({ 
+  equityCurve, 
+  biasFreeMetrics,
+  showBiasFree = false 
+}) => {
   if (!equityCurve || equityCurve.length === 0) {
     return (
       <div className="h-[300px] w-full flex items-center justify-center text-zinc-500">
@@ -112,6 +122,14 @@ export const EquityCurveChart: React.FC<{ equityCurve: EquityCurvePoint[] }> = (
     // FOMO 시점 강조를 위한 플래그
     isHighFomo: point.fomo_score !== null && point.fomo_score !== undefined && point.fomo_score > 0.7
   }));
+
+  // What-If 점선 데이터 생성
+  const biasFreeData = showBiasFree && biasFreeMetrics 
+    ? chartData.map(point => ({
+        ...point,
+        cumulativePnl: point.cumulativePnl + biasFreeMetrics.improvement
+      }))
+    : null;
 
   // FOMO 시점 찾기 (ReferenceArea용)
   const fomoAreas: Array<{ x1: number; x2: number }> = [];
@@ -163,27 +181,39 @@ export const EquityCurveChart: React.FC<{ equityCurve: EquityCurvePoint[] }> = (
             tickFormatter={(val) => `$${val >= 1000 ? (val/1000).toFixed(1)+'k' : val.toFixed(0)}`}
           />
           
-          {/* 툴팁 */}
+          {/* 커스텀 툴팁 */}
           <Tooltip
-            contentStyle={{ 
-              backgroundColor: '#09090b', 
-              borderColor: '#27272a', 
-              color: '#e4e4e7', 
-              borderRadius: '8px',
-              padding: '8px'
-            }}
-            formatter={(value: number, name: string, props: any) => {
-              if (name === 'cumulativePnl') {
-                return [`$${value.toFixed(0)}`, '누적 손익'];
-              } else if (name === 'pnl') {
-                return [`$${value.toFixed(0)}`, '거래 손익'];
-              }
-              return [value, name];
-            }}
-            labelFormatter={(label) => {
-              const point = chartData[parseInt(label)];
-              if (!point) return '';
-              return `${point.ticker} - ${new Date(point.date).toLocaleDateString('ko-KR')}`;
+            content={({ active, payload, label }) => {
+              if (!active || !payload || !payload.length) return null;
+              
+              const point = chartData[parseInt(label as string)];
+              if (!point) return null;
+              
+              const isFomo = point.isHighFomo;
+              const isRevenge = point.isRevenge;
+              
+              return (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 shadow-xl">
+                  <div className="text-xs font-semibold text-zinc-300 mb-2">
+                    {point.ticker} - {new Date(point.date).toLocaleDateString('ko-KR')}
+                  </div>
+                  <div className="text-sm text-emerald-400 font-mono mb-2">
+                    누적 손익: ${point.cumulativePnl.toFixed(0)}
+                  </div>
+                  {isFomo && (
+                    <div className="text-xs text-red-400 mt-2 p-2 bg-red-950/30 rounded border border-red-900/50">
+                      🔥 FOMO Zone: 고점 대비 {((point.fomoScore || 0) * 100).toFixed(0)}% 구간 진입
+                      <br />
+                      <span className="text-red-300/80">전형적인 뇌동매매 패턴입니다.</span>
+                    </div>
+                  )}
+                  {isRevenge && !isFomo && (
+                    <div className="text-xs text-orange-400 mt-2 p-2 bg-orange-950/30 rounded border border-orange-900/50">
+                      ⚔️ Revenge Trading: 손실 후 24시간 내 재진입
+                    </div>
+                  )}
+                </div>
+              );
             }}
           />
           
@@ -196,6 +226,20 @@ export const EquityCurveChart: React.FC<{ equityCurve: EquityCurvePoint[] }> = (
             dot={false}
             name="cumulativePnl"
           />
+          
+          {/* What-If 점선 (토글 시 표시) */}
+          {biasFreeData && (
+            <Line
+              type="monotone"
+              dataKey="cumulativePnl"
+              data={biasFreeData}
+              stroke="#a855f7"
+              strokeWidth={2}
+              strokeDasharray="5 5"
+              dot={false}
+              name="biasFreePnl"
+            />
+          )}
           
           {/* FOMO 시점 마커 (빨간 점) */}
           <Scatter

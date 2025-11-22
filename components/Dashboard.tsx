@@ -23,6 +23,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   const [selectedTrade, setSelectedTrade] = useState<EnrichedTrade | null>(null);
   const [showStrategyModal, setShowStrategyModal] = useState(false);
   const [trades, setTrades] = useState<EnrichedTrade[]>(data.trades);
+  
+  // Truth Score 애니메이션 State
+  const [isScoreVisible, setIsScoreVisible] = useState(false);
+  const [displayMetrics, setDisplayMetrics] = useState(data.metrics);
+  const [displayScore, setDisplayScore] = useState(data.metrics.truthScore);
 
   useEffect(() => {
     // Load theme preference from localStorage
@@ -52,6 +57,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   useEffect(() => {
     setTrades(data.trades);
   }, [data.trades]);
+
+  // Truth Score 애니메이션 트리거
+  useEffect(() => {
+    // 분석 완료 후 약간의 딜레이를 두고 애니메이션 시작
+    setIsScoreVisible(false);
+    setDisplayMetrics(data.metrics);
+    setDisplayScore(data.metrics.truthScore);
+    const timer = setTimeout(() => setIsScoreVisible(true), 300);
+    return () => clearTimeout(timer);
+  }, [data.metrics.truthScore]);
 
   useEffect(() => {
     const fetchAI = async () => {
@@ -141,16 +156,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
       const fomoMetrics = recalculateFOMO(updatedTrades);
       const newTruthScore = recalculateTruthScore(updatedTrades, metrics);
       
-      // UI에 즉시 반영하기 위해 metrics 업데이트
-      // 실제로는 전체 재계산이 필요하지만, 데모에서는 FOMO 조정만 반영
-      console.log('Adjusted FOMO Index:', fomoMetrics.adjustedFomoIndex);
-      console.log(`Excluded ${fomoMetrics.excludedCount} strategic trades from FOMO calculation`);
-      console.log('New Truth Score:', newTruthScore);
+      // 즉시 UI 업데이트
+      const updatedMetrics = {
+        ...metrics,
+        fomoIndex: fomoMetrics.adjustedFomoIndex,
+        truthScore: newTruthScore
+      };
+      setDisplayMetrics(updatedMetrics);
       
-      // 사용자에게 피드백 표시 (선택사항)
-      if (fomoMetrics.excludedCount > 0) {
-        // Toast나 알림을 표시할 수 있음
-      }
+      // Truth Score 애니메이션 재트리거
+      setDisplayScore(newTruthScore);
+      setIsScoreVisible(false);
+      setTimeout(() => setIsScoreVisible(true), 100);
     }
     
     setShowStrategyModal(false);
@@ -168,20 +185,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   
   // Calculate adjusted FOMO metrics (excluding strategic trades)
   const fomoMetrics = recalculateFOMO(trades);
-  const adjustedMetrics = {
-    ...metrics,
+  const currentMetrics = {
+    ...displayMetrics,
     fomoIndex: fomoMetrics.excludedCount > 0 
       ? fomoMetrics.adjustedFomoIndex 
-      : metrics.fomoIndex
+      : displayMetrics.fomoIndex,
+    truthScore: displayScore
   };
   
-  // Color logic (use adjusted metrics)
-  const scoreColor = adjustedMetrics.truthScore >= 75 ? 'text-emerald-400' : adjustedMetrics.truthScore >= 50 ? 'text-yellow-400' : 'text-red-400';
-  const scoreRing = adjustedMetrics.truthScore >= 75 ? 'border-emerald-500' : adjustedMetrics.truthScore >= 50 ? 'border-yellow-500' : 'border-red-500';
+  // Color logic (use current metrics)
+  const scoreColor = currentMetrics.truthScore >= 75 ? 'text-emerald-400' : currentMetrics.truthScore >= 50 ? 'text-yellow-400' : 'text-red-400';
+  const scoreRing = currentMetrics.truthScore >= 75 ? 'border-emerald-500' : currentMetrics.truthScore >= 50 ? 'border-yellow-500' : 'border-red-500';
 
-  // Identify Top Issues (use adjusted metrics)
+  // Identify Top Issues (use current metrics)
   const issues = [
-    { label: 'FOMO', value: (adjustedMetrics.fomoIndex * 100).toFixed(0) + '%', severity: adjustedMetrics.fomoIndex > 0.6 },
+    { label: 'FOMO', value: (currentMetrics.fomoIndex * 100).toFixed(0) + '%', severity: currentMetrics.fomoIndex > 0.6 },
     { label: 'Panic Sell', value: (metrics.panicIndex * 100).toFixed(0) + '%', severity: metrics.panicIndex > 0.6 },
     { label: 'Revenge', value: metrics.revengeTradingCount + 'x', severity: metrics.revengeTradingCount > 0 },
     { label: 'Holding Losers', value: metrics.dispositionRatio.toFixed(1) + 'x', severity: metrics.dispositionRatio > 1.2 }
@@ -192,9 +210,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   const evidenceItems = [
     {
       label: 'FOMO Score' + (fomoMetrics.excludedCount > 0 ? ` (${fomoMetrics.excludedCount}건 제외)` : ''),
-      value: (adjustedMetrics.fomoIndex * 100).toFixed(0) + '%',
+      value: (currentMetrics.fomoIndex * 100).toFixed(0) + '%',
       threshold: '>70%',
-      status: adjustedMetrics.fomoIndex > 0.7 ? 'warning' : 'normal',
+      status: currentMetrics.fomoIndex > 0.7 ? 'warning' : 'normal',
       description: fomoMetrics.excludedCount > 0 
         ? `Entry vs Daily High - 전략 태그된 ${fomoMetrics.excludedCount}건 제외 후 계산`
         : 'Entry vs Daily High - Clinical FOMO threshold: >70%',
@@ -360,7 +378,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                  <div className={`w-48 h-48 rounded-full border-8 ${scoreRing} flex items-center justify-center mb-8 shadow-[0_0_30px_rgba(0,0,0,0.5)] relative ${
                    isDarkMode ? 'bg-[#0c0c0e]' : 'bg-white'
                  }`}>
-                    <span className={`text-7xl font-bold tracking-tighter ${scoreColor}`}>{adjustedMetrics.truthScore}</span>
+                    <span className={`text-7xl font-bold tracking-tighter ${scoreColor} transition-all duration-500 ${
+                      isScoreVisible 
+                        ? 'opacity-100 scale-100' 
+                        : 'opacity-0 scale-150'
+                    }`}>{currentMetrics.truthScore}</span>
                     {isLowSample && (
                         <div className={`absolute bottom-8 text-xs px-2 py-1 rounded ${
                           isDarkMode 
@@ -393,7 +415,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                         }`}>Win Rate</div>
                         <div className={`font-mono font-semibold ${
                           isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
-                        }`}>{(adjustedMetrics.winRate * 100).toFixed(0)}%</div>
+                        }`}>{(currentMetrics.winRate * 100).toFixed(0)}%</div>
                     </div>
                     <div className={`p-3 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>
                         <div className={`text-xs uppercase ${
@@ -401,7 +423,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                         }`}>Profit F.</div>
                         <div className={`font-mono font-semibold ${
                           isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
-                        }`}>{adjustedMetrics.profitFactor.toFixed(2)}</div>
+                        }`}>{currentMetrics.profitFactor.toFixed(2)}</div>
                     </div>
                     <div className={`p-3 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>
                         <div className={`text-xs uppercase ${
@@ -419,7 +441,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                  <AICoach 
                    analysis={aiAnalysis} 
                    loading={loadingAI} 
-                   truthScore={adjustedMetrics.truthScore}
+                   truthScore={currentMetrics.truthScore}
                  />
             </div>
         </div>
@@ -507,11 +529,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                             <span className="text-xs uppercase font-bold">FOMO Index</span>
                         </div>
                         <div className={`text-2xl font-mono ${
-                          adjustedMetrics.fomoIndex > 0.7 
+                          currentMetrics.fomoIndex > 0.7 
                             ? 'text-red-400' 
                             : isDarkMode ? 'text-white' : 'text-zinc-900'
                         }`}>
-                            {(adjustedMetrics.fomoIndex * 100).toFixed(0)}%
+                            {(currentMetrics.fomoIndex * 100).toFixed(0)}%
                             {fomoMetrics.excludedCount > 0 && (
                               <div className="text-xs text-blue-400 mt-1">
                                 ({fomoMetrics.excludedCount}건 제외)
@@ -1010,7 +1032,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                             <span>⚔️ Revenge</span>
                         </div>
                     </div>
-                    <EquityCurveChart equityCurve={data.equityCurve} />
+                    <EquityCurveChart 
+                      equityCurve={data.equityCurve}
+                      biasFreeMetrics={biasFreeMetrics}
+                      showBiasFree={showBiasFreeSimulation}
+                    />
                 </div>
             )}
 

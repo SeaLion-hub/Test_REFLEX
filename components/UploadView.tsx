@@ -3,6 +3,7 @@ import React, { useRef, useState } from 'react';
 import { Upload, FileText, AlertCircle, Skull, GitMerge, Database, FileSpreadsheet } from 'lucide-react';
 import { parseCSV, analyzeTrades } from '../services/analysisEngine';
 import { AnalysisResult } from '../types';
+import Threads from './Threads';
 
 interface UploadViewProps {
   onAnalyze: (result: AnalysisResult) => void;
@@ -125,19 +126,34 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] p-6">
-      <div className="max-w-2xl w-full text-center space-y-10">
-        <div className="space-y-4">
-          <h1 className="text-5xl font-extrabold tracking-tighter text-white">Truth Pipeline</h1>
-          <p className="text-lg text-zinc-400 max-w-lg mx-auto leading-relaxed">
-            The first objective behavior analysis system.
-            <br />
-            <span className="text-zinc-500 text-sm">Drop your trade history to reveal your true psychological flaws.</span>
-          </p>
-        </div>
+    <div className="relative min-h-screen w-full overflow-hidden bg-[#09090b]">
+      {/* Threads 배경 */}
+      <div className="absolute inset-0 z-0">
+        <Threads
+          color={[0.1, 0.9, 0.5]} // emerald 색상 (RGB 0-1 범위)
+          amplitude={1}
+          distance={0}
+          enableMouseInteraction={true}
+        />
+      </div>
 
-        <div 
-          className="relative border-2 border-dashed border-zinc-800 rounded-3xl p-16 hover:border-emerald-500/30 hover:bg-zinc-900/30 transition-all cursor-pointer group bg-zinc-950/50"
+      {/* 콘텐츠 레이어 */}
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6">
+        <div className="max-w-2xl w-full text-center space-y-10">
+          <div className="space-y-4">
+            {/* REFLEX 타이틀 */}
+            <h1 className="text-7xl font-extrabold tracking-tighter text-white drop-shadow-[0_0_20px_rgba(16,185,129,0.5)]">
+              REFLEX
+            </h1>
+            <p className="text-lg text-zinc-300 max-w-lg mx-auto leading-relaxed">
+              The first objective behavior analysis system.
+              <br />
+              <span className="text-zinc-400 text-sm">Drop your trade history to reveal your true psychological flaws.</span>
+            </p>
+          </div>
+
+          <div 
+            className="relative border-2 border-dashed border-zinc-800/50 rounded-3xl p-16 hover:border-emerald-500/50 hover:bg-zinc-900/50 transition-all cursor-pointer group bg-zinc-950/70 backdrop-blur-sm"
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
