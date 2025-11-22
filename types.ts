@@ -80,11 +80,18 @@ export interface BehavioralMetrics {
   truthScore: number; // Composite score 0-100
 }
 
+export interface RAGReference {
+  title: string;
+  content: string;
+  action: string;
+}
+
 export interface AIAnalysis {
   diagnosis: string; // 3 sentences
   rule: string; // 1 sentence behavioral rule
   bias: string; // Primary bias
   fix: string; // Priority fix
+  references?: RAGReference[]; // RAG 카드 (옵션)
 }
 
 // Perfect Edition: Personal Baseline

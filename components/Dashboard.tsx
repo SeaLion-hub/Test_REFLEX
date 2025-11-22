@@ -4,7 +4,7 @@ import { AnalysisResult, AIAnalysis } from '../types';
 import { getAIInterpretation } from '../services/openaiService';
 import { BehavioralRadar, RegretChart, EquityCurveChart } from './Charts';
 import { AICoach } from './AICoach';
-import { ShieldAlert, TrendingUp, RefreshCcw, Award, BarChart2, HelpCircle, ArrowLeft, ChevronDown, ChevronUp, Database, ServerCrash, Skull, TrendingDown, DollarSign, AlertCircle, CheckCircle2, XCircle, Moon, Sun } from 'lucide-react';
+import { ShieldAlert, TrendingUp, RefreshCcw, Award, BarChart2, HelpCircle, ArrowLeft, ChevronDown, ChevronUp, Database, ServerCrash, Skull, TrendingDown, DollarSign, AlertCircle, CheckCircle2, XCircle, Moon, Sun, BookOpen } from 'lucide-react';
 
 interface DashboardProps {
   data: AnalysisResult;
@@ -779,35 +779,114 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                 <div className="w-full mt-8 space-y-8 animate-in fade-in slide-in-from-top-4 duration-300">
                     
                     {/* EVIDENCE INSPECTOR */}
-                    <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-6">
+                    <div className={`rounded-xl p-6 border ${
+                      isDarkMode 
+                        ? 'bg-zinc-950 border-zinc-800' 
+                        : 'bg-zinc-100 border-zinc-300'
+                    }`}>
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
-                                <Database className="w-4 h-4 text-purple-400" />
-                                <h3 className="text-zinc-200 font-medium text-sm">Evidence JSON Inspector</h3>
+                                <Database className={`w-4 h-4 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+                                <h3 className={`font-medium text-sm ${
+                                  isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                                }`}>Evidence JSON Inspector</h3>
                             </div>
-                            <span className="text-[10px] text-zinc-500 uppercase bg-zinc-900 px-2 py-1 rounded">Read-Only Evidence</span>
+                            <span className={`text-[10px] uppercase px-2 py-1 rounded ${
+                              isDarkMode 
+                                ? 'text-zinc-500 bg-zinc-900' 
+                                : 'text-zinc-600 bg-zinc-200'
+                            }`}>Read-Only Evidence</span>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="font-mono text-xs text-zinc-400 bg-[#050505] p-4 rounded-lg border border-zinc-900 overflow-auto max-h-[200px]">
+                            <div className={`font-mono text-xs p-4 rounded-lg border overflow-auto max-h-[200px] ${
+                              isDarkMode 
+                                ? 'text-zinc-400 bg-[#050505] border-zinc-900' 
+                                : 'text-zinc-700 bg-white border-zinc-300'
+                            }`}>
                                 <pre>{JSON.stringify(evidenceJSON, null, 2)}</pre>
                             </div>
-                            <div className="flex flex-col justify-center space-y-4 text-sm text-zinc-400">
+                            <div className={`flex flex-col justify-center space-y-4 text-sm ${
+                              isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+                            }`}>
                                 <p className="leading-relaxed">
-                                    <span className="text-emerald-400 font-bold">AI does not calculate.</span> It only interprets this JSON.
+                                    <span className={`font-bold ${
+                                      isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
+                                    }`}>AI does not calculate.</span> It only interprets this JSON.
                                 </p>
-                                <ul className="space-y-2 list-disc list-inside text-zinc-500 text-xs">
+                                <ul className={`space-y-2 list-disc list-inside text-xs ${
+                                  isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                                }`}>
                                     <li>Engine calculates metrics (FOMO, Panic, etc.) deterministically.</li>
                                     <li>AI reads "fomo_score: {metrics.fomoIndex.toFixed(2)}" and diagnoses behavior.</li>
-                                    <li>This ensures <span className="text-zinc-300">Zero Hallucination</span> on mathematical facts.</li>
+                                    <li>This ensures <span className={isDarkMode ? 'text-zinc-300' : 'text-zinc-800'}>Zero Hallucination</span> on mathematical facts.</li>
                                 </ul>
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-2xl">
-                    <div className="px-6 py-4 border-b border-zinc-800 bg-zinc-950/30 flex justify-between items-center">
-                        <h3 className="text-zinc-200 font-medium text-sm">Trade Log (FIFO)</h3>
-                        <span className="text-xs text-zinc-500 uppercase">Determinisitc Analysis</span>
+                    {/* RAG REFERENCES (심화 근거) */}
+                    {aiAnalysis?.references && aiAnalysis.references.length > 0 && (
+                        <div className={`rounded-xl p-6 border ${
+                          isDarkMode 
+                            ? 'bg-purple-950/20 border-purple-900/30' 
+                            : 'bg-purple-50 border-purple-200'
+                        }`}>
+                            <div className="flex items-center gap-2 mb-4">
+                                <BookOpen className={`w-4 h-4 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+                                <h3 className={`text-sm font-bold uppercase tracking-wider ${
+                                  isDarkMode ? 'text-purple-300' : 'text-purple-900'
+                                }`}>
+                                    AI가 참고한 행동경제학/트레이딩 원칙 (심화)
+                                </h3>
+                            </div>
+                            <div className={`text-xs mb-4 ${
+                              isDarkMode ? 'text-purple-200/80' : 'text-purple-800'
+                            }`}>
+                                다음 원칙들은 Evidence 기반 진단을 <strong>설명하고 보완</strong>하기 위해 검색되었습니다. 
+                                Evidence와 충돌 시 Evidence가 우선합니다.
+                            </div>
+                            <div className="space-y-4">
+                                {aiAnalysis.references.map((ref, idx) => (
+                                    <div key={idx} className={`p-4 rounded-lg border ${
+                                      isDarkMode 
+                                        ? 'bg-purple-950/10 border-purple-900/20' 
+                                        : 'bg-white border-purple-200'
+                                    }`}>
+                                        <h4 className={`font-semibold mb-2 ${
+                                          isDarkMode ? 'text-purple-200' : 'text-purple-900'
+                                        }`}>{ref.title}</h4>
+                                        <p className={`text-sm mb-3 ${
+                                          isDarkMode ? 'text-purple-200/80' : 'text-purple-800'
+                                        }`}>{ref.content}</p>
+                                        <div className={`text-xs italic p-2 rounded ${
+                                          isDarkMode 
+                                            ? 'bg-purple-900/20 text-purple-300' 
+                                            : 'bg-purple-100 text-purple-700'
+                                        }`}>
+                                            💡 {ref.action}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className={`rounded-xl overflow-hidden shadow-2xl border ${
+                      isDarkMode 
+                        ? 'bg-zinc-900 border-zinc-800' 
+                        : 'bg-zinc-50 border-zinc-200'
+                    }`}>
+                    <div className={`px-6 py-4 border-b flex justify-between items-center ${
+                      isDarkMode 
+                        ? 'border-zinc-800 bg-zinc-950/30' 
+                        : 'border-zinc-200 bg-zinc-100/50'
+                    }`}>
+                        <h3 className={`font-medium text-sm ${
+                          isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                        }`}>Trade Log (FIFO)</h3>
+                        <span className={`text-xs uppercase ${
+                          isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                        }`}>Determinisitc Analysis</span>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left text-zinc-400">
@@ -837,17 +916,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`px-2 py-1 rounded text-[10px] font-bold border ${
-                                                trade.marketRegime === 'BULL' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
-                                                trade.marketRegime === 'BEAR' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
-                                                'bg-zinc-800/50 text-zinc-500 border-zinc-700'
+                                                trade.marketRegime === 'BULL' ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-100 text-emerald-700 border-emerald-300') : 
+                                                trade.marketRegime === 'BEAR' ? (isDarkMode ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-red-100 text-red-700 border-red-300') : 
+                                                (isDarkMode ? 'bg-zinc-800/50 text-zinc-500 border-zinc-700' : 'bg-zinc-200 text-zinc-600 border-zinc-300')
                                             }`}>
                                                 {trade.marketRegime}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex flex-col text-xs font-mono">
-                                                <span className="text-emerald-500/80">BUY : {trade.entryDate} @ {trade.entryPrice}</span>
-                                                <span className="text-red-500/80">SELL: {trade.exitDate} @ {trade.exitPrice}</span>
+                                                <span className={isDarkMode ? 'text-emerald-500/80' : 'text-emerald-600'}>BUY : {trade.entryDate} @ {trade.entryPrice}</span>
+                                                <span className={isDarkMode ? 'text-red-500/80' : 'text-red-600'}>SELL: {trade.exitDate} @ {trade.exitPrice}</span>
                                             </div>
                                         </td>
                                         <td className={`px-6 py-4 text-right font-mono font-medium ${trade.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -855,10 +934,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             {trade.fomoScore === -1 ? (
-                                                <span className="text-zinc-700 text-xs">-</span>
+                                                <span className={`text-xs ${isDarkMode ? 'text-zinc-700' : 'text-zinc-400'}`}>-</span>
                                             ) : (
                                                 <div className="flex items-center justify-center gap-2">
-                                                    <span className={`text-xs font-mono ${(trade.fomoScore > 0.8) ? 'text-red-400 font-bold' : 'text-zinc-400'}`}>
+                                                    <span className={`text-xs font-mono ${(trade.fomoScore > 0.8) ? 'text-red-400 font-bold' : (isDarkMode ? 'text-zinc-400' : 'text-zinc-600')}`}>
                                                         {(trade.fomoScore * 100).toFixed(0)}%
                                                     </span>
                                                 </div>
@@ -866,15 +945,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             {trade.panicScore === -1 ? (
-                                                 <span className="text-zinc-700 text-xs">-</span>
+                                                 <span className={`text-xs ${isDarkMode ? 'text-zinc-700' : 'text-zinc-400'}`}>-</span>
                                             ) : (
-                                                <span className={`text-xs font-mono ${(trade.panicScore < 0.2) ? 'text-red-400 font-bold' : 'text-zinc-400'}`}>
+                                                <span className={`text-xs font-mono ${(trade.panicScore < 0.2) ? 'text-red-400 font-bold' : (isDarkMode ? 'text-zinc-400' : 'text-zinc-600')}`}>
                                                     {(trade.panicScore * 100).toFixed(0)}%
                                                 </span>
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-right font-mono text-orange-400/80">
-                                            {trade.regret > 0 ? `$${trade.regret.toFixed(0)}` : <span className="text-zinc-800">-</span>}
+                                            {trade.regret > 0 ? `$${trade.regret.toFixed(0)}` : <span className={isDarkMode ? 'text-zinc-800' : 'text-zinc-300'}>-</span>}
                                         </td>
                                     </tr>
                                 ))}

@@ -2,7 +2,7 @@ from fastapi import FastAPI, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import io
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from pydantic import BaseModel
 import yfinance as yf
 import numpy as np
@@ -11,8 +11,164 @@ from functools import lru_cache
 import os
 from openai import OpenAI
 import json
+from pathlib import Path
 
-app = FastAPI(title="Truth Pipeline Engine")
+# --- RAG GLOBAL SETTINGS ---
+BASE_DIR = Path(__file__).parent
+RAG_FILE_PATH = BASE_DIR / "rag_cards.json"
+RAG_EMBED_PATH = BASE_DIR / "rag_embeddings.npy"
+RAG_CARDS: List[dict] = []
+RAG_EMBEDDINGS: Optional[np.ndarray] = None
+
+# --- RAG HELPER FUNCTIONS ---
+
+def get_embeddings_batch(texts: List[str], client: OpenAI) -> List[List[float]]:
+    """
+    한 번의 API 호출로 여러 텍스트의 임베딩을 생성 (Batch Processing)
+    비용 절감 및 속도 향상
+    """
+    try:
+        response = client.embeddings.create(
+            input=texts,
+            model="text-embedding-3-small"
+        )
+        return [data.embedding for data in response.data]
+    except Exception as e:
+        print(f"Embedding generation failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
+
+def cosine_similarity_top_k(
+    query_vec: np.ndarray, 
+    target_vecs: np.ndarray, 
+    k: int = 2, 
+    threshold: float = 0.4
+) -> Tuple[List[int], List[float]]:
+    """
+    Numpy만을 사용한 가벼운 코사인 유사도 계산
+    Returns: (indices, scores)
+    """
+    if target_vecs is None or len(target_vecs) == 0:
+        return [], []
+    
+    # Normalize
+    query_norm = query_vec / (np.linalg.norm(query_vec) + 1e-9)
+    target_norms = target_vecs / (np.linalg.norm(target_vecs, axis=1, keepdims=True) + 1e-9)
+    
+    # Dot product
+    similarities = np.dot(target_norms, query_norm)
+    
+    # Top K selection
+    top_k_indices = np.argsort(similarities)[-k:][::-1]
+    
+    results = []
+    scores = []
+    
+    for idx in top_k_indices:
+        score = float(similarities[idx])
+        if score >= threshold:
+            results.append(int(idx))
+            scores.append(score)
+    
+    return results, scores
+
+def load_rag_index():
+    """서버 시작 시 RAG 데이터 및 임베딩 로드"""
+    global RAG_CARDS, RAG_EMBEDDINGS
+    
+    try:
+        # 1. Load JSON
+        if not RAG_FILE_PATH.exists():
+            print(f"⚠ Warning: {RAG_FILE_PATH} not found. RAG feature disabled.")
+            RAG_CARDS = []
+            RAG_EMBEDDINGS = None
+            return
+        
+        with open(RAG_FILE_PATH, "r", encoding="utf-8") as f:
+            RAG_CARDS = json.load(f)
+        
+        if not RAG_CARDS:
+            print("⚠ Warning: RAG cards file is empty. RAG feature disabled.")
+            RAG_EMBEDDINGS = None
+            return
+        
+        print(f"✓ Loaded {len(RAG_CARDS)} RAG cards from {RAG_FILE_PATH}")
+        
+        # 2. Load or Create Embeddings
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            print("⚠ Warning: OPENAI_API_KEY not set. RAG embeddings not generated.")
+            RAG_EMBEDDINGS = None
+            return
+        
+        client = OpenAI(api_key=api_key)
+        
+        # Check if embeddings file exists and matches card count
+        if RAG_EMBED_PATH.exists():
+            try:
+                RAG_EMBEDDINGS = np.load(RAG_EMBED_PATH)
+                # 카드 개수와 임베딩 개수가 다르면 재생성
+                if len(RAG_EMBEDDINGS) != len(RAG_CARDS):
+                    print("⚠ Card count mismatch. Regenerating embeddings...")
+                    raise ValueError("Mismatch")
+                print(f"✓ Loaded {len(RAG_EMBEDDINGS)} embeddings from {RAG_EMBED_PATH}")
+            except Exception:
+                # 재생성 로직
+                print("Generating new embeddings...")
+                texts = [
+                    f"{c['title']} {c['content']} {c.get('action', '')} {' '.join(c['tags'])}" 
+                    for c in RAG_CARDS
+                ]
+                embeddings = get_embeddings_batch(texts, client)
+                if embeddings:
+                    RAG_EMBEDDINGS = np.array(embeddings)
+                    np.save(RAG_EMBED_PATH, RAG_EMBEDDINGS)
+                    print(f"✓ Generated and saved {len(RAG_EMBEDDINGS)} embeddings to {RAG_EMBED_PATH}")
+                else:
+                    RAG_EMBEDDINGS = None
+        else:
+            # 최초 생성
+            print("Generating embeddings for the first time...")
+            texts = [
+                f"{c['title']} {c['content']} {c.get('action', '')} {' '.join(c['tags'])}" 
+                for c in RAG_CARDS
+            ]
+            embeddings = get_embeddings_batch(texts, client)
+            if embeddings:
+                RAG_EMBEDDINGS = np.array(embeddings)
+                np.save(RAG_EMBED_PATH, RAG_EMBEDDINGS)
+                print(f"✓ Generated and saved {len(RAG_EMBEDDINGS)} embeddings to {RAG_EMBED_PATH}")
+            else:
+                RAG_EMBEDDINGS = None
+                
+    except Exception as e:
+        print(f"❌ Error loading RAG index: {e}")
+        import traceback
+        traceback.print_exc()
+        RAG_CARDS = []
+        RAG_EMBEDDINGS = None
+
+# FastAPI 버전 호환성 처리
+try:
+    from contextlib import asynccontextmanager
+    
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        """서버 시작 시 RAG 데이터 로드 (FastAPI 0.93+)"""
+        load_rag_index()
+        yield
+        # Shutdown logic if needed
+    
+    app = FastAPI(title="Truth Pipeline Engine", lifespan=lifespan)
+except:
+    # Fallback for older FastAPI versions
+    app = FastAPI(title="Truth Pipeline Engine")
+    
+    @app.on_event("startup")
+    async def startup_event():
+        """서버 시작 시 RAG 데이터 로드 (FastAPI < 0.93)"""
+        load_rag_index()
 
 # Allow CORS for local development
 app.add_middleware(
@@ -774,6 +930,122 @@ async def get_ai_coach(request: CoachRequest):
     
     openai = OpenAI(api_key=api_key)
     
+    # --- 1. RAG Query Generation Strategy ---
+    primary_bias = request.bias_priority[0]['bias'] if request.bias_priority and len(request.bias_priority) > 0 else None
+    
+    # 쿼리 생성 전략: 편향이 명확하면 편향 중심, 아니면 수치 기반
+    query = ""
+    if primary_bias:
+        # 편향 이름과 관련 키워드를 조합하여 의미론적 검색 강화
+        fomo_score = request.metrics.get('fomo_score', 0)
+        panic_score = request.metrics.get('panic_score', 0)
+        
+        if primary_bias == "FOMO":
+            if fomo_score > 0.8:
+                query = "FOMO extreme high entry chasing panic buying impulse"
+            else:
+                query = "FOMO chasing high entry impulse fear of missing out"
+        elif primary_bias == "Panic Sell":
+            if panic_score < 0.2:
+                query = "Panic Sell extreme loss aversion selling low fear"
+            else:
+                query = "Panic Sell loss aversion selling low fear"
+        elif primary_bias == "Revenge Trading":
+            query = "Revenge Trading anger emotional recovery tilt overtrading"
+        elif primary_bias == "Disposition Effect":
+            query = "Disposition Effect holding losers selling winners too early"
+        else:
+            query = f"{primary_bias} trading psychology bias"
+    else:
+        # 편향이 감지되지 않은 경우 (성공적인 매매 or 데이터 부족)
+        if request.metrics.get('win_rate', 0) > 0.6:
+            query = "Winning psychology consistency discipline"
+        else:
+            query = "Trading psychology basics risk management"
+    
+    # --- 2. RAG Retrieval (Tag Filtering + Vector Search) ---
+    rag_context_text = ""
+    retrieved_cards_for_response = []  # For JSON response
+    
+    if RAG_CARDS and RAG_EMBEDDINGS is not None:
+        try:
+            # A. 태그 기반 필터링 (Filtering) - 검색 범위 좁히기
+            filtered_indices = []
+            if primary_bias:
+                target_tags = []
+                if primary_bias == "FOMO": 
+                    target_tags = ["FOMO", "entry", "chasing"]
+                elif primary_bias == "Panic Sell": 
+                    target_tags = ["Panic Sell", "exit", "loss_aversion"]
+                elif primary_bias == "Revenge Trading": 
+                    target_tags = ["Revenge Trading", "revenge", "emotion"]
+                elif primary_bias == "Disposition Effect": 
+                    target_tags = ["Disposition Effect", "holding_loser"]
+                
+                # 태그가 하나라도 겹치면 후보군에 포함
+                for idx, card in enumerate(RAG_CARDS):
+                    if any(t in card.get('tags', []) for t in target_tags):
+                        filtered_indices.append(idx)
+            
+            # 필터링 된 카드가 없으면 전체 대상
+            if not filtered_indices:
+                filtered_indices = list(range(len(RAG_CARDS)))
+            
+            # B. 벡터 검색 (Vector Search)
+            query_embeddings = get_embeddings_batch([query], openai)
+            if query_embeddings and len(query_embeddings) > 0:
+                query_vec = np.array(query_embeddings[0])
+                
+                # 필터링된 임베딩만 추출하여 검색
+                target_vecs = RAG_EMBEDDINGS[filtered_indices]
+                
+                # Threshold 동적 조정
+                threshold = 0.4 if primary_bias else 0.6
+                
+                # Top 2, Threshold 적용
+                local_indices, scores = cosine_similarity_top_k(query_vec, target_vecs, k=2, threshold=threshold)
+                
+                # 실제 인덱스로 매핑
+                final_indices = [filtered_indices[i] for i in local_indices]
+                retrieved_cards = [RAG_CARDS[i] for i in final_indices]
+                
+                if retrieved_cards:
+                    rag_text_lines = []
+                    for card in retrieved_cards:
+                        rag_text_lines.append(f"- PRINCIPLE: {card['title']}")
+                        rag_text_lines.append(f"  INSIGHT: {card['content']}")
+                        rag_text_lines.append(f"  ACTION: {card['action']}")
+                    
+                    rag_context_text = f"""
+    RAG KNOWLEDGE BASE (Behavioral Finance Principles - Reference Only):
+    The following principles are retrieved based on your primary bias: '{primary_bias if primary_bias else "General Trading Psychology"}'.
+    
+    CRITICAL: These principles are for EXPLANATION and ADVICE only. 
+    Evidence numbers above take ABSOLUTE PRIORITY over these principles.
+    If Evidence conflicts with RAG principles, Evidence is correct.
+    
+    {chr(10).join(rag_text_lines)}
+    """
+                    
+                    # Store retrieved cards for JSON response
+                    retrieved_cards_for_response = [
+                        {
+                            "title": card['title'],
+                            "content": card['content'],
+                            "action": card['action']
+                        }
+                        for card in retrieved_cards
+                    ]
+                else:
+                    retrieved_cards_for_response = []
+        except Exception as e:
+            print(f"RAG Logic Error: {e}")
+            import traceback
+            traceback.print_exc()
+            rag_context_text = ""  # 명시적으로 빈 문자열
+            retrieved_cards_for_response = []
+            # 코칭은 계속 진행
+    
     # Prompt 생성 (기존 openaiService.ts와 동일한 로직)
     top_regrets = sorted(request.trades, key=lambda x: x.get('regret', 0), reverse=True)[:3]
     top_regrets_str = [f"{t['ticker']} (Missed ${t.get('regret', 0):.0f})" for t in top_regrets]
@@ -836,12 +1108,17 @@ async def get_ai_coach(request: CoachRequest):
     Your goal is to correct behavior, not predict markets.
     
     CRITICAL RULES (STRICTLY ENFORCED):
+    - EVIDENCE IS KING: Your diagnosis must be based 100% on the HARD EVIDENCE numbers below.
+    - RAG IS QUEEN: Your advice (Rule/Fix) must be inspired by the RAG KNOWLEDGE BASE provided (if available).
     - NEVER use vague language like "~may be", "~could be", "~might be", "~seems like", "~appears to"
     - ALWAYS state facts with certainty based on Evidence numbers
     - NEVER repeat template phrases. Each response must be unique and specific to this user's data
     - ALWAYS emphasize "Evidence-based" or "According to Evidence #X" in your diagnosis
     - NEVER make predictions about future market movements
     - NEVER recommend specific stocks or investment advice
+    - RAG CONTEXT is for educational reference ONLY. It must NOT alter Evidence-based diagnosis.
+    - If RAG CONTEXT conflicts with Evidence, Evidence takes ABSOLUTE PRIORITY.
+    - RAG CONTEXT should be used to EXPLAIN why the Evidence indicates a problem, not to create new conclusions.
     
     USER PROFILE:
     - Mode: {"NOVICE / LOW SAMPLE (Focus on specific mistakes)" if request.is_low_sample else "EXPERIENCED (Focus on statistics)"}
@@ -873,6 +1150,8 @@ async def get_ai_coach(request: CoachRequest):
     {f"- Evidence #6: Total Bias Loss -${total_bias_loss:.0f}" if total_bias_loss > 0 else ''}
     {f"- Evidence #7: Priority Fix #1 is {request.bias_priority[0]['bias']} (Loss: -${request.bias_priority[0]['financial_loss']:.0f})" if request.bias_priority and len(request.bias_priority) > 0 else ''}
 
+    {rag_context_text}
+
     IMPORTANT CLARIFICATION:
     - These metrics detect BEHAVIORAL BIASES, not technical trading patterns
     - High FOMO score does NOT mean "breakout trading" or "momentum strategy" - it means buying near day's high due to fear of missing out
@@ -884,17 +1163,20 @@ async def get_ai_coach(request: CoachRequest):
        - Sentence 1: Direct, slightly harsh observation of their biggest flaw. {f"Focus on {request.bias_priority[0]['bias']} (Priority #1, Loss: -${request.bias_priority[0]['financial_loss']:.0f})." if request.bias_priority and len(request.bias_priority) > 0 else ''}
        - Sentence 2: EVIDENCE-BASED FACT. You MUST strictly follow this format: "According to Evidence #X, you [specific action] on [Ticker] at [specific price/percentage]." {f"Compare to your personal baseline when relevant." if request.personal_baseline else ''} Example: "According to Evidence #1, you bought GME at 93% of the day's range ($347.51), exceeding the clinical FOMO threshold of 70% and your average of 78%."
        - Sentence 3: The financial impact with specific numbers. {f"Mention specific loss amounts from Bias Loss Mapping if significant." if request.bias_loss_mapping else ''} {f"Note any worsening trends from Behavior Shift." if request.behavior_shift and any(s['trend'] == 'WORSENING' for s in request.behavior_shift) else ''}
-    2. RULE (1 sentence): A catchy, memorable trading commandment to fix this specific flaw. {f"Target {request.bias_priority[0]['bias']} specifically." if request.bias_priority and len(request.bias_priority) > 0 else ''}
+    2. RULE (1 sentence): A catchy, memorable trading commandment to fix this specific flaw. {f"Target {request.bias_priority[0]['bias']} specifically." if request.bias_priority and len(request.bias_priority) > 0 else ''} {f"If RAG KNOWLEDGE BASE is provided above, base your rule on the 'ACTION' items from RAG principles." if rag_context_text else ''}
     3. BIAS: Name the single dominant psychological bias. {f"Use: {request.bias_priority[0]['bias']}" if request.bias_priority and len(request.bias_priority) > 0 else ''} (e.g. Disposition Effect, Action Bias, Revenge Trading, FOMO).
-    4. FIX: One specific, actionable step to take immediately. {f"Focus on fixing {request.bias_priority[0]['bias']} first (highest financial impact)." if request.bias_priority and len(request.bias_priority) > 0 else ''}
+    4. FIX: One specific, actionable step to take immediately. {f"Focus on fixing {request.bias_priority[0]['bias']} first (highest financial impact)." if request.bias_priority and len(request.bias_priority) > 0 else ''} {f"Combine the RAG 'ACTION' items with the user's specific context from Evidence above." if rag_context_text else ''}
 
     Output valid JSON only with this exact structure:
     {{
       "diagnosis": "3 sentences. Must mention a ticker.",
       "rule": "1 sentence rule.",
       "bias": "Primary bias.",
-      "fix": "Priority fix."
+      "fix": "Priority fix."{f',\n      "references": [{{"title": "...", "content": "...", "action": "..."}}]' if rag_context_text else ''}
     }}
+    
+    NOTE: "references" field is optional. Include it only if RAG KNOWLEDGE BASE was provided above.
+    If RAG was not provided, omit the "references" field entirely.
     """
     
     try:
@@ -930,6 +1212,11 @@ async def get_ai_coach(request: CoachRequest):
             for field in required_fields:
                 if field not in result:
                     raise ValueError(f"Missing required field: {field}")
+            
+            # If RAG cards were retrieved but not in AI response, add them manually
+            if retrieved_cards_for_response and "references" not in result:
+                result["references"] = retrieved_cards_for_response
+            
             return result
         except json.JSONDecodeError as json_err:
             print(f"JSON parsing error: {json_err}")
