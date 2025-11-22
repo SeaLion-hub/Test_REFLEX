@@ -139,11 +139,12 @@ class CoachRequest(BaseModel):
 
 # --- HELPER FUNCTIONS ---
 
-@lru_cache(maxsize=1000)
+@lru_cache(maxsize=2000)  # Increased cache size for large CSV files
 def fetch_market_data_cached(ticker: str, start_date: str, end_date: str):
     """
     LRU Cache를 사용한 시장 데이터 가져오기
     캐시 키는 함수 파라미터로 자동 생성됩니다.
+    대량 CSV 처리 시 중복 요청을 방지합니다.
     """
     return fetch_market_data(ticker, start_date, end_date)
 
@@ -163,9 +164,13 @@ def fetch_market_data(ticker: str, start_date: str, end_date: str):
         df = yf.download(ticker, start=buffer_start, end=buffer_end, progress=False)
         
         if df.empty:
-            # Try adding .KS for Korean stocks if pure number
+            # Try adding .KS or .KQ for Korean stocks if pure number
             if ticker.isdigit():
+                # Try KOSPI first (.KS)
                 df = yf.download(f"{ticker}.KS", start=buffer_start, end=buffer_end, progress=False)
+                if df.empty:
+                    # Try KOSDAQ (.KQ)
+                    df = yf.download(f"{ticker}.KQ", start=buffer_start, end=buffer_end, progress=False)
         
         if df.empty:
             return None
@@ -288,14 +293,25 @@ async def analyze_trades(file: UploadFile):
 
     enriched_trades = []
     
+    # Performance optimization: Pre-fetch unique ticker-date ranges
+    # This reduces redundant API calls for large CSV files
+    unique_ticker_ranges = {}
+    for _, row in df.iterrows():
+        ticker = str(row['ticker'])
+        entry_date = str(row['entry_date'])
+        exit_date = str(row['exit_date'])
+        key = (ticker, entry_date, exit_date)
+        if key not in unique_ticker_ranges:
+            unique_ticker_ranges[key] = fetch_market_data_cached(ticker, entry_date, exit_date)
+    
     # 2. Process Each Trade
     for _, row in df.iterrows():
         ticker = str(row['ticker'])
         entry_date = str(row['entry_date'])
         exit_date = str(row['exit_date'])
         
-        # Fetch Market Data (with caching)
-        market_df = fetch_market_data_cached(ticker, entry_date, exit_date)
+        # Use pre-fetched market data
+        market_df = unique_ticker_ranges.get((ticker, entry_date, exit_date))
         
         metrics = {
             "fomo_score": -1.0, "panic_score": -1.0, "mae": 0.0, "mfe": 0.0,
@@ -372,6 +388,7 @@ async def analyze_trades(file: UploadFile):
     profit_factor = (avg_win * len(winners)) / (avg_loss * len(losers)) if avg_loss > 0 else 0
     
     # Behavioral Avgs (Exclude -1/Invalid)
+    # Check if we have any valid market data
     valid_fomo = trades_df[trades_df['fomo_score'] != -1]['fomo_score']
     fomo_index = valid_fomo.mean() if not valid_fomo.empty else 0
     
@@ -382,6 +399,10 @@ async def analyze_trades(file: UploadFile):
     # So we want to invert it for "Badness"? 
     # Let's keep raw 0-1 score: 0 means sold at Low.
     panic_index = valid_panic.mean() if not valid_panic.empty else 0
+    
+    # If all trades failed to fetch market data, warn but continue
+    if valid_fomo.empty and valid_panic.empty:
+        print("Warning: All trades failed to fetch market data. Metrics will be limited.")
     
     # Disposition Ratio
     avg_win_hold = winners['duration_days'].mean() if not winners.empty else 0
@@ -814,14 +835,27 @@ async def get_ai_coach(request: CoachRequest):
     Act as the "Truth Pipeline" AI. You are an objective, slightly ruthless, data-driven Trading Coach.
     Your goal is to correct behavior, not predict markets.
     
+    CRITICAL RULES (STRICTLY ENFORCED):
+    - NEVER use vague language like "~may be", "~could be", "~might be", "~seems like", "~appears to"
+    - ALWAYS state facts with certainty based on Evidence numbers
+    - NEVER repeat template phrases. Each response must be unique and specific to this user's data
+    - ALWAYS emphasize "Evidence-based" or "According to Evidence #X" in your diagnosis
+    - NEVER make predictions about future market movements
+    - NEVER recommend specific stocks or investment advice
+    
     USER PROFILE:
     - Mode: {"NOVICE / LOW SAMPLE (Focus on specific mistakes)" if request.is_low_sample else "EXPERIENCED (Focus on statistics)"}
     
-    HARD EVIDENCE:
+    HARD EVIDENCE (Clinical Thresholds - Conservative):
+    - FOMO Threshold: >70% of day's range = Clinical FOMO (based on behavioral finance research)
+    - Panic Sell Threshold: <30% of day's range = Clinical Panic (based on behavioral finance research)
+    - Disposition Threshold: >1.5x ratio = Clinical Disposition Effect (based on Shefrin & Statman research)
+    - Revenge Trading: Any trade <24h after loss = Clinical Revenge Trading
+    
     1. TRUTH SCORE: {request.metrics['truth_score']}/100
-    2. DISCIPLINE (FOMO): You bought at {(request.metrics['fomo_score'] * 100):.0f}% of the day's range on average. (High = Bad)
-    3. NERVES (Panic): You sold at {(request.metrics['panic_score'] * 100):.0f}% of the day's range on average. (High = Bad)
-    4. PATIENCE (Disposition): You hold losers {request.metrics['disposition_ratio']:.1f}x longer than winners.
+    2. DISCIPLINE (FOMO): You bought at {(request.metrics['fomo_score'] * 100):.0f}% of the day's range on average. (Clinical threshold: >70% indicates FOMO)
+    3. NERVES (Panic): You sold at {(request.metrics['panic_score'] * 100):.0f}% of the day's range on average. (Clinical threshold: <30% indicates panic selling)
+    4. PATIENCE (Disposition): You hold losers {request.metrics['disposition_ratio']:.1f}x longer than winners. (Clinical threshold: >1.5x indicates Disposition Effect)
     5. EMOTION (Revenge): {request.metrics['revenge_trading_count']} revenge trades detected. Tickers: {revenge_str}.
     6. REGRET: You left ${total_regret:.0f} on the table. Top misses: {', '.join(top_regrets_str)}.
 
@@ -831,19 +865,25 @@ async def get_ai_coach(request: CoachRequest):
     {behavior_shift_text}
 
     EVIDENCE STRUCTURE (You MUST reference these numbers in your diagnosis):
-    - Evidence #1: FOMO Score {(request.metrics['fomo_score'] * 100):.0f}% (Threshold > 70% is bad){f" vs Your Average {(request.personal_baseline['avg_fomo'] * 100):.0f}%" if request.personal_baseline else ''}
-    - Evidence #2: Panic Sell Score {(request.metrics['panic_score'] * 100):.0f}% (Threshold > 70% is bad){f" vs Your Average {(request.personal_baseline['avg_panic'] * 100):.0f}%" if request.personal_baseline else ''}
-    - Evidence #3: Disposition Ratio {request.metrics['disposition_ratio']:.1f}x (Threshold > 1.5x is bad){f" vs Your Average {request.personal_baseline['avg_disposition_ratio']:.1f}x" if request.personal_baseline else ''}
-    - Evidence #4: Revenge Trading Count {request.metrics['revenge_trading_count']} (Threshold > 0 is bad)
+    - Evidence #1: FOMO Score {(request.metrics['fomo_score'] * 100):.0f}% (Clinical threshold > 70% = FOMO){f" vs Your Average {(request.personal_baseline['avg_fomo'] * 100):.0f}%" if request.personal_baseline else ''}
+    - Evidence #2: Panic Sell Score {(request.metrics['panic_score'] * 100):.0f}% (Clinical threshold < 30% = Panic){f" vs Your Average {(request.personal_baseline['avg_panic'] * 100):.0f}%" if request.personal_baseline else ''}
+    - Evidence #3: Disposition Ratio {request.metrics['disposition_ratio']:.1f}x (Clinical threshold > 1.5x = Disposition Effect){f" vs Your Average {request.personal_baseline['avg_disposition_ratio']:.1f}x" if request.personal_baseline else ''}
+    - Evidence #4: Revenge Trading Count {request.metrics['revenge_trading_count']} (Any count > 0 = Revenge Trading)
     - Evidence #5: Total Regret ${total_regret:.0f}
     {f"- Evidence #6: Total Bias Loss -${total_bias_loss:.0f}" if total_bias_loss > 0 else ''}
     {f"- Evidence #7: Priority Fix #1 is {request.bias_priority[0]['bias']} (Loss: -${request.bias_priority[0]['financial_loss']:.0f})" if request.bias_priority and len(request.bias_priority) > 0 else ''}
 
+    IMPORTANT CLARIFICATION:
+    - These metrics detect BEHAVIORAL BIASES, not technical trading patterns
+    - High FOMO score does NOT mean "breakout trading" or "momentum strategy" - it means buying near day's high due to fear of missing out
+    - Low Panic score does NOT mean "stop-loss discipline" - it means selling near day's low due to panic
+    - This system analyzes PSYCHOLOGICAL ERRORS, not trading strategies
+
     INSTRUCTIONS:
-    1. DIAGNOSIS (3 sentences): 
+    1. DIAGNOSIS (3 sentences, EVIDENCE-BASED, NO VAGUE LANGUAGE): 
        - Sentence 1: Direct, slightly harsh observation of their biggest flaw. {f"Focus on {request.bias_priority[0]['bias']} (Priority #1, Loss: -${request.bias_priority[0]['financial_loss']:.0f})." if request.bias_priority and len(request.bias_priority) > 0 else ''}
-       - Sentence 2: EVIDENCE-BASED FACT. You MUST strictly follow this format: "According to Evidence #X, you [specific action] on [Ticker]." {f"Compare to your personal baseline when relevant." if request.personal_baseline else ''} Example: "According to Evidence #1, you bought GME at 93% of the day's range, well above your average of 78%."
-       - Sentence 3: The financial impact. {f"Mention specific loss amounts from Bias Loss Mapping if significant." if request.bias_loss_mapping else ''} {f"Note any worsening trends from Behavior Shift." if request.behavior_shift and any(s['trend'] == 'WORSENING' for s in request.behavior_shift) else ''}
+       - Sentence 2: EVIDENCE-BASED FACT. You MUST strictly follow this format: "According to Evidence #X, you [specific action] on [Ticker] at [specific price/percentage]." {f"Compare to your personal baseline when relevant." if request.personal_baseline else ''} Example: "According to Evidence #1, you bought GME at 93% of the day's range ($347.51), exceeding the clinical FOMO threshold of 70% and your average of 78%."
+       - Sentence 3: The financial impact with specific numbers. {f"Mention specific loss amounts from Bias Loss Mapping if significant." if request.bias_loss_mapping else ''} {f"Note any worsening trends from Behavior Shift." if request.behavior_shift and any(s['trend'] == 'WORSENING' for s in request.behavior_shift) else ''}
     2. RULE (1 sentence): A catchy, memorable trading commandment to fix this specific flaw. {f"Target {request.bias_priority[0]['bias']} specifically." if request.bias_priority and len(request.bias_priority) > 0 else ''}
     3. BIAS: Name the single dominant psychological bias. {f"Use: {request.bias_priority[0]['bias']}" if request.bias_priority and len(request.bias_priority) > 0 else ''} (e.g. Disposition Effect, Action Bias, Revenge Trading, FOMO).
     4. FIX: One specific, actionable step to take immediately. {f"Focus on fixing {request.bias_priority[0]['bias']} first (highest financial impact)." if request.bias_priority and len(request.bias_priority) > 0 else ''}
@@ -874,12 +914,36 @@ async def get_ai_coach(request: CoachRequest):
             temperature=0.7,
         )
         
+        # Check if response has choices
+        if not completion.choices or len(completion.choices) == 0:
+            raise ValueError("OpenAI API returned empty choices array")
+        
         content = completion.choices[0].message.content
-        if content:
-            return json.loads(content)
-        else:
-            raise ValueError("No content returned")
+        if not content:
+            raise ValueError("OpenAI API returned no content")
+        
+        # Parse JSON with error handling
+        try:
+            result = json.loads(content)
+            # Validate required fields
+            required_fields = ["diagnosis", "rule", "bias", "fix"]
+            for field in required_fields:
+                if field not in result:
+                    raise ValueError(f"Missing required field: {field}")
+            return result
+        except json.JSONDecodeError as json_err:
+            print(f"JSON parsing error: {json_err}")
+            print(f"Raw content: {content[:200]}...")  # Log first 200 chars
+            raise ValueError(f"Invalid JSON response from OpenAI: {json_err}")
             
+    except ValueError as ve:
+        print(f"Validation Error: {ve}")
+        return {
+            "diagnosis": "AI Analysis unavailable. Focus on your Win Rate and Profit Factor manually.",
+            "rule": "Cut losers faster than you think.",
+            "bias": "Service Error",
+            "fix": "Check API Key or Network."
+        }
     except Exception as e:
         print(f"OpenAI API Error: {e}")
         return {

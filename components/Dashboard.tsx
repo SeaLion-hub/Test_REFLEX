@@ -4,7 +4,7 @@ import { AnalysisResult, AIAnalysis } from '../types';
 import { getAIInterpretation } from '../services/openaiService';
 import { BehavioralRadar, RegretChart, EquityCurveChart } from './Charts';
 import { AICoach } from './AICoach';
-import { ShieldAlert, TrendingUp, RefreshCcw, Award, BarChart2, HelpCircle, ArrowLeft, ChevronDown, ChevronUp, Database, ServerCrash, Skull, TrendingDown, DollarSign, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { ShieldAlert, TrendingUp, RefreshCcw, Award, BarChart2, HelpCircle, ArrowLeft, ChevronDown, ChevronUp, Database, ServerCrash, Skull, TrendingDown, DollarSign, AlertCircle, CheckCircle2, XCircle, Moon, Sun } from 'lucide-react';
 
 interface DashboardProps {
   data: AnalysisResult;
@@ -16,6 +16,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   const [loadingAI, setLoadingAI] = useState(false);
   const [showDeepDive, setShowDeepDive] = useState(false);
   const [showBiasFreeSimulation, setShowBiasFreeSimulation] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true);
+
+  useEffect(() => {
+    // Load theme preference from localStorage
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'light') {
+      setIsDarkMode(false);
+      document.documentElement.classList.remove('dark');
+    } else {
+      setIsDarkMode(true);
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newMode = !isDarkMode;
+    setIsDarkMode(newMode);
+    if (newMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
 
   useEffect(() => {
     const fetchAI = async () => {
@@ -94,28 +119,60 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   }, [data.biasLossMapping, data.trades]);
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-200 font-sans selection:bg-emerald-900/30">
+    <div className={`min-h-screen font-sans selection:bg-emerald-900/30 ${
+      isDarkMode 
+        ? 'bg-[#09090b] text-zinc-200' 
+        : 'bg-white text-zinc-900'
+    }`}>
       
       {/* LEVEL 1: HEADER & CONTEXT */}
-      <div className="sticky top-0 z-20 bg-[#09090b]/90 backdrop-blur-md border-b border-zinc-800">
+      <div className={`sticky top-0 z-20 backdrop-blur-md border-b ${
+        isDarkMode 
+          ? 'bg-[#09090b]/90 border-zinc-800' 
+          : 'bg-white/90 border-zinc-200'
+      }`}>
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
-                <button onClick={onReset} className="p-2 hover:bg-zinc-800 rounded-full transition-colors">
-                    <ArrowLeft className="w-5 h-5 text-zinc-400" />
+                <button onClick={onReset} className={`p-2 rounded-full transition-colors ${
+                  isDarkMode ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'
+                }`}>
+                    <ArrowLeft className={`w-5 h-5 ${isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}`} />
                 </button>
                 <div>
-                    <h1 className="text-lg font-bold text-white tracking-tight">Truth Pipeline</h1>
+                    <h1 className={`text-lg font-bold tracking-tight ${
+                      isDarkMode ? 'text-white' : 'text-zinc-900'
+                    }`}>Truth Pipeline</h1>
                 </div>
             </div>
             <div className="flex items-center gap-3">
+                {/* Theme Toggle */}
+                <button
+                  onClick={toggleTheme}
+                  className={`p-2 rounded-full transition-colors ${
+                    isDarkMode 
+                      ? 'hover:bg-zinc-800 text-zinc-400' 
+                      : 'hover:bg-zinc-100 text-zinc-600'
+                  }`}
+                  title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                >
+                  {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                </button>
                 {/* Backend Status Indicator */}
                 {data.dataSource === 'BACKEND_TRUTH' ? (
-                    <div className="flex items-center gap-2 px-3 py-1 bg-emerald-950/50 text-emerald-400 text-xs rounded-full border border-emerald-900/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                    <div className={`flex items-center gap-2 px-3 py-1 text-xs rounded-full border shadow-[0_0_10px_rgba(16,185,129,0.1)] ${
+                      isDarkMode
+                        ? 'bg-emerald-950/50 text-emerald-400 border-emerald-900/30'
+                        : 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                    }`}>
                         <Database className="w-3 h-3" />
                         <span className="font-medium">Truth Engine Live</span>
                     </div>
                 ) : (
-                    <div className="flex items-center gap-2 px-3 py-1 bg-orange-950/50 text-orange-400 text-xs rounded-full border border-orange-900/30">
+                    <div className={`flex items-center gap-2 px-3 py-1 text-xs rounded-full border ${
+                      isDarkMode
+                        ? 'bg-orange-950/50 text-orange-400 border-orange-900/30'
+                        : 'bg-orange-50 text-orange-600 border-orange-200'
+                    }`}>
                         <ServerCrash className="w-3 h-3" />
                         <span className="font-medium">Demo Data (Offline)</span>
                     </div>
@@ -130,15 +187,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
             {/* Truth Score Card */}
-            <div className="lg:col-span-4 bg-zinc-900 border border-zinc-800 rounded-2xl p-8 flex flex-col items-center justify-center text-center relative overflow-hidden shadow-2xl">
+            <div className={`lg:col-span-4 rounded-2xl p-8 flex flex-col items-center justify-center text-center relative overflow-hidden shadow-2xl ${
+              isDarkMode 
+                ? 'bg-zinc-900 border-zinc-800' 
+                : 'bg-zinc-50 border-zinc-200'
+            } border`}>
                  <div className={`absolute top-0 w-full h-1.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-70 ${scoreColor}`}></div>
                  
-                 <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-8">Behavioral Integrity Score</span>
+                 <span className={`text-xs font-bold uppercase tracking-widest mb-8 ${
+                   isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                 }`}>Behavioral Integrity Score</span>
                  
-                 <div className={`w-48 h-48 rounded-full border-8 ${scoreRing} flex items-center justify-center mb-8 bg-[#0c0c0e] shadow-[0_0_30px_rgba(0,0,0,0.5)] relative`}>
+                 <div className={`w-48 h-48 rounded-full border-8 ${scoreRing} flex items-center justify-center mb-8 shadow-[0_0_30px_rgba(0,0,0,0.5)] relative ${
+                   isDarkMode ? 'bg-[#0c0c0e]' : 'bg-white'
+                 }`}>
                     <span className={`text-7xl font-bold tracking-tighter ${scoreColor}`}>{metrics.truthScore}</span>
                     {isLowSample && (
-                         <div className="absolute bottom-8 text-[10px] bg-zinc-800 px-2 py-1 rounded text-zinc-400">Low Sample</div>
+                         <div className={`absolute bottom-8 text-[10px] px-2 py-1 rounded ${
+                           isDarkMode 
+                             ? 'bg-zinc-800 text-zinc-400' 
+                             : 'bg-zinc-200 text-zinc-600'
+                         }`}>Low Sample</div>
                     )}
                  </div>
                  
@@ -154,17 +223,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                      </div>
                  )}
 
-                 <div className="w-full grid grid-cols-3 gap-px bg-zinc-800/50 rounded-xl overflow-hidden border border-zinc-800">
-                    <div className="bg-zinc-900 p-3">
-                        <div className="text-[10px] text-zinc-500 uppercase">Win Rate</div>
-                        <div className="text-zinc-200 font-mono font-semibold">{(metrics.winRate * 100).toFixed(0)}%</div>
+                 <div className={`w-full grid grid-cols-3 gap-px rounded-xl overflow-hidden border ${
+                   isDarkMode 
+                     ? 'bg-zinc-800/50 border-zinc-800' 
+                     : 'bg-zinc-200/50 border-zinc-200'
+                 }`}>
+                    <div className={`p-3 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>
+                        <div className={`text-[10px] uppercase ${
+                          isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                        }`}>Win Rate</div>
+                        <div className={`font-mono font-semibold ${
+                          isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                        }`}>{(metrics.winRate * 100).toFixed(0)}%</div>
                     </div>
-                    <div className="bg-zinc-900 p-3">
-                        <div className="text-[10px] text-zinc-500 uppercase">Profit F.</div>
-                        <div className="text-zinc-200 font-mono font-semibold">{metrics.profitFactor.toFixed(2)}</div>
+                    <div className={`p-3 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>
+                        <div className={`text-[10px] uppercase ${
+                          isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                        }`}>Profit F.</div>
+                        <div className={`font-mono font-semibold ${
+                          isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                        }`}>{metrics.profitFactor.toFixed(2)}</div>
                     </div>
-                    <div className="bg-zinc-900 p-3">
-                        <div className="text-[10px] text-zinc-500 uppercase">Total PnL</div>
+                    <div className={`p-3 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>
+                        <div className={`text-[10px] uppercase ${
+                          isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                        }`}>Total PnL</div>
                         <div className={`font-mono font-semibold ${totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                             ${Math.abs(totalPnL) >= 1000 ? (Math.abs(totalPnL)/1000).toFixed(1)+'k' : Math.abs(totalPnL).toFixed(0)}
                         </div>
@@ -178,14 +261,51 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
             </div>
         </div>
 
+        {/* CLINICAL THRESHOLDS INFO */}
+        <div className={`rounded-xl p-4 border ${
+          isDarkMode 
+            ? 'bg-blue-950/20 border-blue-900/30' 
+            : 'bg-blue-50 border-blue-200'
+        }`}>
+          <div className="flex items-start gap-3">
+            <HelpCircle className={`w-5 h-5 mt-0.5 ${
+              isDarkMode ? 'text-blue-400' : 'text-blue-600'
+            }`} />
+            <div className="flex-1">
+              <h4 className={`text-sm font-semibold mb-2 ${
+                isDarkMode ? 'text-blue-300' : 'text-blue-900'
+              }`}>Clinical Thresholds (보수적 기준)</h4>
+              <div className={`text-xs space-y-1 ${
+                isDarkMode ? 'text-blue-200/80' : 'text-blue-800'
+              }`}>
+                <p>• <strong>FOMO:</strong> Entry &gt;70% of day's range = Clinical FOMO (행동경제학 연구 기반)</p>
+                <p>• <strong>Panic Sell:</strong> Exit &lt;30% of day's range = Clinical Panic (행동경제학 연구 기반)</p>
+                <p>• <strong>Disposition Effect:</strong> Hold losers &gt;1.5x longer = Clinical Disposition (Shefrin & Statman 연구)</p>
+                <p className={`mt-2 pt-2 border-t ${
+                  isDarkMode ? 'border-blue-900/30' : 'border-blue-200'
+                }`}>
+                  <strong>중요:</strong> 이 지표는 <strong>행동 편향</strong>을 탐지합니다. 기술적 돌파매매나 모멘텀 전략과는 다릅니다. 
+                  높은 FOMO 점수는 "돌파 전략"이 아니라 "놓칠까봐 두려워서 고가에 매수"를 의미합니다.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* LEVEL 3: BEHAVIORAL EVIDENCE & PSYCHOLOGY */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
              
              {/* Left: Radar Chart */}
-             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col justify-between shadow-lg">
+             <div className={`rounded-xl p-6 flex flex-col justify-between shadow-lg border ${
+               isDarkMode 
+                 ? 'bg-zinc-900 border-zinc-800' 
+                 : 'bg-zinc-50 border-zinc-200'
+             }`}>
                 <div className="flex items-center gap-2 mb-4">
-                    <BarChart2 className="w-4 h-4 text-emerald-500" />
-                    <h3 className="text-zinc-200 text-sm font-bold uppercase tracking-wider">Psychology Map</h3>
+                    <BarChart2 className={`w-4 h-4 ${isDarkMode ? 'text-emerald-500' : 'text-emerald-600'}`} />
+                    <h3 className={`text-sm font-bold uppercase tracking-wider ${
+                      isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                    }`}>Psychology Map</h3>
                 </div>
                 <div className="flex-grow flex items-center justify-center">
                     <BehavioralRadar metrics={metrics} />
@@ -193,69 +313,132 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
              </div>
 
              {/* Right: Detailed Metrics Grid */}
-             <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-xl p-6 shadow-lg flex flex-col">
-                <h3 className="text-zinc-200 text-sm font-bold uppercase tracking-wider mb-6 flex items-center gap-2">
-                    <Award className="w-4 h-4 text-yellow-500" />
+             <div className={`lg:col-span-2 rounded-xl p-6 shadow-lg flex flex-col border ${
+               isDarkMode 
+                 ? 'bg-zinc-900 border-zinc-800' 
+                 : 'bg-zinc-50 border-zinc-200'
+             }`}>
+                <h3 className={`text-sm font-bold uppercase tracking-wider mb-6 flex items-center gap-2 ${
+                  isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                }`}>
+                    <Award className={`w-4 h-4 ${isDarkMode ? 'text-yellow-500' : 'text-yellow-600'}`} />
                     Key Performance Indicators
                 </h3>
                 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-                     <div className="p-4 bg-zinc-950 rounded-lg border border-zinc-800 hover:border-zinc-700 transition-colors">
-                        <div className="flex items-center gap-2 text-zinc-500 mb-2">
+                     <div className={`p-4 rounded-lg border hover:border-zinc-700 transition-colors ${
+                       isDarkMode 
+                         ? 'bg-zinc-950 border-zinc-800' 
+                         : 'bg-zinc-100 border-zinc-300'
+                     }`}>
+                        <div className={`flex items-center gap-2 mb-2 ${
+                          isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                        }`}>
                             <TrendingUp className="w-3 h-3" />
                             <span className="text-[10px] uppercase font-bold">FOMO Index</span>
                         </div>
-                        <div className={`text-2xl font-mono ${metrics.fomoIndex > 0.7 ? 'text-red-400' : 'text-white'}`}>
+                        <div className={`text-2xl font-mono ${
+                          metrics.fomoIndex > 0.7 
+                            ? 'text-red-400' 
+                            : isDarkMode ? 'text-white' : 'text-zinc-900'
+                        }`}>
                             {(metrics.fomoIndex * 100).toFixed(0)}%
                         </div>
-                        <div className="text-[10px] text-zinc-600 mt-1">Entry vs Daily High</div>
+                        <div className={`text-[10px] mt-1 ${
+                          isDarkMode ? 'text-zinc-600' : 'text-zinc-500'
+                        }`}>
+                          Entry vs Daily High
+                          <div className="text-[9px] mt-0.5 italic">
+                            Clinical threshold: &gt;70% = FOMO
+                          </div>
+                        </div>
                      </div>
 
-                     <div className="p-4 bg-zinc-950 rounded-lg border border-zinc-800 hover:border-zinc-700 transition-colors">
-                        <div className="flex items-center gap-2 text-zinc-500 mb-2">
+                     <div className={`p-4 rounded-lg border hover:border-zinc-700 transition-colors ${
+                       isDarkMode 
+                         ? 'bg-zinc-950 border-zinc-800' 
+                         : 'bg-zinc-100 border-zinc-300'
+                     }`}>
+                        <div className={`flex items-center gap-2 mb-2 ${
+                          isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                        }`}>
                             <Skull className="w-3 h-3" />
                             <span className="text-[10px] uppercase font-bold">Revenge Trades</span>
                         </div>
-                        <div className={`text-2xl font-mono ${metrics.revengeTradingCount > 0 ? 'text-red-500' : 'text-white'}`}>
+                        <div className={`text-2xl font-mono ${
+                          metrics.revengeTradingCount > 0 
+                            ? 'text-red-500' 
+                            : isDarkMode ? 'text-white' : 'text-zinc-900'
+                        }`}>
                             {metrics.revengeTradingCount}
                         </div>
-                        <div className="text-[10px] text-zinc-600 mt-1">Re-entry &lt; 24h after loss</div>
+                        <div className={`text-[10px] mt-1 ${
+                          isDarkMode ? 'text-zinc-600' : 'text-zinc-500'
+                        }`}>Re-entry &lt; 24h after loss</div>
                      </div>
 
-                     <div className="p-4 bg-zinc-950 rounded-lg border border-zinc-800 hover:border-zinc-700 transition-colors">
-                        <div className="flex items-center gap-2 text-zinc-500 mb-2">
+                     <div className={`p-4 rounded-lg border hover:border-zinc-700 transition-colors ${
+                       isDarkMode 
+                         ? 'bg-zinc-950 border-zinc-800' 
+                         : 'bg-zinc-100 border-zinc-300'
+                     }`}>
+                        <div className={`flex items-center gap-2 mb-2 ${
+                          isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                        }`}>
                             <RefreshCcw className="w-3 h-3" />
                             <span className="text-[10px] uppercase font-bold">Disposition</span>
                         </div>
-                        <div className={`text-2xl font-mono ${metrics.dispositionRatio > 1.5 ? 'text-orange-400' : 'text-white'}`}>
+                        <div className={`text-2xl font-mono ${
+                          metrics.dispositionRatio > 1.5 
+                            ? 'text-orange-400' 
+                            : isDarkMode ? 'text-white' : 'text-zinc-900'
+                        }`}>
                             {metrics.dispositionRatio.toFixed(1)}x
                         </div>
-                        <div className="text-[10px] text-zinc-600 mt-1">Hold time: Losers vs Winners</div>
+                        <div className={`text-[10px] mt-1 ${
+                          isDarkMode ? 'text-zinc-600' : 'text-zinc-500'
+                        }`}>Hold time: Losers vs Winners</div>
                      </div>
 
-                     <div className="p-4 bg-zinc-950 rounded-lg border border-zinc-800 hover:border-zinc-700 transition-colors">
-                        <div className="flex items-center gap-2 text-zinc-500 mb-2">
+                     <div className={`p-4 rounded-lg border hover:border-zinc-700 transition-colors ${
+                       isDarkMode 
+                         ? 'bg-zinc-950 border-zinc-800' 
+                         : 'bg-zinc-100 border-zinc-300'
+                     }`}>
+                        <div className={`flex items-center gap-2 mb-2 ${
+                          isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                        }`}>
                             <HelpCircle className="w-3 h-3" />
                             <span className="text-[10px] uppercase font-bold">Skill/Luck</span>
                         </div>
                         {isLowSample ? (
-                            <div className="text-xs text-zinc-500 italic mt-1">Need 5+ trades</div>
+                            <div className={`text-xs italic mt-1 ${
+                              isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                            }`}>Need 5+ trades</div>
                         ) : (
-                             <div className="text-2xl font-mono text-white">
+                             <div className={`text-2xl font-mono ${
+                               isDarkMode ? 'text-white' : 'text-zinc-900'
+                             }`}>
                                 {metrics.luckPercentile.toFixed(0)}%
                             </div>
                         )}
-                        {!isLowSample && <div className="text-[10px] text-zinc-600 mt-1">Monte Carlo Pctl</div>}
+                        {!isLowSample && <div className={`text-[10px] mt-1 ${
+                          isDarkMode ? 'text-zinc-600' : 'text-zinc-500'
+                        }`}>Monte Carlo Pctl</div>}
                      </div>
                 </div>
 
                 {/* Regret Chart Section */}
-                <div className="mt-auto pt-6 border-t border-zinc-800/50">
+                <div className={`mt-auto pt-6 border-t ${
+                  isDarkMode ? 'border-zinc-800/50' : 'border-zinc-200/50'
+                }`}>
                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-zinc-300 text-xs font-bold uppercase tracking-wide">Regret Zone: Top 5 Missed Opportunities</h4>
+                        <h4 className={`text-xs font-bold uppercase tracking-wide ${
+                          isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
+                        }`}>Regret Zone: Top 5 Missed Opportunities</h4>
                         <div className="flex items-center gap-2 text-xs">
                             <span className="w-2 h-2 rounded-full bg-orange-500/50"></span>
-                            <span className="text-zinc-500">Money left on table</span>
+                            <span className={isDarkMode ? 'text-zinc-500' : 'text-zinc-600'}>Money left on table</span>
                         </div>
                      </div>
                      <RegretChart trades={data.trades} />
@@ -268,34 +451,58 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Personal Baseline */}
                 {data.personalBaseline && (
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                    <div className={`rounded-xl p-6 border ${
+                      isDarkMode 
+                        ? 'bg-zinc-900 border-zinc-800' 
+                        : 'bg-zinc-50 border-zinc-200'
+                    }`}>
                         <div className="flex items-center gap-2 mb-6">
-                            <TrendingUp className="w-5 h-5 text-blue-500" />
-                            <h3 className="text-zinc-200 text-sm font-bold uppercase tracking-wider">Personal Baseline</h3>
+                            <TrendingUp className={`w-5 h-5 ${isDarkMode ? 'text-blue-500' : 'text-blue-600'}`} />
+                            <h3 className={`text-sm font-bold uppercase tracking-wider ${
+                              isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                            }`}>Personal Baseline</h3>
                         </div>
                         <div className="space-y-4">
-                            <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800">
-                                <div className="text-xs text-zinc-500 mb-1">FOMO Score</div>
+                            <div className={`p-3 rounded-lg border ${
+                              isDarkMode 
+                                ? 'bg-zinc-950 border-zinc-800' 
+                                : 'bg-white border-zinc-200'
+                            }`}>
+                                <div className={`text-xs mb-1 ${
+                                  isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                                }`}>FOMO Score</div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-zinc-300">Your Average: {(data.personalBaseline.avgFomo * 100).toFixed(0)}%</span>
+                                    <span className={isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}>Your Average: {(data.personalBaseline.avgFomo * 100).toFixed(0)}%</span>
                                     <span className={`text-sm font-mono ${metrics.fomoIndex > data.personalBaseline.avgFomo ? 'text-red-400' : 'text-emerald-400'}`}>
                                         Current: {(metrics.fomoIndex * 100).toFixed(0)}%
                                     </span>
                                 </div>
                             </div>
-                            <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800">
-                                <div className="text-xs text-zinc-500 mb-1">Panic Score</div>
+                            <div className={`p-3 rounded-lg border ${
+                              isDarkMode 
+                                ? 'bg-zinc-950 border-zinc-800' 
+                                : 'bg-white border-zinc-200'
+                            }`}>
+                                <div className={`text-xs mb-1 ${
+                                  isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                                }`}>Panic Score</div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-zinc-300">Your Average: {(data.personalBaseline.avgPanic * 100).toFixed(0)}%</span>
+                                    <span className={isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}>Your Average: {(data.personalBaseline.avgPanic * 100).toFixed(0)}%</span>
                                     <span className={`text-sm font-mono ${metrics.panicIndex < data.personalBaseline.avgPanic ? 'text-red-400' : 'text-emerald-400'}`}>
                                         Current: {(metrics.panicIndex * 100).toFixed(0)}%
                                     </span>
                                 </div>
                             </div>
-                            <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800">
-                                <div className="text-xs text-zinc-500 mb-1">Disposition Ratio</div>
+                            <div className={`p-3 rounded-lg border ${
+                              isDarkMode 
+                                ? 'bg-zinc-950 border-zinc-800' 
+                                : 'bg-white border-zinc-200'
+                            }`}>
+                                <div className={`text-xs mb-1 ${
+                                  isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                                }`}>Disposition Ratio</div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-zinc-300">Your Average: {data.personalBaseline.avgDispositionRatio.toFixed(1)}x</span>
+                                    <span className={isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}>Your Average: {data.personalBaseline.avgDispositionRatio.toFixed(1)}x</span>
                                     <span className={`text-sm font-mono ${metrics.dispositionRatio > data.personalBaseline.avgDispositionRatio ? 'text-red-400' : 'text-emerald-400'}`}>
                                         Current: {metrics.dispositionRatio.toFixed(1)}x
                                     </span>
@@ -307,25 +514,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
 
                 {/* Behavior Shift Detection */}
                 {data.behaviorShift && data.behaviorShift.length > 0 && (
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                    <div className={`rounded-xl p-6 border ${
+                      isDarkMode 
+                        ? 'bg-zinc-900 border-zinc-800' 
+                        : 'bg-zinc-50 border-zinc-200'
+                    }`}>
                         <div className="flex items-center gap-2 mb-6">
-                            <RefreshCcw className="w-5 h-5 text-purple-500" />
-                            <h3 className="text-zinc-200 text-sm font-bold uppercase tracking-wider">Behavior Shift (Recent 3 vs Baseline)</h3>
+                            <RefreshCcw className={`w-5 h-5 ${isDarkMode ? 'text-purple-500' : 'text-purple-600'}`} />
+                            <h3 className={`text-sm font-bold uppercase tracking-wider ${
+                              isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                            }`}>Behavior Shift (Recent 3 vs Baseline)</h3>
                         </div>
                         <div className="space-y-3">
                             {data.behaviorShift.map((shift, idx) => (
                                 <div key={idx} className={`p-4 rounded-lg border ${
-                                    shift.trend === 'IMPROVING' ? 'bg-emerald-950/20 border-emerald-900/30' :
-                                    shift.trend === 'WORSENING' ? 'bg-red-950/20 border-red-900/30' :
-                                    'bg-zinc-950 border-zinc-800'
+                                  shift.trend === 'IMPROVING' ? (isDarkMode ? 'bg-emerald-950/20 border-emerald-900/30' : 'bg-emerald-50 border-emerald-200') :
+                                  shift.trend === 'WORSENING' ? (isDarkMode ? 'bg-red-950/20 border-red-900/30' : 'bg-red-50 border-red-200') :
+                                  (isDarkMode ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200')
                                 }`}>
                                     <div className="flex items-center justify-between mb-2">
-                                        <span className="text-sm font-medium text-zinc-200">{shift.bias}</span>
+                                        <span className={`text-sm font-medium ${
+                                          isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                                        }`}>{shift.bias}</span>
                                         {shift.trend === 'IMPROVING' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
                                         {shift.trend === 'WORSENING' && <XCircle className="w-4 h-4 text-red-400" />}
-                                        {shift.trend === 'STABLE' && <AlertCircle className="w-4 h-4 text-zinc-500" />}
+                                        {shift.trend === 'STABLE' && <AlertCircle className={`w-4 h-4 ${isDarkMode ? 'text-zinc-500' : 'text-zinc-600'}`} />}
                                     </div>
-                                    <div className="text-xs text-zinc-400">
+                                    <div className={`text-xs ${
+                                      isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+                                    }`}>
                                         {shift.trend === 'IMPROVING' ? '↓' : shift.trend === 'WORSENING' ? '↑' : '→'} 
                                         {' '}{Math.abs(shift.changePercent).toFixed(1)}% 
                                         {' '}({shift.trend === 'IMPROVING' ? '개선' : shift.trend === 'WORSENING' ? '악화' : '안정'})
@@ -343,47 +560,79 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Bias Loss Mapping */}
                 {data.biasLossMapping && (
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                    <div className={`rounded-xl p-6 border ${
+                      isDarkMode 
+                        ? 'bg-zinc-900 border-zinc-800' 
+                        : 'bg-zinc-50 border-zinc-200'
+                    }`}>
                         <div className="flex items-center gap-2 mb-6">
-                            <DollarSign className="w-5 h-5 text-red-500" />
-                            <h3 className="text-zinc-200 text-sm font-bold uppercase tracking-wider">Bias Loss Mapping</h3>
+                            <DollarSign className={`w-5 h-5 ${isDarkMode ? 'text-red-500' : 'text-red-600'}`} />
+                            <h3 className={`text-sm font-bold uppercase tracking-wider ${
+                              isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                            }`}>Bias Loss Mapping</h3>
                         </div>
                         <div className="space-y-3">
                             {data.biasLossMapping.fomoLoss > 0 && (
-                                <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800">
+                                <div className={`p-3 rounded-lg border ${
+                                  isDarkMode 
+                                    ? 'bg-zinc-950 border-zinc-800' 
+                                    : 'bg-white border-zinc-200'
+                                }`}>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm text-zinc-300">FOMO Loss</span>
+                                        <span className={`text-sm ${
+                                          isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
+                                        }`}>FOMO Loss</span>
                                         <span className="text-red-400 font-mono font-bold">-${data.biasLossMapping.fomoLoss.toFixed(0)}</span>
                                     </div>
                                 </div>
                             )}
                             {data.biasLossMapping.panicLoss > 0 && (
-                                <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800">
+                                <div className={`p-3 rounded-lg border ${
+                                  isDarkMode 
+                                    ? 'bg-zinc-950 border-zinc-800' 
+                                    : 'bg-white border-zinc-200'
+                                }`}>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm text-zinc-300">Panic Sell Loss</span>
+                                        <span className={`text-sm ${
+                                          isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
+                                        }`}>Panic Sell Loss</span>
                                         <span className="text-red-400 font-mono font-bold">-${data.biasLossMapping.panicLoss.toFixed(0)}</span>
                                     </div>
                                 </div>
                             )}
                             {data.biasLossMapping.revengeLoss > 0 && (
-                                <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800">
+                                <div className={`p-3 rounded-lg border ${
+                                  isDarkMode 
+                                    ? 'bg-zinc-950 border-zinc-800' 
+                                    : 'bg-white border-zinc-200'
+                                }`}>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm text-zinc-300">Revenge Trading Loss</span>
+                                        <span className={`text-sm ${
+                                          isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
+                                        }`}>Revenge Trading Loss</span>
                                         <span className="text-red-400 font-mono font-bold">-${data.biasLossMapping.revengeLoss.toFixed(0)}</span>
                                     </div>
                                 </div>
                             )}
                             {data.biasLossMapping.dispositionLoss > 0 && (
-                                <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800">
+                                <div className={`p-3 rounded-lg border ${
+                                  isDarkMode 
+                                    ? 'bg-zinc-950 border-zinc-800' 
+                                    : 'bg-white border-zinc-200'
+                                }`}>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm text-zinc-300">Disposition Effect (Missed)</span>
+                                        <span className={`text-sm ${
+                                          isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
+                                        }`}>Disposition Effect (Missed)</span>
                                         <span className="text-orange-400 font-mono font-bold">-${data.biasLossMapping.dispositionLoss.toFixed(0)}</span>
                                     </div>
                                 </div>
                             )}
                             {data.biasLossMapping.fomoLoss === 0 && data.biasLossMapping.panicLoss === 0 && 
                              data.biasLossMapping.revengeLoss === 0 && data.biasLossMapping.dispositionLoss === 0 && (
-                                <div className="text-xs text-zinc-500 text-center py-4">No significant bias losses detected</div>
+                                <div className={`text-xs text-center py-4 ${
+                                  isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                                }`}>No significant bias losses detected</div>
                             )}
                         </div>
                     </div>
@@ -391,26 +640,40 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
 
                 {/* Bias Priority */}
                 {data.biasPriority && data.biasPriority.length > 0 && (
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                    <div className={`rounded-xl p-6 border ${
+                      isDarkMode 
+                        ? 'bg-zinc-900 border-zinc-800' 
+                        : 'bg-zinc-50 border-zinc-200'
+                    }`}>
                         <div className="flex items-center gap-2 mb-6">
-                            <Award className="w-5 h-5 text-yellow-500" />
-                            <h3 className="text-zinc-200 text-sm font-bold uppercase tracking-wider">Fix Priority</h3>
+                            <Award className={`w-5 h-5 ${isDarkMode ? 'text-yellow-500' : 'text-yellow-600'}`} />
+                            <h3 className={`text-sm font-bold uppercase tracking-wider ${
+                              isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                            }`}>Fix Priority</h3>
                         </div>
                         <div className="space-y-3">
                             {data.biasPriority.map((priority) => (
-                                <div key={priority.bias} className="p-4 bg-zinc-950 rounded-lg border border-zinc-800">
+                                <div key={priority.bias} className={`p-4 rounded-lg border ${
+                                  isDarkMode 
+                                    ? 'bg-zinc-950 border-zinc-800' 
+                                    : 'bg-white border-zinc-200'
+                                }`}>
                                     <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-2">
                                             <span className="w-6 h-6 rounded-full bg-red-500/20 text-red-400 text-xs font-bold flex items-center justify-center">
                                                 {priority.priority}
                                             </span>
-                                            <span className="text-sm font-medium text-zinc-200">{priority.bias}</span>
+                                            <span className={`text-sm font-medium ${
+                                              isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                                            }`}>{priority.bias}</span>
                                         </div>
                                         <span className="text-red-400 font-mono font-bold text-sm">
                                             -${priority.financialLoss.toFixed(0)}
                                         </span>
                                     </div>
-                                    <div className="text-xs text-zinc-500 mt-2">
+                                    <div className={`text-xs mt-2 ${
+                                      isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                                    }`}>
                                         Frequency: {(priority.frequency * 100).toFixed(0)}% | 
                                         Severity: {(priority.severity * 100).toFixed(0)}%
                                     </div>
