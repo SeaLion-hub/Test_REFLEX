@@ -176,9 +176,27 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
             // The backend `EnrichedTrade` matches frontend `EnrichedTrade`.
             // The backend `metrics` matches frontend `metrics` mostly.
             
+            // Map backend metrics (snake_case) to frontend format (camelCase)
+            const backendMetrics = json.metrics;
             return {
                 trades: json.trades,
-                metrics: json.metrics,
+                metrics: {
+                    totalTrades: backendMetrics.total_trades,
+                    winRate: backendMetrics.win_rate,
+                    avgWin: 0, // Not in backend response, will be calculated if needed
+                    avgLoss: 0, // Not in backend response, will be calculated if needed
+                    profitFactor: backendMetrics.profit_factor,
+                    fomoIndex: backendMetrics.fomo_score,
+                    panicIndex: backendMetrics.panic_score,
+                    dispositionRatio: backendMetrics.disposition_ratio,
+                    revengeTradingCount: backendMetrics.revenge_trading_count,
+                    sharpeRatio: backendMetrics.sharpe_ratio || 0,
+                    sortinoRatio: backendMetrics.sortino_ratio || 0,
+                    alpha: backendMetrics.alpha || 0,
+                    luckPercentile: backendMetrics.luck_percentile || 50,
+                    totalRegret: json.trades.reduce((sum: number, t: any) => sum + (t.regret || 0), 0),
+                    truthScore: backendMetrics.truth_score
+                },
                 isLowSample: json.is_low_sample,
                 revengeTrades: json.trades.filter((t: any) => t.is_revenge),
                 dataSource: 'BACKEND_TRUTH',

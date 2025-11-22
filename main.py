@@ -40,6 +40,11 @@ class BehavioralMetrics(BaseModel):
     disposition_ratio: float
     revenge_trading_count: int
     truth_score: int
+    # Advanced Performance Metrics
+    sharpe_ratio: float = 0.0
+    sortino_ratio: float = 0.0
+    alpha: float = 0.0
+    luck_percentile: float = 50.0
 
 class EnrichedTrade(BaseModel):
     id: str
@@ -301,6 +306,7 @@ async def analyze_trades(file: UploadFile):
     
     # Revenge Trading Logic (Sort by time)
     trades_df['entry_dt'] = pd.to_datetime(trades_df['entry_date'])
+    trades_df['exit_dt'] = pd.to_datetime(trades_df['exit_date'])
     trades_df = trades_df.sort_values('entry_dt')
     
     revenge_count = 0
@@ -351,6 +357,64 @@ async def analyze_trades(file: UploadFile):
     avg_loss_hold = losers['duration_days'].mean() if not losers.empty else 0
     disposition_ratio = avg_loss_hold / avg_win_hold if avg_win_hold > 0 else 0
     
+    # Advanced Performance Metrics: Sharpe, Sortino, Alpha
+    returns = trades_df['return_pct'].tolist()
+    avg_return = np.mean(returns) if returns else 0.0
+    
+    # Sharpe Ratio: (Return - Risk Free Rate) / StdDev
+    # Risk-free rate assumed to be 2% annual (0.02/252 daily)
+    std_dev = np.std(returns) if len(returns) > 1 else 0.0
+    sharpe_ratio = (avg_return - 0.02/252) / std_dev if std_dev > 0 else 0.0
+    
+    # Sortino Ratio: Return / Downside Deviation
+    downside_returns = [r for r in returns if r < 0]
+    downside_dev = np.sqrt(np.mean([r**2 for r in downside_returns])) if downside_returns else 0.0
+    sortino_ratio = avg_return / downside_dev if downside_dev > 0 else 0.0
+    
+    # Alpha: Excess return vs Benchmark (SPY)
+    # Fetch SPY data for the same period
+    alpha = 0.0
+    try:
+        if len(trades_df) > 0:
+            min_date = trades_df['entry_dt'].min()
+            max_date = trades_df['exit_dt'].max()
+            spy_start = (min_date - timedelta(days=10)).strftime("%Y-%m-%d")
+            spy_end = (max_date + timedelta(days=10)).strftime("%Y-%m-%d")
+            
+            spy_df = yf.download('SPY', start=spy_start, end=spy_end, progress=False)
+            if not spy_df.empty:
+                if isinstance(spy_df.columns, pd.MultiIndex):
+                    spy_df.columns = spy_df.columns.get_level_values(0)
+                
+                # Calculate SPY return for the same period
+                spy_start_price = spy_df.iloc[0]['Close']
+                spy_end_price = spy_df.iloc[-1]['Close']
+                spy_return = (spy_end_price - spy_start_price) / spy_start_price
+                
+                # Alpha = Portfolio Return - Benchmark Return
+                portfolio_return = avg_return * len(trades_df)  # Approximate total return
+                alpha = portfolio_return - spy_return
+    except Exception as e:
+        print(f"Benchmark calculation error: {e}")
+        alpha = avg_return  # Fallback to avg return
+    
+    # Monte Carlo Simulation (Luck Percentile)
+    luck_percentile = 50.0
+    is_low_sample = total_trades < 5
+    if not is_low_sample and len(trades_df) > 0:
+        simulations = 1000
+        realized_total_pnl = trades_df['pnl'].sum()
+        all_pnls = trades_df['pnl'].tolist()
+        better_outcomes = 0
+        
+        np.random.seed(42)  # For reproducibility
+        for _ in range(simulations):
+            sim_total = sum(np.random.choice(all_pnls) for _ in range(total_trades))
+            if sim_total > realized_total_pnl:
+                better_outcomes += 1
+        
+        luck_percentile = (better_outcomes / simulations) * 100
+    
     # Truth Score Calculation (Simple Version)
     base_score = 50
     base_score += (win_rate * 20)
@@ -361,6 +425,10 @@ async def analyze_trades(file: UploadFile):
     base_score -= ((1 - panic_index) * 20) 
     base_score -= max(0, (disposition_ratio - 1) * 10)
     base_score -= (revenge_count * 5)
+    if not is_low_sample:
+        base_score += (sharpe_ratio * 5)  # Add Sharpe bonus
+    else:
+        base_score += 5  # Low sample bonus
     
     truth_score = int(max(0, min(100, base_score)))
     
@@ -574,7 +642,11 @@ async def analyze_trades(file: UploadFile):
         panic_score=panic_index,
         disposition_ratio=disposition_ratio,
         revenge_trading_count=revenge_count,
-        truth_score=truth_score
+        truth_score=truth_score,
+        sharpe_ratio=float(sharpe_ratio),
+        sortino_ratio=float(sortino_ratio),
+        alpha=float(alpha),
+        luck_percentile=float(luck_percentile)
     )
     
     # Convert back to list of EnrichedTrade

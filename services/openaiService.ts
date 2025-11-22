@@ -1,18 +1,20 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import OpenAI from "openai";
 import { AnalysisResult, AIAnalysis } from "../types";
 
 export const getAIInterpretation = async (data: AnalysisResult): Promise<AIAnalysis> => {
-  if (!process.env.API_KEY) {
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY;
+  
+  if (!apiKey) {
     return {
         diagnosis: "API Key missing. Please configure your environment to unlock the Truth.",
         rule: "No rule generated.",
         bias: "N/A",
-        fix: "Add API Key"
+        fix: "Add VITE_OPENAI_API_KEY to your .env.local"
     };
   }
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
 
   // Prepare granular context
   const topRegrets = data.trades
@@ -87,35 +89,41 @@ export const getAIInterpretation = async (data: AnalysisResult): Promise<AIAnaly
     3. BIAS: Name the single dominant psychological bias. ${data.biasPriority && data.biasPriority.length > 0 ? `Use: ${data.biasPriority[0].bias}` : ''} (e.g. Disposition Effect, Action Bias, Revenge Trading, FOMO).
     4. FIX: One specific, actionable step to take immediately. ${data.biasPriority && data.biasPriority.length > 0 ? `Focus on fixing ${data.biasPriority[0].bias} first (highest financial impact).` : ''}
 
-    Output valid JSON only.
+    Output valid JSON only with this exact structure:
+    {
+      "diagnosis": "3 sentences. Must mention a ticker.",
+      "rule": "1 sentence rule.",
+      "bias": "Primary bias.",
+      "fix": "Priority fix."
+    }
   `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-                diagnosis: { type: Type.STRING, description: "3 sentences. Must mention a ticker." },
-                rule: { type: Type.STRING, description: "1 sentence rule." },
-                bias: { type: Type.STRING, description: "Primary bias." },
-                fix: { type: Type.STRING, description: "Priority fix." }
-            },
-            required: ["diagnosis", "rule", "bias", "fix"]
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are a data-driven trading coach. Always respond with valid JSON only."
+        },
+        {
+          role: "user",
+          content: prompt
         }
-      }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.7,
     });
 
-    if (response.text) {
-        return JSON.parse(response.text) as AIAnalysis;
+    const content = completion.choices[0]?.message?.content;
+    if (content) {
+        const parsed = JSON.parse(content) as AIAnalysis;
+        return parsed;
     } else {
-        throw new Error("No text returned");
+        throw new Error("No content returned");
     }
   } catch (error) {
-    console.error("Gemini Analysis Error:", error);
+    console.error("OpenAI Analysis Error:", error);
     return {
         diagnosis: "AI Analysis unavailable. Focus on your Win Rate and Profit Factor manually.",
         rule: "Cut losers faster than you think.",
@@ -124,3 +132,4 @@ export const getAIInterpretation = async (data: AnalysisResult): Promise<AIAnaly
     };
   }
 };
+

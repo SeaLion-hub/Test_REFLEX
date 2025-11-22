@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { AnalysisResult, AIAnalysis } from '../types';
-import { getAIInterpretation } from '../services/geminiService';
+import { getAIInterpretation } from '../services/openaiService';
 import { BehavioralRadar, RegretChart } from './Charts';
 import { AICoach } from './AICoach';
 import { ShieldAlert, TrendingUp, RefreshCcw, Award, BarChart2, HelpCircle, ArrowLeft, ChevronDown, ChevronUp, Database, ServerCrash, Skull, TrendingDown, DollarSign, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
