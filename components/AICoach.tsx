@@ -1,0 +1,76 @@
+import React from 'react';
+import { Brain, AlertTriangle, CheckCircle2, Zap } from 'lucide-react';
+import { AIAnalysis } from '../types';
+
+interface AICoachProps {
+  analysis: AIAnalysis | null;
+  loading: boolean;
+}
+
+export const AICoach: React.FC<AICoachProps> = ({ analysis, loading }) => {
+  if (loading) {
+    return (
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 animate-pulse space-y-4">
+        <div className="h-6 bg-zinc-800 w-1/3 rounded"></div>
+        <div className="space-y-2">
+          <div className="h-4 bg-zinc-800 rounded w-full"></div>
+          <div className="h-4 bg-zinc-800 rounded w-5/6"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!analysis) return null;
+
+  return (
+    <div className="bg-gradient-to-b from-zinc-900 to-zinc-950 border border-zinc-800 rounded-xl p-6 lg:p-8 space-y-8">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-2 bg-purple-900/30 rounded-lg text-purple-400">
+          <Brain className="w-6 h-6" />
+        </div>
+        <h2 className="text-xl font-bold text-zinc-100">AI Interpretation</h2>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-2">Diagnosis</h3>
+            <p className="text-lg text-zinc-200 leading-relaxed border-l-2 border-purple-500/50 pl-4">
+              {analysis.diagnosis}
+            </p>
+          </div>
+          
+          <div>
+             <h3 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-2">Primary Bias</h3>
+             <div className="flex items-center gap-2 text-red-400 bg-red-950/10 p-3 rounded-lg border border-red-900/20 w-fit">
+                <AlertTriangle className="w-5 h-5" />
+                <span className="font-semibold">{analysis.bias}</span>
+             </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="bg-emerald-950/10 border border-emerald-900/20 p-4 rounded-xl">
+            <h3 className="text-sm font-medium text-emerald-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                The Rule
+            </h3>
+            <p className="text-xl font-serif italic text-emerald-100">
+              "{analysis.rule}"
+            </p>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-2">Priority Fix</h3>
+            <div className="flex items-start gap-3">
+                <div className="mt-1 p-1 bg-blue-900/30 rounded text-blue-400">
+                    <Zap className="w-4 h-4" />
+                </div>
+                <p className="text-zinc-300">{analysis.fix}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
