@@ -87,10 +87,51 @@ export interface AIAnalysis {
   fix: string; // Priority fix
 }
 
+// Perfect Edition: Personal Baseline
+export interface PersonalBaseline {
+  avgFomo: number; // 평균 FOMO 점수
+  avgPanic: number; // 평균 Panic 점수
+  avgMae: number; // 평균 MAE
+  avgDispositionRatio: number; // 평균 Disposition Ratio
+  avgRevengeCount: number; // 평균 Revenge Trading 횟수
+}
+
+// Perfect Edition: Bias Loss Mapping
+export interface BiasLossMapping {
+  fomoLoss: number; // FOMO로 인한 손실 금액
+  panicLoss: number; // Panic Sell로 인한 손실 금액
+  revengeLoss: number; // Revenge Trading으로 인한 손실 금액
+  dispositionLoss: number; // Disposition Effect로 놓친 수익
+}
+
+// Perfect Edition: Bias Priority
+export interface BiasPriority {
+  bias: 'FOMO' | 'Panic Sell' | 'Revenge Trading' | 'Disposition Effect';
+  priority: number; // 1 = 최우선
+  financialLoss: number; // 금전 피해
+  frequency: number; // 발생 빈도
+  severity: number; // 심각도 (0-1)
+}
+
+// Perfect Edition: Behavior Shift
+export interface BehaviorShift {
+  bias: 'FOMO' | 'Panic Sell' | 'Revenge Trading' | 'Disposition Effect';
+  recentValue: number; // 최근 3건 평균
+  baselineValue: number; // 기존 평균
+  changePercent: number; // 변화율 (%)
+  trend: 'IMPROVING' | 'WORSENING' | 'STABLE'; // 개선/악화/안정
+}
+
 export interface AnalysisResult {
   trades: EnrichedTrade[];
   metrics: BehavioralMetrics;
   isLowSample: boolean;
   revengeTrades: EnrichedTrade[]; // Specific trades for AI to critique
   dataSource: 'BACKEND_TRUTH' | 'CLIENT_DEMO';
+  
+  // Perfect Edition
+  personalBaseline?: PersonalBaseline;
+  biasLossMapping?: BiasLossMapping;
+  biasPriority?: BiasPriority[];
+  behaviorShift?: BehaviorShift[];
 }

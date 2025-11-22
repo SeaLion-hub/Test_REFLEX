@@ -71,10 +71,43 @@ class EnrichedTrade(BaseModel):
     exit_day_high: float = 0.0
     exit_day_low: float = 0.0
 
+# Perfect Edition Models
+class PersonalBaseline(BaseModel):
+    avg_fomo: float
+    avg_panic: float
+    avg_mae: float
+    avg_disposition_ratio: float
+    avg_revenge_count: float
+
+class BiasLossMapping(BaseModel):
+    fomo_loss: float
+    panic_loss: float
+    revenge_loss: float
+    disposition_loss: float
+
+class BiasPriority(BaseModel):
+    bias: str  # 'FOMO' | 'Panic Sell' | 'Revenge Trading' | 'Disposition Effect'
+    priority: int
+    financial_loss: float
+    frequency: float
+    severity: float
+
+class BehaviorShift(BaseModel):
+    bias: str
+    recent_value: float
+    baseline_value: float
+    change_percent: float
+    trend: str  # 'IMPROVING' | 'WORSENING' | 'STABLE'
+
 class AnalysisResponse(BaseModel):
     trades: List[EnrichedTrade]
     metrics: BehavioralMetrics
     is_low_sample: bool
+    # Perfect Edition (Optional)
+    personal_baseline: Optional[PersonalBaseline] = None
+    bias_loss_mapping: Optional[BiasLossMapping] = None
+    bias_priority: Optional[List[BiasPriority]] = None
+    behavior_shift: Optional[List[BehaviorShift]] = None
 
 # --- HELPER FUNCTIONS ---
 
@@ -331,6 +364,208 @@ async def analyze_trades(file: UploadFile):
     
     truth_score = int(max(0, min(100, base_score)))
     
+    # --- PERFECT EDITION CALCULATIONS ---
+    
+    # 1. Personal Baseline (개인 기준선)
+    personal_baseline = None
+    if total_trades >= 3:
+        valid_mae = trades_df[trades_df['mae'] != 0]['mae']
+        avg_mae = valid_mae.mean() if not valid_mae.empty else 0
+        
+        personal_baseline = PersonalBaseline(
+            avg_fomo=fomo_index,
+            avg_panic=panic_index,
+            avg_mae=abs(avg_mae) if avg_mae < 0 else 0,  # MAE is negative, we want absolute
+            avg_disposition_ratio=disposition_ratio,
+            avg_revenge_count=revenge_count / total_trades if total_trades > 0 else 0
+        )
+    
+    # 2. Bias Loss Mapping (편향별 금전 피해)
+    bias_loss_mapping = None
+    if total_trades > 0:
+        # FOMO Loss: High FOMO trades (fomo_score > 0.7) that resulted in losses
+        high_fomo_trades = trades_df[(trades_df['fomo_score'] > 0.7) & (trades_df['fomo_score'] != -1)]
+        fomo_loss = abs(high_fomo_trades[high_fomo_trades['pnl'] < 0]['pnl'].sum()) if not high_fomo_trades.empty else 0
+        
+        # Panic Loss: Low Panic Score trades (panic_score < 0.3) that resulted in losses
+        low_panic_trades = trades_df[(trades_df['panic_score'] < 0.3) & (trades_df['panic_score'] != -1)]
+        panic_loss = abs(low_panic_trades[low_panic_trades['pnl'] < 0]['pnl'].sum()) if not low_panic_trades.empty else 0
+        
+        # Revenge Loss: All revenge trades that resulted in losses
+        revenge_trades = trades_df[trades_df['is_revenge'] == True]
+        revenge_loss = abs(revenge_trades[revenge_trades['pnl'] < 0]['pnl'].sum()) if not revenge_trades.empty else 0
+        
+        # Disposition Loss: Winners sold too early (regret from winners)
+        winners_with_regret = trades_df[(trades_df['pnl'] > 0) & (trades_df['regret'] > 0)]
+        disposition_loss = winners_with_regret['regret'].sum() if not winners_with_regret.empty else 0
+        
+        bias_loss_mapping = BiasLossMapping(
+            fomo_loss=float(fomo_loss),
+            panic_loss=float(panic_loss),
+            revenge_loss=float(revenge_loss),
+            disposition_loss=float(disposition_loss)
+        )
+    
+    # 3. Bias Prioritization (우선순위 모델)
+    bias_priority = None
+    if bias_loss_mapping:
+        priorities = []
+        
+        # Calculate frequency and severity for each bias
+        # FOMO
+        high_fomo_count = len(trades_df[(trades_df['fomo_score'] > 0.7) & (trades_df['fomo_score'] != -1)])
+        fomo_frequency = high_fomo_count / total_trades if total_trades > 0 else 0
+        fomo_severity = min(1.0, fomo_index / 0.8) if fomo_index > 0 else 0
+        if bias_loss_mapping.fomo_loss > 0 or fomo_frequency > 0.3:
+            priorities.append(BiasPriority(
+                bias='FOMO',
+                priority=0,  # Will be set after sorting
+                financial_loss=bias_loss_mapping.fomo_loss,
+                frequency=fomo_frequency,
+                severity=fomo_severity
+            ))
+        
+        # Panic Sell
+        low_panic_count = len(trades_df[(trades_df['panic_score'] < 0.3) & (trades_df['panic_score'] != -1)])
+        panic_frequency = low_panic_count / total_trades if total_trades > 0 else 0
+        panic_severity = min(1.0, (1 - panic_index) / 0.8) if panic_index < 1 else 0
+        if bias_loss_mapping.panic_loss > 0 or panic_frequency > 0.3:
+            priorities.append(BiasPriority(
+                bias='Panic Sell',
+                priority=0,
+                financial_loss=bias_loss_mapping.panic_loss,
+                frequency=panic_frequency,
+                severity=panic_severity
+            ))
+        
+        # Revenge Trading
+        revenge_frequency = revenge_count / total_trades if total_trades > 0 else 0
+        revenge_severity = min(1.0, revenge_count / 3.0) if revenge_count > 0 else 0
+        if bias_loss_mapping.revenge_loss > 0 or revenge_count > 0:
+            priorities.append(BiasPriority(
+                bias='Revenge Trading',
+                priority=0,
+                financial_loss=bias_loss_mapping.revenge_loss,
+                frequency=revenge_frequency,
+                severity=revenge_severity
+            ))
+        
+        # Disposition Effect
+        disposition_frequency = len(winners_with_regret) / len(winners) if not winners.empty else 0
+        disposition_severity = min(1.0, (disposition_ratio - 1) / 1.5) if disposition_ratio > 1 else 0
+        if bias_loss_mapping.disposition_loss > 0 or disposition_ratio > 1.2:
+            priorities.append(BiasPriority(
+                bias='Disposition Effect',
+                priority=0,
+                financial_loss=bias_loss_mapping.disposition_loss,
+                frequency=disposition_frequency,
+                severity=disposition_severity
+            ))
+        
+        # Sort by composite score: (financial_loss * 0.5) + (frequency * 0.2) + (severity * 0.3)
+        # Higher score = higher priority (worse)
+        for i, p in enumerate(priorities):
+            composite_score = (p.financial_loss * 0.5) + (p.frequency * 10000 * 0.2) + (p.severity * 10000 * 0.3)
+            priorities[i] = BiasPriority(
+                bias=p.bias,
+                priority=0,  # Will be set after sorting
+                financial_loss=p.financial_loss,
+                frequency=p.frequency,
+                severity=p.severity
+            )
+        
+        # Sort by composite score (descending) and assign priority
+        priorities.sort(key=lambda x: (x.financial_loss * 0.5) + (x.frequency * 10000 * 0.2) + (x.severity * 10000 * 0.3), reverse=True)
+        for i, p in enumerate(priorities):
+            priorities[i] = BiasPriority(
+                bias=p.bias,
+                priority=i + 1,
+                financial_loss=p.financial_loss,
+                frequency=p.frequency,
+                severity=p.severity
+            )
+        
+        bias_priority = priorities if priorities else None
+    
+    # 4. Behavior Shift Detection (행동 변화 탐지)
+    behavior_shift = None
+    if total_trades >= 6:  # Need at least 6 trades (3 recent + 3 baseline)
+        # Recent 3 trades
+        recent_trades = trades_df.tail(3)
+        # Baseline (all except recent 3)
+        baseline_trades = trades_df.head(max(1, total_trades - 3))
+        
+        # Calculate recent vs baseline for each bias
+        shifts = []
+        
+        # FOMO Shift
+        recent_fomo = recent_trades[recent_trades['fomo_score'] != -1]['fomo_score'].mean() if not recent_trades[recent_trades['fomo_score'] != -1].empty else 0
+        baseline_fomo = baseline_trades[baseline_trades['fomo_score'] != -1]['fomo_score'].mean() if not baseline_trades[baseline_trades['fomo_score'] != -1].empty else 0
+        if baseline_fomo > 0:
+            fomo_change = ((recent_fomo - baseline_fomo) / baseline_fomo) * 100
+            fomo_trend = 'IMPROVING' if fomo_change < -5 else 'WORSENING' if fomo_change > 5 else 'STABLE'
+            shifts.append(BehaviorShift(
+                bias='FOMO',
+                recent_value=recent_fomo,
+                baseline_value=baseline_fomo,
+                change_percent=fomo_change,
+                trend=fomo_trend
+            ))
+        
+        # Panic Shift
+        recent_panic = recent_trades[recent_trades['panic_score'] != -1]['panic_score'].mean() if not recent_trades[recent_trades['panic_score'] != -1].empty else 0
+        baseline_panic = baseline_trades[baseline_trades['panic_score'] != -1]['panic_score'].mean() if not baseline_trades[baseline_trades['panic_score'] != -1].empty else 0
+        if baseline_panic > 0:
+            panic_change = ((recent_panic - baseline_panic) / baseline_panic) * 100
+            # For panic, higher is better, so improvement = increase
+            panic_trend = 'IMPROVING' if panic_change > 5 else 'WORSENING' if panic_change < -5 else 'STABLE'
+            shifts.append(BehaviorShift(
+                bias='Panic Sell',
+                recent_value=recent_panic,
+                baseline_value=baseline_panic,
+                change_percent=panic_change,
+                trend=panic_trend
+            ))
+        
+        # Revenge Shift
+        recent_revenge = len(recent_trades[recent_trades['is_revenge'] == True])
+        baseline_revenge = len(baseline_trades[baseline_trades['is_revenge'] == True])
+        baseline_revenge_rate = baseline_revenge / len(baseline_trades) if len(baseline_trades) > 0 else 0
+        recent_revenge_rate = recent_revenge / len(recent_trades) if len(recent_trades) > 0 else 0
+        if baseline_revenge_rate > 0 or recent_revenge_rate > 0:
+            revenge_change = ((recent_revenge_rate - baseline_revenge_rate) / (baseline_revenge_rate + 0.01)) * 100
+            revenge_trend = 'IMPROVING' if revenge_change < -10 else 'WORSENING' if revenge_change > 10 else 'STABLE'
+            shifts.append(BehaviorShift(
+                bias='Revenge Trading',
+                recent_value=recent_revenge_rate,
+                baseline_value=baseline_revenge_rate,
+                change_percent=revenge_change,
+                trend=revenge_trend
+            ))
+        
+        # Disposition Shift
+        recent_winners = recent_trades[recent_trades['pnl'] > 0]
+        recent_losers = recent_trades[recent_trades['pnl'] <= 0]
+        baseline_winners = baseline_trades[baseline_trades['pnl'] > 0]
+        baseline_losers = baseline_trades[baseline_trades['pnl'] <= 0]
+        
+        recent_disposition = (recent_losers['duration_days'].mean() / recent_winners['duration_days'].mean()) if (not recent_winners.empty and not recent_losers.empty and recent_winners['duration_days'].mean() > 0) else 0
+        baseline_disposition = (baseline_losers['duration_days'].mean() / baseline_winners['duration_days'].mean()) if (not baseline_winners.empty and not baseline_losers.empty and baseline_winners['duration_days'].mean() > 0) else 0
+        
+        if baseline_disposition > 0 and recent_disposition > 0:
+            disposition_change = ((recent_disposition - baseline_disposition) / baseline_disposition) * 100
+            # Lower disposition ratio is better, so improvement = decrease
+            disposition_trend = 'IMPROVING' if disposition_change < -10 else 'WORSENING' if disposition_change > 10 else 'STABLE'
+            shifts.append(BehaviorShift(
+                bias='Disposition Effect',
+                recent_value=recent_disposition,
+                baseline_value=baseline_disposition,
+                change_percent=disposition_change,
+                trend=disposition_trend
+            ))
+        
+        behavior_shift = shifts if shifts else None
+    
     metrics_obj = BehavioralMetrics(
         total_trades=total_trades,
         win_rate=win_rate,
@@ -373,7 +608,11 @@ async def analyze_trades(file: UploadFile):
     return AnalysisResponse(
         trades=final_trades,
         metrics=metrics_obj,
-        is_low_sample=total_trades < 5
+        is_low_sample=total_trades < 5,
+        personal_baseline=personal_baseline,
+        bias_loss_mapping=bias_loss_mapping,
+        bias_priority=bias_priority,
+        behavior_shift=behavior_shift
     )
 
 if __name__ == "__main__":

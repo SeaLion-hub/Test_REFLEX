@@ -4,7 +4,7 @@ import { AnalysisResult, AIAnalysis } from '../types';
 import { getAIInterpretation } from '../services/geminiService';
 import { BehavioralRadar, RegretChart } from './Charts';
 import { AICoach } from './AICoach';
-import { ShieldAlert, TrendingUp, RefreshCcw, Award, BarChart2, HelpCircle, ArrowLeft, ChevronDown, ChevronUp, Database, ServerCrash, Skull } from 'lucide-react';
+import { ShieldAlert, TrendingUp, RefreshCcw, Award, BarChart2, HelpCircle, ArrowLeft, ChevronDown, ChevronUp, Database, ServerCrash, Skull, TrendingDown, DollarSign, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 
 interface DashboardProps {
   data: AnalysisResult;
@@ -58,7 +58,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
     },
     regret: {
         total_regret: metrics.totalRegret
-    }
+    },
+    personal_baseline: data.personalBaseline,
+    bias_loss_mapping: data.biasLossMapping,
+    bias_priority: data.biasPriority,
+    behavior_shift: data.behaviorShift
   };
 
   return (
@@ -230,6 +234,165 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                 </div>
              </div>
         </div>
+
+        {/* PERFECT EDITION: PERSONAL BASELINE & BEHAVIOR SHIFT */}
+        {(data.personalBaseline || data.behaviorShift) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Personal Baseline */}
+                {data.personalBaseline && (
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                        <div className="flex items-center gap-2 mb-6">
+                            <TrendingUp className="w-5 h-5 text-blue-500" />
+                            <h3 className="text-zinc-200 text-sm font-bold uppercase tracking-wider">Personal Baseline</h3>
+                        </div>
+                        <div className="space-y-4">
+                            <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800">
+                                <div className="text-xs text-zinc-500 mb-1">FOMO Score</div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-zinc-300">Your Average: {(data.personalBaseline.avgFomo * 100).toFixed(0)}%</span>
+                                    <span className={`text-sm font-mono ${metrics.fomoIndex > data.personalBaseline.avgFomo ? 'text-red-400' : 'text-emerald-400'}`}>
+                                        Current: {(metrics.fomoIndex * 100).toFixed(0)}%
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800">
+                                <div className="text-xs text-zinc-500 mb-1">Panic Score</div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-zinc-300">Your Average: {(data.personalBaseline.avgPanic * 100).toFixed(0)}%</span>
+                                    <span className={`text-sm font-mono ${metrics.panicIndex < data.personalBaseline.avgPanic ? 'text-red-400' : 'text-emerald-400'}`}>
+                                        Current: {(metrics.panicIndex * 100).toFixed(0)}%
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800">
+                                <div className="text-xs text-zinc-500 mb-1">Disposition Ratio</div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-zinc-300">Your Average: {data.personalBaseline.avgDispositionRatio.toFixed(1)}x</span>
+                                    <span className={`text-sm font-mono ${metrics.dispositionRatio > data.personalBaseline.avgDispositionRatio ? 'text-red-400' : 'text-emerald-400'}`}>
+                                        Current: {metrics.dispositionRatio.toFixed(1)}x
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Behavior Shift Detection */}
+                {data.behaviorShift && data.behaviorShift.length > 0 && (
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                        <div className="flex items-center gap-2 mb-6">
+                            <RefreshCcw className="w-5 h-5 text-purple-500" />
+                            <h3 className="text-zinc-200 text-sm font-bold uppercase tracking-wider">Behavior Shift (Recent 3 vs Baseline)</h3>
+                        </div>
+                        <div className="space-y-3">
+                            {data.behaviorShift.map((shift, idx) => (
+                                <div key={idx} className={`p-4 rounded-lg border ${
+                                    shift.trend === 'IMPROVING' ? 'bg-emerald-950/20 border-emerald-900/30' :
+                                    shift.trend === 'WORSENING' ? 'bg-red-950/20 border-red-900/30' :
+                                    'bg-zinc-950 border-zinc-800'
+                                }`}>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm font-medium text-zinc-200">{shift.bias}</span>
+                                        {shift.trend === 'IMPROVING' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                                        {shift.trend === 'WORSENING' && <XCircle className="w-4 h-4 text-red-400" />}
+                                        {shift.trend === 'STABLE' && <AlertCircle className="w-4 h-4 text-zinc-500" />}
+                                    </div>
+                                    <div className="text-xs text-zinc-400">
+                                        {shift.trend === 'IMPROVING' ? '↓' : shift.trend === 'WORSENING' ? '↑' : '→'} 
+                                        {' '}{Math.abs(shift.changePercent).toFixed(1)}% 
+                                        {' '}({shift.trend === 'IMPROVING' ? '개선' : shift.trend === 'WORSENING' ? '악화' : '안정'})
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        )}
+
+        {/* PERFECT EDITION: BIAS LOSS MAPPING & PRIORITY */}
+        {(data.biasLossMapping || data.biasPriority) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Bias Loss Mapping */}
+                {data.biasLossMapping && (
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                        <div className="flex items-center gap-2 mb-6">
+                            <DollarSign className="w-5 h-5 text-red-500" />
+                            <h3 className="text-zinc-200 text-sm font-bold uppercase tracking-wider">Bias Loss Mapping</h3>
+                        </div>
+                        <div className="space-y-3">
+                            {data.biasLossMapping.fomoLoss > 0 && (
+                                <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-zinc-300">FOMO Loss</span>
+                                        <span className="text-red-400 font-mono font-bold">-${data.biasLossMapping.fomoLoss.toFixed(0)}</span>
+                                    </div>
+                                </div>
+                            )}
+                            {data.biasLossMapping.panicLoss > 0 && (
+                                <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-zinc-300">Panic Sell Loss</span>
+                                        <span className="text-red-400 font-mono font-bold">-${data.biasLossMapping.panicLoss.toFixed(0)}</span>
+                                    </div>
+                                </div>
+                            )}
+                            {data.biasLossMapping.revengeLoss > 0 && (
+                                <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-zinc-300">Revenge Trading Loss</span>
+                                        <span className="text-red-400 font-mono font-bold">-${data.biasLossMapping.revengeLoss.toFixed(0)}</span>
+                                    </div>
+                                </div>
+                            )}
+                            {data.biasLossMapping.dispositionLoss > 0 && (
+                                <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-800">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-zinc-300">Disposition Effect (Missed)</span>
+                                        <span className="text-orange-400 font-mono font-bold">-${data.biasLossMapping.dispositionLoss.toFixed(0)}</span>
+                                    </div>
+                                </div>
+                            )}
+                            {data.biasLossMapping.fomoLoss === 0 && data.biasLossMapping.panicLoss === 0 && 
+                             data.biasLossMapping.revengeLoss === 0 && data.biasLossMapping.dispositionLoss === 0 && (
+                                <div className="text-xs text-zinc-500 text-center py-4">No significant bias losses detected</div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Bias Priority */}
+                {data.biasPriority && data.biasPriority.length > 0 && (
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                        <div className="flex items-center gap-2 mb-6">
+                            <Award className="w-5 h-5 text-yellow-500" />
+                            <h3 className="text-zinc-200 text-sm font-bold uppercase tracking-wider">Fix Priority</h3>
+                        </div>
+                        <div className="space-y-3">
+                            {data.biasPriority.map((priority) => (
+                                <div key={priority.bias} className="p-4 bg-zinc-950 rounded-lg border border-zinc-800">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-6 h-6 rounded-full bg-red-500/20 text-red-400 text-xs font-bold flex items-center justify-center">
+                                                {priority.priority}
+                                            </span>
+                                            <span className="text-sm font-medium text-zinc-200">{priority.bias}</span>
+                                        </div>
+                                        <span className="text-red-400 font-mono font-bold text-sm">
+                                            -${priority.financialLoss.toFixed(0)}
+                                        </span>
+                                    </div>
+                                    <div className="text-xs text-zinc-500 mt-2">
+                                        Frequency: {(priority.frequency * 100).toFixed(0)}% | 
+                                        Severity: {(priority.severity * 100).toFixed(0)}%
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        )}
 
         {/* LEVEL 4: DEEP DIVE (COLLAPSIBLE) */}
         <div className="flex flex-col items-center pt-8 pb-20">

@@ -181,7 +181,34 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
                 metrics: json.metrics,
                 isLowSample: json.is_low_sample,
                 revengeTrades: json.trades.filter((t: any) => t.is_revenge),
-                dataSource: 'BACKEND_TRUTH'
+                dataSource: 'BACKEND_TRUTH',
+                personalBaseline: json.personal_baseline ? {
+                    avgFomo: json.personal_baseline.avg_fomo,
+                    avgPanic: json.personal_baseline.avg_panic,
+                    avgMae: json.personal_baseline.avg_mae,
+                    avgDispositionRatio: json.personal_baseline.avg_disposition_ratio,
+                    avgRevengeCount: json.personal_baseline.avg_revenge_count
+                } : undefined,
+                biasLossMapping: json.bias_loss_mapping ? {
+                    fomoLoss: json.bias_loss_mapping.fomo_loss,
+                    panicLoss: json.bias_loss_mapping.panic_loss,
+                    revengeLoss: json.bias_loss_mapping.revenge_loss,
+                    dispositionLoss: json.bias_loss_mapping.disposition_loss
+                } : undefined,
+                biasPriority: json.bias_priority ? json.bias_priority.map((p: any) => ({
+                    bias: p.bias,
+                    priority: p.priority,
+                    financialLoss: p.financial_loss,
+                    frequency: p.frequency,
+                    severity: p.severity
+                })) : undefined,
+                behaviorShift: json.behavior_shift ? json.behavior_shift.map((s: any) => ({
+                    bias: s.bias,
+                    recentValue: s.recent_value,
+                    baselineValue: s.baseline_value,
+                    changePercent: s.change_percent,
+                    trend: s.trend
+                })) : undefined
             };
 
         } else {
@@ -286,6 +313,213 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
     if (!isLowSample) baseScore += (sharpeRatio * 5);
     else baseScore += 5;
 
+    // --- PERFECT EDITION CALCULATIONS (Fallback) ---
+    
+    // 1. Personal Baseline
+    let personalBaseline = undefined;
+    if (totalTrades >= 3) {
+        const validMae = enrichedTrades.filter(t => t.mae !== 0);
+        const avgMae = validMae.length > 0 ? Math.abs(validMae.reduce((a, b) => a + b.mae, 0) / validMae.length) : 0;
+        
+        personalBaseline = {
+            avgFomo: fomoIndex,
+            avgPanic: panicIndex,
+            avgMae: avgMae,
+            avgDispositionRatio: dispositionRatio,
+            avgRevengeCount: revengeTradingCount / totalTrades
+        };
+    }
+    
+    // 2. Bias Loss Mapping
+    let biasLossMapping = undefined;
+    if (totalTrades > 0) {
+        const highFomoTrades = enrichedTrades.filter(t => t.fomoScore > 0.7 && t.fomoScore !== -1);
+        const fomoLoss = Math.abs(highFomoTrades.filter(t => t.pnl < 0).reduce((a, b) => a + b.pnl, 0));
+        
+        const lowPanicTrades = enrichedTrades.filter(t => t.panicScore < 0.3 && t.panicScore !== -1);
+        const panicLoss = Math.abs(lowPanicTrades.filter(t => t.pnl < 0).reduce((a, b) => a + b.pnl, 0));
+        
+        const revengeLossTrades = revengeTrades.filter(t => t.pnl < 0);
+        const revengeLoss = Math.abs(revengeLossTrades.reduce((a, b) => a + b.pnl, 0));
+        
+        const winnersWithRegret = enrichedTrades.filter(t => t.pnl > 0 && t.regret > 0);
+        const dispositionLoss = winnersWithRegret.reduce((a, b) => a + b.regret, 0);
+        
+        biasLossMapping = {
+            fomoLoss,
+            panicLoss,
+            revengeLoss,
+            dispositionLoss
+        };
+    }
+    
+    // 3. Bias Prioritization
+    let biasPriority = undefined;
+    if (biasLossMapping) {
+        const priorities: Array<{bias: string, priority: number, financialLoss: number, frequency: number, severity: number}> = [];
+        
+        const highFomoCount = enrichedTrades.filter(t => t.fomoScore > 0.7 && t.fomoScore !== -1).length;
+        const fomoFrequency = highFomoCount / totalTrades;
+        const fomoSeverity = Math.min(1.0, fomoIndex / 0.8);
+        if (biasLossMapping.fomoLoss > 0 || fomoFrequency > 0.3) {
+            priorities.push({
+                bias: 'FOMO',
+                priority: 0,
+                financialLoss: biasLossMapping.fomoLoss,
+                frequency: fomoFrequency,
+                severity: fomoSeverity
+            });
+        }
+        
+        const lowPanicCount = enrichedTrades.filter(t => t.panicScore < 0.3 && t.panicScore !== -1).length;
+        const panicFrequency = lowPanicCount / totalTrades;
+        const panicSeverity = Math.min(1.0, (1 - panicIndex) / 0.8);
+        if (biasLossMapping.panicLoss > 0 || panicFrequency > 0.3) {
+            priorities.push({
+                bias: 'Panic Sell',
+                priority: 0,
+                financialLoss: biasLossMapping.panicLoss,
+                frequency: panicFrequency,
+                severity: panicSeverity
+            });
+        }
+        
+        const revengeFrequency = revengeTradingCount / totalTrades;
+        const revengeSeverity = Math.min(1.0, revengeTradingCount / 3.0);
+        if (biasLossMapping.revengeLoss > 0 || revengeTradingCount > 0) {
+            priorities.push({
+                bias: 'Revenge Trading',
+                priority: 0,
+                financialLoss: biasLossMapping.revengeLoss,
+                frequency: revengeFrequency,
+                severity: revengeSeverity
+            });
+        }
+        
+        const winnersWithRegretCount = enrichedTrades.filter(t => t.pnl > 0 && t.regret > 0).length;
+        const dispositionFrequency = winners.length > 0 ? winnersWithRegretCount / winners.length : 0;
+        const dispositionSeverity = Math.min(1.0, (dispositionRatio - 1) / 1.5);
+        if (biasLossMapping.dispositionLoss > 0 || dispositionRatio > 1.2) {
+            priorities.push({
+                bias: 'Disposition Effect',
+                priority: 0,
+                financialLoss: biasLossMapping.dispositionLoss,
+                frequency: dispositionFrequency,
+                severity: dispositionSeverity
+            });
+        }
+        
+        // Sort by composite score and assign priority
+        priorities.sort((a, b) => {
+            const scoreA = (a.financialLoss * 0.5) + (a.frequency * 10000 * 0.2) + (a.severity * 10000 * 0.3);
+            const scoreB = (b.financialLoss * 0.5) + (b.frequency * 10000 * 0.2) + (b.severity * 10000 * 0.3);
+            return scoreB - scoreA;
+        });
+        
+        biasPriority = priorities.map((p, i) => ({
+            ...p,
+            priority: i + 1
+        }));
+    }
+    
+    // 4. Behavior Shift Detection
+    let behaviorShift = undefined;
+    if (totalTrades >= 6) {
+        const sortedTrades = [...enrichedTrades].sort((a, b) => 
+            new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime()
+        );
+        const recentTrades = sortedTrades.slice(-3);
+        const baselineTrades = sortedTrades.slice(0, Math.max(1, sortedTrades.length - 3));
+        
+        const shifts: Array<{bias: string, recentValue: number, baselineValue: number, changePercent: number, trend: string}> = [];
+        
+        // FOMO Shift
+        const recentFomo = recentTrades.filter(t => t.fomoScore !== -1);
+        const baselineFomo = baselineTrades.filter(t => t.fomoScore !== -1);
+        if (recentFomo.length > 0 && baselineFomo.length > 0) {
+            const recentFomoAvg = recentFomo.reduce((a, b) => a + b.fomoScore, 0) / recentFomo.length;
+            const baselineFomoAvg = baselineFomo.reduce((a, b) => a + b.fomoScore, 0) / baselineFomo.length;
+            if (baselineFomoAvg > 0) {
+                const fomoChange = ((recentFomoAvg - baselineFomoAvg) / baselineFomoAvg) * 100;
+                const fomoTrend = fomoChange < -5 ? 'IMPROVING' : fomoChange > 5 ? 'WORSENING' : 'STABLE';
+                shifts.push({
+                    bias: 'FOMO',
+                    recentValue: recentFomoAvg,
+                    baselineValue: baselineFomoAvg,
+                    changePercent: fomoChange,
+                    trend: fomoTrend
+                });
+            }
+        }
+        
+        // Panic Shift
+        const recentPanic = recentTrades.filter(t => t.panicScore !== -1);
+        const baselinePanic = baselineTrades.filter(t => t.panicScore !== -1);
+        if (recentPanic.length > 0 && baselinePanic.length > 0) {
+            const recentPanicAvg = recentPanic.reduce((a, b) => a + b.panicScore, 0) / recentPanic.length;
+            const baselinePanicAvg = baselinePanic.reduce((a, b) => a + b.panicScore, 0) / baselinePanic.length;
+            if (baselinePanicAvg > 0) {
+                const panicChange = ((recentPanicAvg - baselinePanicAvg) / baselinePanicAvg) * 100;
+                const panicTrend = panicChange > 5 ? 'IMPROVING' : panicChange < -5 ? 'WORSENING' : 'STABLE';
+                shifts.push({
+                    bias: 'Panic Sell',
+                    recentValue: recentPanicAvg,
+                    baselineValue: baselinePanicAvg,
+                    changePercent: panicChange,
+                    trend: panicTrend
+                });
+            }
+        }
+        
+        // Revenge Shift
+        const recentRevenge = recentTrades.filter(t => t.isRevenge).length;
+        const baselineRevenge = baselineTrades.filter(t => t.isRevenge).length;
+        const recentRevengeRate = recentRevenge / recentTrades.length;
+        const baselineRevengeRate = baselineRevenge / baselineTrades.length;
+        if (baselineRevengeRate > 0 || recentRevengeRate > 0) {
+            const revengeChange = ((recentRevengeRate - baselineRevengeRate) / (baselineRevengeRate + 0.01)) * 100;
+            const revengeTrend = revengeChange < -10 ? 'IMPROVING' : revengeChange > 10 ? 'WORSENING' : 'STABLE';
+            shifts.push({
+                bias: 'Revenge Trading',
+                recentValue: recentRevengeRate,
+                baselineValue: baselineRevengeRate,
+                changePercent: revengeChange,
+                trend: revengeTrend
+            });
+        }
+        
+        // Disposition Shift
+        const recentWinners = recentTrades.filter(t => t.pnl > 0);
+        const recentLosers = recentTrades.filter(t => t.pnl <= 0);
+        const baselineWinners = baselineTrades.filter(t => t.pnl > 0);
+        const baselineLosers = baselineTrades.filter(t => t.pnl <= 0);
+        
+        if (recentWinners.length > 0 && recentLosers.length > 0 && baselineWinners.length > 0 && baselineLosers.length > 0) {
+            const recentWinHold = recentWinners.reduce((a, b) => a + b.durationDays, 0) / recentWinners.length;
+            const recentLossHold = recentLosers.reduce((a, b) => a + b.durationDays, 0) / recentLosers.length;
+            const baselineWinHold = baselineWinners.reduce((a, b) => a + b.durationDays, 0) / baselineWinners.length;
+            const baselineLossHold = baselineLosers.reduce((a, b) => a + b.durationDays, 0) / baselineLosers.length;
+            
+            if (recentWinHold > 0 && baselineWinHold > 0) {
+                const recentDisposition = recentLossHold / recentWinHold;
+                const baselineDisposition = baselineLossHold / baselineWinHold;
+                if (baselineDisposition > 0 && recentDisposition > 0) {
+                    const dispositionChange = ((recentDisposition - baselineDisposition) / baselineDisposition) * 100;
+                    const dispositionTrend = dispositionChange < -10 ? 'IMPROVING' : dispositionChange > 10 ? 'WORSENING' : 'STABLE';
+                    shifts.push({
+                        bias: 'Disposition Effect',
+                        recentValue: recentDisposition,
+                        baselineValue: baselineDisposition,
+                        changePercent: dispositionChange,
+                        trend: dispositionTrend
+                    });
+                }
+            }
+        }
+        
+        behaviorShift = shifts.length > 0 ? shifts : undefined;
+    }
+
     return {
         trades: enrichedTrades,
         isLowSample,
@@ -296,7 +530,11 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
             fomoIndex, panicIndex, dispositionRatio, revengeTradingCount,
             sharpeRatio, sortinoRatio, alpha: avgReturn, luckPercentile,
             totalRegret, truthScore: Math.max(0, Math.min(100, Math.round(baseScore)))
-        }
+        },
+        personalBaseline,
+        biasLossMapping,
+        biasPriority,
+        behaviorShift
     };
 };
 
