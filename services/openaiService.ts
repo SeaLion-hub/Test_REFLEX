@@ -46,6 +46,7 @@ interface CoachRequestPayload {
   revenge_details: Array<{ ticker: string; pnl: number }>;
   best_executions: Array<BestExecution>; // 잘한 매매
   patterns: Array<PatternMetric>; // 반복되는 패턴
+  deep_patterns?: Array<{ type: string; description: string; significance: string; metadata?: Record<string, any> }> | null; // 고급 패턴
   metrics: CoachRequestMetrics;
   is_low_sample: boolean;
   personal_baseline: CoachRequestPersonalBaseline | null;
@@ -312,11 +313,20 @@ const mapAnalysisResultToCoachRequest = (data: AnalysisResult): CoachRequestPayl
   // 패턴 인식 (또는 이미 계산된 패턴 사용)
   const patterns = data.patterns || detectPatterns(data.trades);
 
+  // Deep Patterns 매핑
+  const deepPatterns = data.deepPatterns ? data.deepPatterns.map(dp => ({
+    type: dp.type,
+    description: dp.description,
+    significance: dp.significance,
+    metadata: dp.metadata || {}
+  })) : null;
+
   return {
     top_regrets: topRegrets,
     revenge_details: revengeDetails,
     best_executions: bestExecutions,
     patterns: patterns,
+    deep_patterns: deepPatterns,
     metrics: mapMetricsToBackend(data.metrics),
     is_low_sample: data.isLowSample,
     personal_baseline: data.personalBaseline 

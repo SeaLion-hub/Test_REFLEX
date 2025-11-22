@@ -244,6 +244,13 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
                     total: p.total,
                     percentage: p.percentage,
                     significance: p.significance
+                })) : undefined,
+                // Deep Patterns
+                deepPatterns: json.deep_patterns ? json.deep_patterns.map((dp: any) => ({
+                    type: dp.type,
+                    description: dp.description,
+                    significance: dp.significance,
+                    metadata: dp.metadata || {}
                 })) : undefined
             };
 

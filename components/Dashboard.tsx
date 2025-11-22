@@ -5,7 +5,7 @@ import { getAIInterpretation } from '../services/openaiService';
 import { BehavioralRadar, RegretChart, EquityCurveChart } from './Charts';
 import { AICoach } from './AICoach';
 import { StrategyTagModal } from './StrategyTagModal';
-import { ShieldAlert, TrendingUp, RefreshCcw, Award, BarChart2, HelpCircle, ArrowLeft, ChevronDown, ChevronUp, Database, ServerCrash, Skull, TrendingDown, DollarSign, AlertCircle, CheckCircle2, XCircle, Moon, Sun, BookOpen, MessageSquare } from 'lucide-react';
+import { ShieldAlert, TrendingUp, RefreshCcw, Award, BarChart2, HelpCircle, ArrowLeft, ChevronDown, ChevronUp, Database, ServerCrash, Skull, TrendingDown, DollarSign, AlertCircle, CheckCircle2, XCircle, Moon, Sun, BookOpen, MessageSquare, Brain } from 'lucide-react';
 
 interface DashboardProps {
   data: AnalysisResult;
@@ -751,6 +751,71 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                               isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
                             }`}>
                                 발생률: {pattern.percentage.toFixed(0)}% ({pattern.count}/{pattern.total}건)
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )}
+
+        {/* DEEP PATTERN ANALYSIS (AI 기반 반복 패턴 추출) */}
+        {data.deepPatterns && data.deepPatterns.length > 0 && (
+            <div className={`rounded-xl p-6 border ${
+              isDarkMode 
+                ? 'bg-indigo-950/20 border-indigo-900/30' 
+                : 'bg-indigo-50 border-indigo-200'
+            }`}>
+                <div className="flex items-center gap-2 mb-6">
+                    <Brain className={`w-5 h-5 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
+                    <h3 className={`text-sm font-bold uppercase tracking-wider ${
+                      isDarkMode ? 'text-indigo-300' : 'text-indigo-900'
+                    }`}>Deep Pattern Analysis (AI 기반 반복 패턴 추출)</h3>
+                </div>
+                <div className={`mb-4 p-3 rounded-lg border ${
+                  isDarkMode 
+                    ? 'bg-indigo-950/30 border-indigo-900/40' 
+                    : 'bg-white border-indigo-200'
+                }`}>
+                    <p className={`text-xs leading-relaxed ${
+                      isDarkMode ? 'text-indigo-200/80' : 'text-indigo-800'
+                    }`}>
+                        <strong>🤖 AI Clustering:</strong> LLM 기반 패턴 분석으로 발견된 행동 습관입니다. 
+                        "AI가 너의 행동 습관을 읽는다" - 시간대, 가격대, 시장 환경별 패턴을 자동으로 추출했습니다.
+                    </p>
+                </div>
+                <div className="space-y-3">
+                    {data.deepPatterns.map((pattern, idx) => (
+                        <div key={idx} className={`p-4 rounded-lg border ${
+                          pattern.significance === 'HIGH' 
+                            ? (isDarkMode ? 'bg-red-950/20 border-red-900/30' : 'bg-red-50 border-red-200')
+                            : pattern.significance === 'MEDIUM'
+                            ? (isDarkMode ? 'bg-orange-950/20 border-orange-900/30' : 'bg-orange-50 border-orange-200')
+                            : (isDarkMode ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200')
+                        }`}>
+                            <div className="flex items-start justify-between mb-2">
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className={`text-xs px-2 py-0.5 rounded ${
+                                          isDarkMode ? 'bg-indigo-900/40 text-indigo-300 border border-indigo-800' : 'bg-indigo-100 text-indigo-700 border border-indigo-300'
+                                        }`}>
+                                            {pattern.type}
+                                        </span>
+                                    </div>
+                                    <span className={`text-sm font-semibold ${
+                                      isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                                    }`}>
+                                        {pattern.description}
+                                    </span>
+                                </div>
+                                <span className={`text-xs px-2 py-1 rounded-full ml-2 ${
+                                  pattern.significance === 'HIGH'
+                                    ? (isDarkMode ? 'bg-red-900/40 text-red-300 border border-red-800' : 'bg-red-100 text-red-700 border border-red-300')
+                                    : pattern.significance === 'MEDIUM'
+                                    ? (isDarkMode ? 'bg-orange-900/40 text-orange-300 border border-orange-800' : 'bg-orange-100 text-orange-700 border border-orange-300')
+                                    : (isDarkMode ? 'bg-zinc-800 text-zinc-400 border border-zinc-700' : 'bg-zinc-100 text-zinc-600 border border-zinc-300')
+                                }`}>
+                                    {pattern.significance}
+                                </span>
                             </div>
                         </div>
                     ))}

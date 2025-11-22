@@ -97,6 +97,22 @@ export interface TradeStrength {
   reason: string; // "FOMO 점수 5%로 저점 매수", "손실 3%에서 즉시 청산" 등
 }
 
+export interface DeepPattern {
+  type: 'TIME_CLUSTER' | 'PRICE_CLUSTER' | 'REVENGE_SEQUENCE' | 'MARKET_REGIME' | 'MAE_CLUSTER';
+  description: string;
+  significance: 'HIGH' | 'MEDIUM' | 'LOW';
+  metadata?: Record<string, any>; // Additional context (hour, percentage, etc.)
+}
+
+export interface PersonalPlaybook {
+  rules: string[];
+  generated_at: string;
+  based_on: {
+    patterns: number;
+    biases: string[];
+  };
+}
+
 export interface AIAnalysis {
   diagnosis: string; // 3 sentences
   rule: string; // 1 sentence behavioral rule
@@ -104,6 +120,8 @@ export interface AIAnalysis {
   fix: string; // Priority fix
   references?: RAGReference[]; // RAG 카드 (옵션)
   strengths?: TradeStrength[]; // 잘한 매매 (이달의 명장면)
+  deep_patterns?: DeepPattern[]; // 고급 패턴 분석
+  playbook?: PersonalPlaybook; // Personal Playbook
 }
 
 // Perfect Edition: Personal Baseline
@@ -177,4 +195,7 @@ export interface AnalysisResult {
   
   // Pattern Recognition (과정 평가)
   patterns?: PatternMetric[]; // 반복되는 패턴 감지
+  
+  // Deep Pattern Analysis (고급 패턴)
+  deepPatterns?: DeepPattern[]; // AI 기반 반복 패턴 추출
 }

@@ -252,6 +252,17 @@ class EquityCurvePoint(BaseModel):
     ticker: str
     pnl: float
 
+class DeepPattern(BaseModel):
+    type: str  # 'TIME_CLUSTER' | 'PRICE_CLUSTER' | 'REVENGE_SEQUENCE' | 'MARKET_REGIME' | 'MAE_CLUSTER'
+    description: str
+    significance: str  # 'HIGH' | 'MEDIUM' | 'LOW'
+    metadata: Optional[dict] = None  # Additional context (hour, percentage, etc.)
+
+class PersonalPlaybook(BaseModel):
+    rules: List[str]
+    generated_at: str
+    based_on: dict  # {patterns: int, biases: List[str]}
+
 class AnalysisResponse(BaseModel):
     trades: List[EnrichedTrade]
     metrics: BehavioralMetrics
@@ -262,6 +273,8 @@ class AnalysisResponse(BaseModel):
     bias_priority: Optional[List[BiasPriority]] = None
     behavior_shift: Optional[List[BehaviorShift]] = None
     equity_curve: List[EquityCurvePoint] = []
+    # Deep Pattern Analysis
+    deep_patterns: Optional[List[DeepPattern]] = None
 
 class CoachRequest(BaseModel):
     # 최적화: trades 전체 대신 요약 데이터만 수신 (데이터 핑퐁 구조 제거)
@@ -269,6 +282,7 @@ class CoachRequest(BaseModel):
     revenge_details: List[dict]  # Revenge trades 요약만
     best_executions: List[dict]  # 잘한 매매 (이달의 명장면)
     patterns: List[dict]  # 반복되는 패턴 (과정 평가)
+    deep_patterns: Optional[List[dict]] = None  # 고급 패턴 분석
     metrics: dict
     is_low_sample: bool
     personal_baseline: Optional[dict] = None
@@ -410,6 +424,286 @@ def calculate_metrics(row, df):
             "exit_day_high": 0.0, "exit_day_low": 0.0
         }
 
+def detect_market_regime(ticker: str, date: str, market_df) -> str:
+    """
+    시장 환경 분석: SPY 대비 추세를 분석하여 BULL/BEAR/SIDEWAYS 판단
+    """
+    try:
+        trade_date = pd.Timestamp(date)
+        
+        # SPY 데이터 가져오기 (20일 이동평균 기준)
+        spy_start = (trade_date - timedelta(days=30)).strftime("%Y-%m-%d")
+        spy_end = (trade_date + timedelta(days=5)).strftime("%Y-%m-%d")
+        
+        spy_df = yf.download('SPY', start=spy_start, end=spy_end, progress=False)
+        if spy_df.empty:
+            return "UNKNOWN"
+        
+        if isinstance(spy_df.columns, pd.MultiIndex):
+            spy_df.columns = spy_df.columns.get_level_values(0)
+        
+        # 20일 이동평균 계산
+        spy_df['MA20'] = spy_df['Close'].rolling(window=20, min_periods=1).mean()
+        
+        # 거래일과 가장 가까운 날짜 찾기
+        if trade_date not in spy_df.index:
+            nearest_idx = spy_df.index.get_indexer([trade_date], method='nearest')[0]
+            trade_date = spy_df.index[nearest_idx]
+        
+        if trade_date not in spy_df.index:
+            return "UNKNOWN"
+        
+        current_price = spy_df.loc[trade_date, 'Close']
+        ma20 = spy_df.loc[trade_date, 'MA20']
+        
+        # 5일 전 가격과 비교
+        try:
+            prev_5_idx = spy_df.index.get_indexer([trade_date], method='nearest')[0] - 5
+            if prev_5_idx >= 0:
+                prev_price = spy_df.iloc[prev_5_idx]['Close']
+                price_change = (current_price - prev_price) / prev_price
+                
+                # 상승장: 현재가 > MA20이고 5일간 상승
+                if current_price > ma20 and price_change > 0.02:
+                    return "BULL"
+                # 하락장: 현재가 < MA20이고 5일간 하락
+                elif current_price < ma20 and price_change < -0.02:
+                    return "BEAR"
+                else:
+                    return "SIDEWAYS"
+        except:
+            pass
+        
+        # 단순 MA20 기준
+        if current_price > ma20 * 1.02:
+            return "BULL"
+        elif current_price < ma20 * 0.98:
+            return "BEAR"
+        else:
+            return "SIDEWAYS"
+            
+    except Exception as e:
+        print(f"Market regime detection error: {e}")
+        return "UNKNOWN"
+
+def extract_deep_patterns(trades_df: pd.DataFrame) -> List[DeepPattern]:
+    """
+    LLM Clustering 느낌의 고급 패턴 추출
+    """
+    patterns = []
+    
+    if len(trades_df) < 3:
+        return patterns
+    
+    # 시간대별 패턴 분석
+    trades_df['entry_dt'] = pd.to_datetime(trades_df['entry_date'])
+    trades_df['exit_dt'] = pd.to_datetime(trades_df['exit_date'])
+    trades_df['entry_hour'] = trades_df['entry_dt'].dt.hour
+    trades_df['exit_hour'] = trades_df['exit_dt'].dt.hour
+    
+    # 1. MAE가 큰 거래의 시간대 클러스터링
+    high_mae_trades = trades_df[trades_df['mae'] < -0.02]  # MAE < -2%
+    if len(high_mae_trades) >= 3:
+        hour_distribution = high_mae_trades['entry_hour'].value_counts()
+        if len(hour_distribution) > 0:
+            peak_hour = hour_distribution.idxmax()
+            peak_count = hour_distribution.max()
+            peak_percentage = (peak_count / len(high_mae_trades)) * 100
+            
+            # 40% 이상이 특정 시간대에 집중되면 패턴으로 인정
+            if peak_percentage >= 40:
+                significance = 'HIGH' if peak_percentage >= 60 else 'MEDIUM'
+                patterns.append(DeepPattern(
+                    type='TIME_CLUSTER',
+                    description=f"MAE가 큰 포지션({len(high_mae_trades)}건) 중 {peak_count}건({peak_percentage:.0f}%)이 {peak_hour}시에 발생",
+                    significance=significance,
+                    metadata={'hour': int(peak_hour), 'count': int(peak_count), 'total': len(high_mae_trades)}
+                ))
+    
+    # 2. 전일 고가 대비 청산 위치 분석
+    valid_exits = trades_df[(trades_df['exit_day_high'] > 0) & (trades_df['panic_score'] != -1)]
+    if len(valid_exits) >= 5:
+        # exit_price / exit_day_high 비율 계산
+        exit_ratios = valid_exits['exit_price'] / valid_exits['exit_day_high']
+        avg_exit_ratio = exit_ratios.mean()
+        
+        # 평균적으로 고가 대비 낮은 위치에서 청산하는 패턴
+        if avg_exit_ratio < 0.95:  # 고가 대비 95% 미만에서 청산
+            exit_percentage = (1 - avg_exit_ratio) * 100
+            patterns.append(DeepPattern(
+                type='PRICE_CLUSTER',
+                description=f"청산 타이밍은 평균적으로 당일 고가 대비 {exit_percentage:.1f}% 아래에서 발생",
+                significance='HIGH' if exit_percentage > 5 else 'MEDIUM',
+                metadata={'avg_exit_ratio': float(avg_exit_ratio), 'sample_size': len(valid_exits)}
+            ))
+    
+    # 3. Revenge Trading 연쇄 패턴
+    revenge_trades = trades_df[trades_df['is_revenge'] == True]
+    if len(revenge_trades) >= 2:
+        revenge_sequences = []
+        sorted_trades = trades_df.sort_values('entry_dt')
+        
+        for i in range(1, len(sorted_trades)):
+            curr = sorted_trades.iloc[i]
+            if curr['is_revenge']:
+                # 이전 손실 거래 찾기
+                prev_losses = sorted_trades.iloc[:i]
+                prev_losses = prev_losses[prev_losses['pnl'] < 0]
+                if len(prev_losses) > 0:
+                    prev_loss = prev_losses.iloc[-1]
+                    time_diff = (curr['entry_dt'] - prev_loss['exit_dt']).total_seconds() / 3600
+                    revenge_sequences.append(time_diff)
+        
+        if len(revenge_sequences) >= 2:
+            avg_time = np.mean(revenge_sequences)
+            if avg_time < 24:  # 평균 24시간 이내
+                patterns.append(DeepPattern(
+                    type='REVENGE_SEQUENCE',
+                    description=f"손실 전환 직후 평균 {avg_time:.1f}시간 내 재매수하는 패턴이 {len(revenge_sequences)}회 반복",
+                    significance='HIGH' if avg_time < 12 else 'MEDIUM',
+                    metadata={'avg_hours': float(avg_time), 'count': len(revenge_sequences)}
+                ))
+    
+    # 4. 시장 환경별 FOMO 패턴
+    if 'market_regime' in trades_df.columns:
+        bull_trades = trades_df[trades_df['market_regime'] == 'BULL']
+        bear_trades = trades_df[trades_df['market_regime'] == 'BEAR']
+        
+        if len(bull_trades) >= 3 and len(bear_trades) >= 3:
+            bull_fomo = bull_trades[bull_trades['fomo_score'] > 0.7]['fomo_score']
+            bear_fomo = bear_trades[bear_trades['fomo_score'] > 0.7]['fomo_score']
+            
+            bull_fomo_rate = len(bull_fomo) / len(bull_trades) if len(bull_trades) > 0 else 0
+            bear_fomo_rate = len(bear_fomo) / len(bear_trades) if len(bear_trades) > 0 else 0
+            
+            # 상승장에서 FOMO가 훨씬 더 많이 발생
+            if bull_fomo_rate > bear_fomo_rate * 1.5:
+                patterns.append(DeepPattern(
+                    type='MARKET_REGIME',
+                    description=f"FOMO는 상승장에서만 생기는 경향 (상승장: {bull_fomo_rate*100:.0f}%, 하락장: {bear_fomo_rate*100:.0f}%)",
+                    significance='HIGH' if bull_fomo_rate > 0.5 else 'MEDIUM',
+                    metadata={'bull_fomo_rate': float(bull_fomo_rate), 'bear_fomo_rate': float(bear_fomo_rate)}
+                ))
+    
+    # 5. MAE 클러스터링 (시간대별이 아닌 다른 관점)
+    if len(high_mae_trades) >= 5:
+        # MAE가 큰 거래들의 평균 보유 기간
+        avg_hold_time = high_mae_trades['duration_days'].mean()
+        overall_avg_hold = trades_df['duration_days'].mean()
+        
+        # MAE 큰 거래가 특정 보유 기간에 집중되는지
+        if avg_hold_time > overall_avg_hold * 1.5:
+            patterns.append(DeepPattern(
+                type='MAE_CLUSTER',
+                description=f"MAE가 큰 포지션({len(high_mae_trades)}건)은 평균 {avg_hold_time:.1f}일 보유 (전체 평균: {overall_avg_hold:.1f}일)",
+                significance='MEDIUM',
+                metadata={'avg_hold_days': float(avg_hold_time), 'overall_avg': float(overall_avg_hold)}
+            ))
+    
+    return patterns
+
+def generate_personal_playbook(
+    patterns: List[DeepPattern],
+    bias_priority: Optional[List[BiasPriority]],
+    personal_baseline: Optional[PersonalBaseline],
+    trades_df: pd.DataFrame
+) -> PersonalPlaybook:
+    """
+    사용자의 편향을 바탕으로 개인화된 투자 원칙 생성
+    """
+    rules = []
+    based_on_biases = []
+    
+    # 1. 시간대 기반 규칙
+    time_patterns = [p for p in patterns if p.type == 'TIME_CLUSTER']
+    for tp in time_patterns:
+        hour = tp.metadata.get('hour', 0) if tp.metadata else 0
+        if 14 <= hour <= 15:  # 오후 2-3시
+            rules.append("오후 2-3시에는 신규 진입을 금지한다")
+        elif 9 <= hour <= 10:  # 장 초반
+            rules.append("장 초 첫 20분에는 매매하지 않는다")
+    
+    # 2. FOMO 기반 규칙
+    if bias_priority and len(bias_priority) > 0:
+        primary_bias = bias_priority[0].bias
+        if primary_bias == 'FOMO':
+            if personal_baseline and personal_baseline.avg_fomo > 0.8:
+                rules.append("장 초 첫 20분에는 매매하지 않는다 (FOMO 회피)")
+            elif personal_baseline and personal_baseline.avg_fomo > 0.7:
+                rules.append("고점 매수(FOMO)를 피하기 위해 진입 전 30분 대기")
+            based_on_biases.append('FOMO')
+    
+    # 3. MAE 기반 규칙
+    if personal_baseline and personal_baseline.avg_mae < -0.02:
+        mae_percent = abs(personal_baseline.avg_mae) * 100
+        rules.append(f"MAE가 {mae_percent:.0f}% 넘어가면 재진입 금지")
+    
+    # MAE 클러스터 패턴에서 규칙 생성
+    mae_patterns = [p for p in patterns if p.type == 'MAE_CLUSTER']
+    for mp in mae_patterns:
+        if mp.metadata:
+            avg_hold = mp.metadata.get('avg_hold_days', 0)
+            if avg_hold > 3:
+                rules.append(f"보유 기간이 {avg_hold:.0f}일을 넘으면 손절을 고려한다")
+    
+    # 4. 가격대 기반 규칙
+    price_patterns = [p for p in patterns if p.type == 'PRICE_CLUSTER']
+    for pp in price_patterns:
+        if pp.metadata:
+            exit_ratio = pp.metadata.get('avg_exit_ratio', 1.0)
+            if exit_ratio < 0.95:
+                rules.append("당일 고가 기준 95% 이상 구간에서는 진입 금지")
+    
+    # 5. Revenge Trading 기반 규칙
+    revenge_count = len(trades_df[trades_df['is_revenge'] == True])
+    if revenge_count >= 2:
+        rules.append("손실 거래 직후 24시간 내 재매수 금지")
+        based_on_biases.append('Revenge Trading')
+    
+    revenge_patterns = [p for p in patterns if p.type == 'REVENGE_SEQUENCE']
+    for rp in revenge_patterns:
+        if rp.metadata:
+            avg_hours = rp.metadata.get('avg_hours', 24)
+            if avg_hours < 12:
+                rules.append("손실 후 최소 12시간은 거래하지 않는다")
+    
+    # 6. Panic Sell 기반 규칙
+    if bias_priority:
+        panic_bias = [b for b in bias_priority if b.bias == 'Panic Sell']
+        if panic_bias and len(panic_bias) > 0:
+            if personal_baseline and personal_baseline.avg_panic < 0.3:
+                rules.append("저점 매도(Panic)를 피하기 위해 청산 전 10분 대기")
+            based_on_biases.append('Panic Sell')
+    
+    # 7. Disposition Effect 기반 규칙
+    if bias_priority:
+        disp_bias = [b for b in bias_priority if b.bias == 'Disposition Effect']
+        if disp_bias and len(disp_bias) > 0:
+            if personal_baseline and personal_baseline.avg_disposition_ratio > 1.5:
+                rules.append("손실 종목은 수익 종목보다 빠르게 청산한다")
+            based_on_biases.append('Disposition Effect')
+    
+    # 8. 시장 환경 기반 규칙
+    market_patterns = [p for p in patterns if p.type == 'MARKET_REGIME']
+    for mp in market_patterns:
+        if mp.metadata:
+            bull_fomo_rate = mp.metadata.get('bull_fomo_rate', 0)
+            if bull_fomo_rate > 0.5:
+                rules.append("상승장에서는 FOMO에 주의하며 진입 타이밍을 신중히 선택한다")
+    
+    # 규칙이 없으면 기본 규칙 추가
+    if len(rules) == 0:
+        rules.append("거래 전 잠시 멈추고 감정을 점검한다")
+    
+    return PersonalPlaybook(
+        rules=rules,
+        generated_at=datetime.now().isoformat(),
+        based_on={
+            'patterns': len(patterns),
+            'biases': list(set(based_on_biases)) if based_on_biases else []
+        }
+    )
+
 @app.post("/analyze", response_model=AnalysisResponse)
 async def analyze_trades(file: UploadFile):
     # 1. Parse CSV
@@ -471,6 +765,9 @@ async def analyze_trades(file: UploadFile):
         d2 = datetime.strptime(exit_date, "%Y-%m-%d")
         duration = (d2 - d1).days
         
+        # Market Regime Detection
+        market_regime = detect_market_regime(ticker, entry_date, market_df)
+        
         enriched_trades.append({
             "id": f"{ticker}-{entry_date}",
             "ticker": ticker,
@@ -482,7 +779,7 @@ async def analyze_trades(file: UploadFile):
             "pnl": pnl,
             "return_pct": ret_pct,
             "duration_days": duration,
-            "market_regime": "UNKNOWN", # Placeholder for now
+            "market_regime": market_regime,
             "is_revenge": False, # Calculated later
             **metrics
         })
@@ -884,6 +1181,9 @@ async def analyze_trades(file: UploadFile):
             exit_day_low=row['exit_day_low']
         ))
 
+    # Deep Pattern Analysis
+    deep_patterns = extract_deep_patterns(trades_df)
+    
     return AnalysisResponse(
         trades=final_trades,
         metrics=metrics_obj,
@@ -892,7 +1192,8 @@ async def analyze_trades(file: UploadFile):
         bias_loss_mapping=bias_loss_mapping,
         bias_priority=bias_priority,
         behavior_shift=behavior_shift,
-        equity_curve=equity_curve
+        equity_curve=equity_curve,
+        deep_patterns=deep_patterns if deep_patterns else None
     )
 
 @app.post("/coach")
@@ -1069,7 +1370,7 @@ async def get_ai_coach(request: CoachRequest):
     behavior_shift_text = ''
     if request.behavior_shift and len(request.behavior_shift) > 0:
         behavior_shift_lines = [
-            f"    - {s['bias']}: {s['trend']} ({(s['change_percent']:+.1f)}%)" 
+            f"    - {s['bias']}: {s['trend']} ({s['change_percent']:+.1f}%)" 
             for s in request.behavior_shift
         ]
         behavior_shift_text = f"""
@@ -1118,6 +1419,19 @@ async def get_ai_coach(request: CoachRequest):
     IMPORTANT: These patterns show REPEATED behavior, not single-trade luck.
     "한두 번은 운 탓일 수 있지만, 10번 반복되면 실력(편향)입니다."
     {chr(10).join(pattern_lines)}
+    """
+    
+    # Deep Pattern Analysis (고급 패턴)
+    deep_patterns_text = ''
+    if request.deep_patterns and len(request.deep_patterns) > 0:
+        deep_pattern_lines = []
+        for dp in request.deep_patterns:
+            deep_pattern_lines.append(f"    - [{dp.get('type', 'UNKNOWN')}] {dp.get('description', '')} (유의성: {dp.get('significance', 'LOW')})")
+        deep_patterns_text = f"""
+    DEEP PATTERN ANALYSIS (AI 기반 반복 패턴 추출):
+    These are advanced patterns detected through clustering analysis.
+    Examples: "MAE 큰 포지션은 오후 2-3시에 집중", "FOMO는 상승장에서만 발생"
+    {chr(10).join(deep_pattern_lines)}
     """
     
     # 프롬프트 구성 요소를 변수로 분리 (복잡도 개선)
@@ -1203,6 +1517,7 @@ async def get_ai_coach(request: CoachRequest):
     {behavior_shift_text}
     {best_executions_text}
     {patterns_text}
+    {deep_patterns_text}
 
     EVIDENCE STRUCTURE (You MUST reference these numbers in your diagnosis):
     - {evidence_fomo_text}
@@ -1310,6 +1625,67 @@ async def get_ai_coach(request: CoachRequest):
             # Ensure strengths field exists (default to empty array if missing)
             if "strengths" not in result:
                 result["strengths"] = []
+            
+            # Generate Personal Playbook
+            # Convert request data to format needed for playbook generation
+            deep_patterns_list = []
+            if request.deep_patterns:
+                for dp in request.deep_patterns:
+                    deep_patterns_list.append(DeepPattern(
+                        type=dp.get('type', 'UNKNOWN'),
+                        description=dp.get('description', ''),
+                        significance=dp.get('significance', 'LOW'),
+                        metadata=dp.get('metadata')
+                    ))
+            
+            bias_priority_list = None
+            if request.bias_priority:
+                bias_priority_list = [
+                    BiasPriority(
+                        bias=p['bias'],
+                        priority=p['priority'],
+                        financial_loss=p['financial_loss'],
+                        frequency=p['frequency'],
+                        severity=p['severity']
+                    ) for p in request.bias_priority
+                ]
+            
+            personal_baseline_obj = None
+            if request.personal_baseline:
+                pb = request.personal_baseline
+                personal_baseline_obj = PersonalBaseline(
+                    avg_fomo=pb['avg_fomo'],
+                    avg_panic=pb['avg_panic'],
+                    avg_mae=pb['avg_mae'],
+                    avg_disposition_ratio=pb['avg_disposition_ratio'],
+                    avg_revenge_count=pb['avg_revenge_count']
+                )
+            
+            # Create minimal trades_df for playbook generation (only for revenge count)
+            # We can't create full trades_df, but we can pass minimal info
+            import pandas as pd
+            minimal_trades_df = pd.DataFrame({
+                'is_revenge': [False] * max(1, request.metrics.get('total_trades', 1))
+            })
+            # Add revenge trades info if available
+            if request.revenge_details:
+                for i, rev in enumerate(request.revenge_details[:len(minimal_trades_df)]):
+                    if i < len(minimal_trades_df):
+                        minimal_trades_df.iloc[i, minimal_trades_df.columns.get_loc('is_revenge')] = True
+            
+            playbook = generate_personal_playbook(
+                deep_patterns_list,
+                bias_priority_list,
+                personal_baseline_obj,
+                minimal_trades_df
+            )
+            
+            # Add playbook to result
+            result["playbook"] = {
+                "rules": playbook.rules,
+                "generated_at": playbook.generated_at,
+                "based_on": playbook.based_on
+            }
             
             return result
         except json.JSONDecodeError as json_err:
