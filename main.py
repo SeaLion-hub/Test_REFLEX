@@ -7,6 +7,10 @@ from pydantic import BaseModel
 import yfinance as yf
 import numpy as np
 from datetime import datetime, timedelta
+from functools import lru_cache
+import os
+from openai import OpenAI
+import json
 
 app = FastAPI(title="Truth Pipeline Engine")
 
@@ -104,6 +108,15 @@ class BehaviorShift(BaseModel):
     change_percent: float
     trend: str  # 'IMPROVING' | 'WORSENING' | 'STABLE'
 
+class EquityCurvePoint(BaseModel):
+    date: str
+    cumulative_pnl: float
+    fomo_score: Optional[float] = None
+    panic_score: Optional[float] = None
+    is_revenge: bool
+    ticker: str
+    pnl: float
+
 class AnalysisResponse(BaseModel):
     trades: List[EnrichedTrade]
     metrics: BehavioralMetrics
@@ -113,8 +126,26 @@ class AnalysisResponse(BaseModel):
     bias_loss_mapping: Optional[BiasLossMapping] = None
     bias_priority: Optional[List[BiasPriority]] = None
     behavior_shift: Optional[List[BehaviorShift]] = None
+    equity_curve: List[EquityCurvePoint] = []
+
+class CoachRequest(BaseModel):
+    trades: List[dict]
+    metrics: dict
+    is_low_sample: bool
+    personal_baseline: Optional[dict] = None
+    bias_loss_mapping: Optional[dict] = None
+    bias_priority: Optional[List[dict]] = None
+    behavior_shift: Optional[List[dict]] = None
 
 # --- HELPER FUNCTIONS ---
+
+@lru_cache(maxsize=1000)
+def fetch_market_data_cached(ticker: str, start_date: str, end_date: str):
+    """
+    LRU Cache를 사용한 시장 데이터 가져오기
+    캐시 키는 함수 파라미터로 자동 생성됩니다.
+    """
+    return fetch_market_data(ticker, start_date, end_date)
 
 def fetch_market_data(ticker: str, start_date: str, end_date: str):
     """
@@ -263,8 +294,8 @@ async def analyze_trades(file: UploadFile):
         entry_date = str(row['entry_date'])
         exit_date = str(row['exit_date'])
         
-        # Fetch Market Data
-        market_df = fetch_market_data(ticker, entry_date, exit_date)
+        # Fetch Market Data (with caching)
+        market_df = fetch_market_data_cached(ticker, entry_date, exit_date)
         
         metrics = {
             "fomo_score": -1.0, "panic_score": -1.0, "mae": 0.0, "mfe": 0.0,
@@ -634,6 +665,22 @@ async def analyze_trades(file: UploadFile):
         
         behavior_shift = shifts if shifts else None
     
+    # Equity Curve 계산 (시간순 정렬 후 누적)
+    trades_df_sorted = trades_df.sort_values('entry_dt')
+    trades_df_sorted['cumulative_pnl'] = trades_df_sorted['pnl'].cumsum()
+    
+    equity_curve = []
+    for _, row in trades_df_sorted.iterrows():
+        equity_curve.append(EquityCurvePoint(
+            date=row['entry_date'],
+            cumulative_pnl=float(row['cumulative_pnl']),
+            fomo_score=float(row['fomo_score']) if row['fomo_score'] != -1 else None,
+            panic_score=float(row['panic_score']) if row['panic_score'] != -1 else None,
+            is_revenge=bool(row['is_revenge']),
+            ticker=row['ticker'],
+            pnl=float(row['pnl'])
+        ))
+    
     metrics_obj = BehavioralMetrics(
         total_trades=total_trades,
         win_rate=win_rate,
@@ -684,8 +731,163 @@ async def analyze_trades(file: UploadFile):
         personal_baseline=personal_baseline,
         bias_loss_mapping=bias_loss_mapping,
         bias_priority=bias_priority,
-        behavior_shift=behavior_shift
+        behavior_shift=behavior_shift,
+        equity_curve=equity_curve
     )
+
+@app.post("/coach")
+async def get_ai_coach(request: CoachRequest):
+    """
+    OpenAI API를 백엔드에서 호출하여 AI 분석을 반환합니다.
+    프론트엔드는 이 엔드포인트만 호출합니다.
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    
+    if not api_key:
+        return {
+            "diagnosis": "API Key missing. Please configure OPENAI_API_KEY environment variable.",
+            "rule": "No rule generated.",
+            "bias": "N/A",
+            "fix": "Add OPENAI_API_KEY to your environment"
+        }
+    
+    openai = OpenAI(api_key=api_key)
+    
+    # Prompt 생성 (기존 openaiService.ts와 동일한 로직)
+    top_regrets = sorted(request.trades, key=lambda x: x.get('regret', 0), reverse=True)[:3]
+    top_regrets_str = [f"{t['ticker']} (Missed ${t.get('regret', 0):.0f})" for t in top_regrets]
+    
+    revenge_details = [t for t in request.trades if t.get('is_revenge')]
+    revenge_str = ', '.join([f"{t['ticker']} (-${abs(t.get('pnl', 0)):.0f})" for t in revenge_details]) if revenge_details else "None"
+    
+    # Personal Baseline 텍스트
+    personal_baseline_text = ''
+    if request.personal_baseline:
+        pb = request.personal_baseline
+        personal_baseline_text = f"""
+    PERSONAL BASELINE (Your Historical Average):
+    - Avg FOMO: {(pb['avg_fomo'] * 100):.0f}% (Current: {(request.metrics['fomo_score'] * 100):.0f}%)
+    - Avg Panic: {(pb['avg_panic'] * 100):.0f}% (Current: {(request.metrics['panic_score'] * 100):.0f}%)
+    - Avg Disposition: {pb['avg_disposition_ratio']:.1f}x (Current: {request.metrics['disposition_ratio']:.1f}x)
+    """
+    
+    # Bias Loss Mapping 텍스트
+    bias_loss_text = ''
+    if request.bias_loss_mapping:
+        blm = request.bias_loss_mapping
+        bias_loss_text = f"""
+    BIAS LOSS MAPPING (Financial Impact):
+    - FOMO Loss: -${blm['fomo_loss']:.0f}
+    - Panic Sell Loss: -${blm['panic_loss']:.0f}
+    - Revenge Trading Loss: -${blm['revenge_loss']:.0f}
+    - Disposition Effect (Missed): -${blm['disposition_loss']:.0f}
+    """
+    
+    # Bias Priority 텍스트
+    bias_priority_text = ''
+    if request.bias_priority and len(request.bias_priority) > 0:
+        bias_priority_text = f"""
+    FIX PRIORITY (Ranked by Impact):
+    {chr(10).join([f"    {i+1}. {p['bias']}: -${p['financial_loss']:.0f} (Frequency: {(p['frequency']*100):.0f}%, Severity: {(p['severity']*100):.0f}%)" for i, p in enumerate(request.bias_priority)])}
+    """
+    
+    # Behavior Shift 텍스트
+    behavior_shift_text = ''
+    if request.behavior_shift and len(request.behavior_shift) > 0:
+        behavior_shift_text = f"""
+    BEHAVIOR SHIFT (Recent 3 vs Baseline):
+    {chr(10).join([f"    - {s['bias']}: {s['trend']} ({(s['change_percent']:+.1f)}%)" for s in request.behavior_shift])}
+    """
+    
+    # Total Regret 계산
+    total_regret = sum(t.get('regret', 0) for t in request.trades)
+    
+    # Total Bias Loss 계산
+    total_bias_loss = 0
+    if request.bias_loss_mapping:
+        total_bias_loss = (request.bias_loss_mapping['fomo_loss'] + 
+                          request.bias_loss_mapping['panic_loss'] + 
+                          request.bias_loss_mapping['revenge_loss'] + 
+                          request.bias_loss_mapping['disposition_loss'])
+    
+    prompt = f"""
+    Act as the "Truth Pipeline" AI. You are an objective, slightly ruthless, data-driven Trading Coach.
+    Your goal is to correct behavior, not predict markets.
+    
+    USER PROFILE:
+    - Mode: {"NOVICE / LOW SAMPLE (Focus on specific mistakes)" if request.is_low_sample else "EXPERIENCED (Focus on statistics)"}
+    
+    HARD EVIDENCE:
+    1. TRUTH SCORE: {request.metrics['truth_score']}/100
+    2. DISCIPLINE (FOMO): You bought at {(request.metrics['fomo_score'] * 100):.0f}% of the day's range on average. (High = Bad)
+    3. NERVES (Panic): You sold at {(request.metrics['panic_score'] * 100):.0f}% of the day's range on average. (High = Bad)
+    4. PATIENCE (Disposition): You hold losers {request.metrics['disposition_ratio']:.1f}x longer than winners.
+    5. EMOTION (Revenge): {request.metrics['revenge_trading_count']} revenge trades detected. Tickers: {revenge_str}.
+    6. REGRET: You left ${total_regret:.0f} on the table. Top misses: {', '.join(top_regrets_str)}.
+
+    {personal_baseline_text}
+    {bias_loss_text}
+    {bias_priority_text}
+    {behavior_shift_text}
+
+    EVIDENCE STRUCTURE (You MUST reference these numbers in your diagnosis):
+    - Evidence #1: FOMO Score {(request.metrics['fomo_score'] * 100):.0f}% (Threshold > 70% is bad){f" vs Your Average {(request.personal_baseline['avg_fomo'] * 100):.0f}%" if request.personal_baseline else ''}
+    - Evidence #2: Panic Sell Score {(request.metrics['panic_score'] * 100):.0f}% (Threshold > 70% is bad){f" vs Your Average {(request.personal_baseline['avg_panic'] * 100):.0f}%" if request.personal_baseline else ''}
+    - Evidence #3: Disposition Ratio {request.metrics['disposition_ratio']:.1f}x (Threshold > 1.5x is bad){f" vs Your Average {request.personal_baseline['avg_disposition_ratio']:.1f}x" if request.personal_baseline else ''}
+    - Evidence #4: Revenge Trading Count {request.metrics['revenge_trading_count']} (Threshold > 0 is bad)
+    - Evidence #5: Total Regret ${total_regret:.0f}
+    {f"- Evidence #6: Total Bias Loss -${total_bias_loss:.0f}" if total_bias_loss > 0 else ''}
+    {f"- Evidence #7: Priority Fix #1 is {request.bias_priority[0]['bias']} (Loss: -${request.bias_priority[0]['financial_loss']:.0f})" if request.bias_priority and len(request.bias_priority) > 0 else ''}
+
+    INSTRUCTIONS:
+    1. DIAGNOSIS (3 sentences): 
+       - Sentence 1: Direct, slightly harsh observation of their biggest flaw. {f"Focus on {request.bias_priority[0]['bias']} (Priority #1, Loss: -${request.bias_priority[0]['financial_loss']:.0f})." if request.bias_priority and len(request.bias_priority) > 0 else ''}
+       - Sentence 2: EVIDENCE-BASED FACT. You MUST strictly follow this format: "According to Evidence #X, you [specific action] on [Ticker]." {f"Compare to your personal baseline when relevant." if request.personal_baseline else ''} Example: "According to Evidence #1, you bought GME at 93% of the day's range, well above your average of 78%."
+       - Sentence 3: The financial impact. {f"Mention specific loss amounts from Bias Loss Mapping if significant." if request.bias_loss_mapping else ''} {f"Note any worsening trends from Behavior Shift." if request.behavior_shift and any(s['trend'] == 'WORSENING' for s in request.behavior_shift) else ''}
+    2. RULE (1 sentence): A catchy, memorable trading commandment to fix this specific flaw. {f"Target {request.bias_priority[0]['bias']} specifically." if request.bias_priority and len(request.bias_priority) > 0 else ''}
+    3. BIAS: Name the single dominant psychological bias. {f"Use: {request.bias_priority[0]['bias']}" if request.bias_priority and len(request.bias_priority) > 0 else ''} (e.g. Disposition Effect, Action Bias, Revenge Trading, FOMO).
+    4. FIX: One specific, actionable step to take immediately. {f"Focus on fixing {request.bias_priority[0]['bias']} first (highest financial impact)." if request.bias_priority and len(request.bias_priority) > 0 else ''}
+
+    Output valid JSON only with this exact structure:
+    {{
+      "diagnosis": "3 sentences. Must mention a ticker.",
+      "rule": "1 sentence rule.",
+      "bias": "Primary bias.",
+      "fix": "Priority fix."
+    }}
+    """
+    
+    try:
+        completion = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a data-driven trading coach. Always respond with valid JSON only."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.7,
+        )
+        
+        content = completion.choices[0].message.content
+        if content:
+            return json.loads(content)
+        else:
+            raise ValueError("No content returned")
+            
+    except Exception as e:
+        print(f"OpenAI API Error: {e}")
+        return {
+            "diagnosis": "AI Analysis unavailable. Focus on your Win Rate and Profit Factor manually.",
+            "rule": "Cut losers faster than you think.",
+            "bias": "Service Error",
+            "fix": "Check API Key or Network."
+        }
 
 if __name__ == "__main__":
     import uvicorn

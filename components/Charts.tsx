@@ -13,9 +13,11 @@ import {
   YAxis,
   Tooltip,
   Cell,
-  ReferenceLine
+  ReferenceLine,
+  LineChart,
+  Line
 } from 'recharts';
-import { AnalysisResult, EnrichedTrade } from '../types';
+import { AnalysisResult, EnrichedTrade, EquityCurvePoint } from '../types';
 
 export const BehavioralRadar: React.FC<{ metrics: AnalysisResult['metrics'] }> = ({ metrics }) => {
   const data = [

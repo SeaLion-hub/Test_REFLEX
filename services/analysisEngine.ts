@@ -226,6 +226,15 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
                     baselineValue: s.baseline_value,
                     changePercent: s.change_percent,
                     trend: s.trend
+                })) : undefined,
+                equityCurve: json.equity_curve ? json.equity_curve.map((p: any) => ({
+                    date: p.date,
+                    cumulative_pnl: p.cumulative_pnl,
+                    fomo_score: p.fomo_score,
+                    panic_score: p.panic_score,
+                    is_revenge: p.is_revenge,
+                    ticker: p.ticker,
+                    pnl: p.pnl
                 })) : undefined
             };
 

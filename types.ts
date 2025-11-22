@@ -122,6 +122,16 @@ export interface BehaviorShift {
   trend: 'IMPROVING' | 'WORSENING' | 'STABLE'; // 개선/악화/안정
 }
 
+export interface EquityCurvePoint {
+  date: string;
+  cumulative_pnl: number;
+  fomo_score?: number | null;
+  panic_score?: number | null;
+  is_revenge: boolean;
+  ticker: string;
+  pnl: number;
+}
+
 export interface AnalysisResult {
   trades: EnrichedTrade[];
   metrics: BehavioralMetrics;
@@ -134,4 +144,5 @@ export interface AnalysisResult {
   biasLossMapping?: BiasLossMapping;
   biasPriority?: BiasPriority[];
   behaviorShift?: BehaviorShift[];
+  equityCurve?: EquityCurvePoint[];
 }

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { AnalysisResult, AIAnalysis } from '../types';
 import { getAIInterpretation } from '../services/openaiService';
-import { BehavioralRadar, RegretChart } from './Charts';
+import { BehavioralRadar, RegretChart, EquityCurveChart } from './Charts';
 import { AICoach } from './AICoach';
 import { ShieldAlert, TrendingUp, RefreshCcw, Award, BarChart2, HelpCircle, ArrowLeft, ChevronDown, ChevronUp, Database, ServerCrash, Skull, TrendingDown, DollarSign, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 
@@ -15,6 +15,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
   const [showDeepDive, setShowDeepDive] = useState(false);
+  const [showBiasFreeSimulation, setShowBiasFreeSimulation] = useState(false);
 
   useEffect(() => {
     const fetchAI = async () => {
@@ -64,6 +65,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
     bias_priority: data.biasPriority,
     behavior_shift: data.behaviorShift
   };
+
+  // 편향 제거 시뮬레이션 계산
+  const biasFreeMetrics = React.useMemo(() => {
+    if (!data.biasLossMapping) return null;
+    
+    const totalBiasLoss = 
+      data.biasLossMapping.fomoLoss +
+      data.biasLossMapping.panicLoss +
+      data.biasLossMapping.revengeLoss +
+      data.biasLossMapping.dispositionLoss;
+    
+    const currentTotalPnL = data.trades.reduce((sum, t) => sum + t.pnl, 0);
+    const potentialPnL = currentTotalPnL + totalBiasLoss;
+    
+    // 환산 (예: 아이폰 가격 대비)
+    const iphonePrice = 1200; // $1200 가정
+    const equivalentItems = Math.abs(totalBiasLoss) / iphonePrice;
+    
+    return {
+      currentPnL: currentTotalPnL,
+      potentialPnL,
+      biasLoss: totalBiasLoss,
+      improvement: potentialPnL - currentTotalPnL,
+      equivalentItems,
+      itemName: 'iPhone'
+    };
+  }, [data.biasLossMapping, data.trades]);
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-200 font-sans selection:bg-emerald-900/30">
@@ -393,6 +421,86 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                 )}
             </div>
         )}
+
+        {/* EQUITY CURVE & WHAT-IF SIMULATOR */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Equity Curve Chart */}
+            {data.equityCurve && data.equityCurve.length > 0 && (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                    <div className="flex items-center gap-2 mb-4">
+                        <TrendingUp className="w-4 h-4 text-emerald-500" />
+                        <h3 className="text-zinc-200 text-sm font-bold uppercase tracking-wider">Equity Curve (누적 수익 곡선)</h3>
+                    </div>
+                    <div className="mb-4 flex flex-wrap gap-3 text-xs text-zinc-400">
+                        <div className="flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                            <span>💀 FOMO (80%+)</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                            <span>😱 Panic (&lt;20%)</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-red-600"></span>
+                            <span>⚔️ Revenge</span>
+                        </div>
+                    </div>
+                    <EquityCurveChart equityCurve={data.equityCurve} />
+                </div>
+            )}
+
+            {/* What-If Simulator */}
+            {data.biasLossMapping && (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-zinc-200 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4 text-purple-500" />
+                            What-If Simulator: 편향 제거 시뮬레이션
+                        </h3>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={showBiasFreeSimulation}
+                                onChange={(e) => setShowBiasFreeSimulation(e.target.checked)}
+                                className="w-4 h-4 rounded bg-zinc-800 border-zinc-700 text-purple-500 focus:ring-purple-500"
+                            />
+                            <span className="text-xs text-zinc-400">편향 제거 모드</span>
+                        </label>
+                    </div>
+                    
+                    {biasFreeMetrics && (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="p-4 bg-zinc-950 rounded-lg border border-zinc-800">
+                                    <div className="text-xs text-zinc-500 mb-2">현재 총 PnL</div>
+                                    <div className={`text-2xl font-mono font-bold ${biasFreeMetrics.currentPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                        ${biasFreeMetrics.currentPnL.toFixed(0)}
+                                    </div>
+                                </div>
+                                
+                                <div className={`p-4 rounded-lg border ${showBiasFreeSimulation ? 'bg-purple-950/30 border-purple-900/30' : 'bg-zinc-950 border-zinc-800'}`}>
+                                    <div className={`text-xs mb-2 ${showBiasFreeSimulation ? 'text-purple-400' : 'text-zinc-500'}`}>
+                                        {showBiasFreeSimulation ? '보정된 PnL (편향 제거)' : '잠재적 PnL'}
+                                    </div>
+                                    <div className={`text-2xl font-mono font-bold ${biasFreeMetrics.potentialPnL >= 0 ? 'text-purple-400' : 'text-red-400'}`}>
+                                        ${biasFreeMetrics.potentialPnL.toFixed(0)}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="p-4 bg-orange-950/20 rounded-lg border border-orange-900/30">
+                                <div className="text-sm text-zinc-300 mb-2">
+                                    💡 편향 비용: <span className="text-red-400 font-bold">-${biasFreeMetrics.biasLoss.toFixed(0)}</span>
+                                </div>
+                                <div className="text-xs text-zinc-500">
+                                    이는 약 <span className="text-orange-400 font-semibold">{biasFreeMetrics.equivalentItems.toFixed(1)}대의 {biasFreeMetrics.itemName}</span> 가격과 같습니다.
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
 
         {/* LEVEL 4: DEEP DIVE (COLLAPSIBLE) */}
         <div className="flex flex-col items-center pt-8 pb-20">
