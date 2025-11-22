@@ -198,39 +198,40 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 text-red-400 bg-red-950/20 border border-red-900/30 p-4 rounded-lg justify-center">
-            <AlertCircle className="w-5 h-5" />
-            <span className="text-sm font-medium">{error}</span>
-          </div>
-        )}
+            <div className="flex items-center gap-2 text-red-400 bg-red-950/20 border border-red-900/30 p-4 rounded-lg justify-center">
+              <AlertCircle className="w-5 h-5" />
+              <span className="text-sm font-medium">{error}</span>
+            </div>
+          )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t border-zinc-800/50">
-          <button 
-            onClick={() => loadSample(SAMPLE_PAIRED)}
-            className="bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 px-4 py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:scale-[1.02]"
-          >
-            <FileSpreadsheet className="w-5 h-5 text-emerald-500" />
-            <span className="text-sm font-medium">Standard CSV</span>
-            <span className="text-[10px] text-zinc-500">Pre-paired Trades</span>
-          </button>
-          
-          <button 
-            onClick={() => loadSample(SAMPLE_LOG)}
-            className="bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 px-4 py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:scale-[1.02]"
-          >
-            <GitMerge className="w-5 h-5 text-blue-500" />
-            <span className="text-sm font-medium">Execution Log</span>
-            <span className="text-[10px] text-zinc-500">Test FIFO Logic</span>
-          </button>
-          
-          <button 
-            onClick={() => loadSample(REKT_LOG)}
-            className="bg-red-950/10 hover:bg-red-900/20 border border-red-900/30 text-red-400 px-4 py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:scale-[1.02]"
-          >
-            <Skull className="w-5 h-5" />
-            <span className="text-sm font-medium">"Rekt" Mode</span>
-            <span className="text-[10px] text-red-500/60">High FOMO & Revenge</span>
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t border-zinc-800/50">
+            <button 
+              onClick={() => loadSample(SAMPLE_PAIRED)}
+              className="bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 px-4 py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:scale-[1.02]"
+            >
+              <FileSpreadsheet className="w-5 h-5 text-emerald-500" />
+              <span className="text-sm font-medium">Standard CSV</span>
+              <span className="text-[10px] text-zinc-500">Pre-paired Trades</span>
+            </button>
+            
+            <button 
+              onClick={() => loadSample(SAMPLE_LOG)}
+              className="bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 px-4 py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:scale-[1.02]"
+            >
+              <GitMerge className="w-5 h-5 text-blue-500" />
+              <span className="text-sm font-medium">Execution Log</span>
+              <span className="text-[10px] text-zinc-500">Test FIFO Logic</span>
+            </button>
+            
+            <button 
+              onClick={() => loadSample(REKT_LOG)}
+              className="bg-red-950/10 hover:bg-red-900/20 border border-red-900/30 text-red-400 px-4 py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:scale-[1.02]"
+            >
+              <Skull className="w-5 h-5" />
+              <span className="text-sm font-medium">"Rekt" Mode</span>
+              <span className="text-[10px] text-red-500/60">High FOMO & Revenge</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

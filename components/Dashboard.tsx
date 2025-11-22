@@ -5,6 +5,7 @@ import { getAIInterpretation } from '../services/openaiService';
 import { BehavioralRadar, RegretChart, EquityCurveChart } from './Charts';
 import { AICoach } from './AICoach';
 import { StrategyTagModal } from './StrategyTagModal';
+import { ToastContainer, ToastType } from './Toast';
 import { ShieldAlert, TrendingUp, RefreshCcw, Award, BarChart2, HelpCircle, ArrowLeft, ChevronDown, ChevronUp, Database, ServerCrash, Skull, TrendingDown, DollarSign, AlertCircle, CheckCircle2, XCircle, Moon, Sun, BookOpen, MessageSquare, Brain } from 'lucide-react';
 
 interface DashboardProps {
@@ -28,6 +29,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   const [isScoreVisible, setIsScoreVisible] = useState(false);
   const [displayMetrics, setDisplayMetrics] = useState(data.metrics);
   const [displayScore, setDisplayScore] = useState(data.metrics.truthScore);
+  
+  // Toast State
+  const [toasts, setToasts] = useState<Array<{ id: string; message: string; type?: ToastType }>>([]);
+  
+  const showToast = (message: string, type: ToastType = 'info') => {
+    const id = Date.now().toString();
+    setToasts(prev => [...prev, { id, message, type }]);
+  };
+  
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
 
   useEffect(() => {
     // Load theme preference from localStorage
@@ -67,18 +80,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
     const timer = setTimeout(() => setIsScoreVisible(true), 300);
     return () => clearTimeout(timer);
   }, [data.metrics.truthScore]);
-
-  useEffect(() => {
-    const fetchAI = async () => {
-        setLoadingAI(true);
-        // Update data with tagged trades
-        const updatedData = { ...data, trades };
-        const result = await getAIInterpretation(updatedData);
-        setAiAnalysis(result);
-        setLoadingAI(false);
-    };
-    fetchAI();
-  }, [data, trades]);
   
   // Recalculate FOMO metrics excluding strategic trades
   const recalculateFOMO = (tradesList: EnrichedTrade[]) => {
@@ -126,6 +127,44 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
     return Math.max(0, Math.min(100, Math.round(baseScore)));
   };
 
+  // AI 코치 데이터 가져오기 (보정된 metrics 사용)
+  useEffect(() => {
+    const fetchAI = async () => {
+        setLoadingAI(true);
+        
+        // 1. FOMO 메트릭 재계산
+        const fomoMetrics = recalculateFOMO(trades);
+        const adjustedFomoIndex = fomoMetrics.excludedCount > 0 
+          ? fomoMetrics.adjustedFomoIndex 
+          : data.metrics.fomoIndex;
+        
+        // 2. Truth Score 재계산
+        const newTruthScore = recalculateTruthScore(trades, {
+          ...data.metrics,
+          fomoIndex: adjustedFomoIndex
+        });
+        
+        // 3. AI에게 보정된 메트릭 전달
+        const updatedData = { 
+          ...data, 
+          trades,
+          metrics: {
+            ...data.metrics,
+            fomoIndex: adjustedFomoIndex,
+            truthScore: newTruthScore
+          }
+        };
+        
+        const result = await getAIInterpretation(updatedData);
+        setAiAnalysis(result);
+        setLoadingAI(false);
+    };
+    
+    // Debounce 처리 (태그 변경 시 API 호출 방지)
+    const timer = setTimeout(fetchAI, 500);
+    return () => clearTimeout(timer);
+  }, [data, trades]);
+
   // Handle Strategy Tagging
   const handleStrategyTag = async (trade: EnrichedTrade, tag: 'BREAKOUT' | 'AGGRESSIVE_ENTRY' | 'FOMO') => {
     // Update trade strategy tag
@@ -168,6 +207,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
       setDisplayScore(newTruthScore);
       setIsScoreVisible(false);
       setTimeout(() => setIsScoreVisible(true), 100);
+      
+      // Toast 메시지 표시
+      const tagName = tag === 'BREAKOUT' ? '돌파 매매' : '공격적 진입';
+      showToast(
+        `✅ ${tagName} 전략으로 인정되었습니다. FOMO 점수가 보정됩니다.`,
+        'success'
+      );
+    } else if (tag === 'FOMO') {
+      showToast(
+        '인정하셨습니다. 솔직한 인정이 발전의 시작입니다.',
+        'info'
+      );
     }
     
     setShowStrategyModal(false);
@@ -445,6 +496,63 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                  />
             </div>
         </div>
+
+        {/* FOMO 의심 거래 알림 배너 */}
+        {(() => {
+          const fomoSuspiciousTrades = trades.filter(t => 
+            t.fomoScore > 0.7 && 
+            t.fomoScore !== -1 && 
+            !t.userAcknowledged &&
+            t.strategyTag !== 'BREAKOUT' &&
+            t.strategyTag !== 'AGGRESSIVE_ENTRY'
+          );
+          
+          if (fomoSuspiciousTrades.length === 0) return null;
+          
+          return (
+            <div className={`rounded-xl p-4 border ${
+              isDarkMode
+                ? 'bg-orange-950/20 border-orange-900/30'
+                : 'bg-orange-50 border-orange-200'
+            }`}>
+              <div className="flex items-start gap-3">
+                <AlertCircle className={`w-5 h-5 mt-0.5 ${
+                  isDarkMode ? 'text-orange-400' : 'text-orange-600'
+                }`} />
+                <div className="flex-1">
+                  <h4 className={`text-sm font-semibold mb-1 ${
+                    isDarkMode ? 'text-orange-300' : 'text-orange-900'
+                  }`}>
+                    ⚠️ AI가 {fomoSuspiciousTrades.length}건의 FOMO 의심 거래를 발견했습니다
+                  </h4>
+                  <p className={`text-xs ${
+                    isDarkMode ? 'text-orange-200/80' : 'text-orange-800'
+                  }`}>
+                    전략적 진입(돌파 매매, 공격적 진입)이었는지 확인해주세요. 
+                    소명하시면 FOMO 점수가 보정됩니다.
+                  </p>
+                  <button
+                    onClick={() => {
+                      const tradeLogSection = document.querySelector('[data-section="trade-log"]');
+                      if (tradeLogSection) {
+                        tradeLogSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        // 약간의 딜레이 후 Deep Dive 열기
+                        setTimeout(() => setShowDeepDive(true), 500);
+                      }
+                    }}
+                    className={`mt-3 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                      isDarkMode
+                        ? 'bg-orange-900/30 border-orange-800/50 text-orange-300 hover:bg-orange-900/50'
+                        : 'bg-orange-100 border-orange-300 text-orange-700 hover:bg-orange-200'
+                    }`}
+                  >
+                    거래 목록 확인하기 →
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* CLINICAL THRESHOLDS INFO */}
         <div className={`rounded-xl p-4 border ${
@@ -1094,7 +1202,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
         </div>
 
         {/* LEVEL 4: DEEP DIVE (COLLAPSIBLE) */}
-        <div className="flex flex-col items-center pt-8 pb-20">
+        <div className="flex flex-col items-center pt-8 pb-20" data-section="trade-log">
             <button 
                 onClick={() => setShowDeepDive(!showDeepDive)}
                 className="group flex items-center gap-3 px-6 py-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-full transition-all text-sm text-zinc-400 hover:text-zinc-200"
@@ -1364,6 +1472,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
             )}
         </div>
       </div>
+      
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
       
       {/* Strategy Tag Modal */}
       {selectedTrade && (
