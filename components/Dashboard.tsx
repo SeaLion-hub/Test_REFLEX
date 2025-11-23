@@ -88,6 +88,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
     const timer = setTimeout(() => setIsScoreVisible(true), 300);
     return () => clearTimeout(timer);
   }, [data.metrics.truthScore]);
+
+  // SPY 데이터 로드 실패 알림
+  useEffect(() => {
+    if (data.benchmarkLoadFailed) {
+      showToast(
+        '⚠️ 시장 데이터 연동 실패로 인해 벤치마크(SPY) 비교가 제한됩니다. 절대 수익금만 계산됩니다.',
+        'warning'
+      );
+    }
+  }, [data.benchmarkLoadFailed]);
   
   // Recalculate FOMO metrics excluding strategic trades
   const recalculateFOMO = (tradesList: EnrichedTrade[]) => {

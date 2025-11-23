@@ -145,6 +145,7 @@ class AnalysisResponse(BaseModel):
     behavior_shift: Optional[List[BehaviorShift]] = None
     equity_curve: List[EquityCurvePoint] = []
     deep_patterns: Optional[List[DeepPattern]] = None
+    benchmark_load_failed: bool = False  # SPY 데이터 로드 실패 여부
 
 class NewsVerification(BaseModel):
     """뉴스 검증 결과"""

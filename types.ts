@@ -240,4 +240,5 @@ export interface AnalysisResult {
   
   // Deep Pattern Analysis (고급 패턴)
   deepPatterns?: DeepPattern[]; // AI 기반 반복 패턴 추출
+  benchmarkLoadFailed?: boolean;  // SPY 데이터 로드 실패 여부
 }

@@ -453,10 +453,11 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
             totalRegret, truthScore: Math.max(0, Math.min(100, Math.round(baseScore)))
         },
         personalBaseline,
-        biasLossMapping,
-        biasPriority: undefined, 
-        behaviorShift: undefined
-    };
+                biasLossMapping,
+                biasPriority: undefined, 
+                behaviorShift: undefined,
+                benchmarkLoadFailed: json.benchmark_load_failed || false
+            };
 };
 
 export const parseCSV = (text: string): RawCsvRow[] => {

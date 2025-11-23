@@ -10,20 +10,35 @@ from app.services.patterns import extract_deep_patterns
 
 router = APIRouter()
 
-def calculate_opportunity_cost(trades_df: pd.DataFrame) -> tuple[float, float, float, float]:
+# 거래 비용 상수 정의
+DEFAULT_COMMISSION_RATE = 0.001  # 0.1% 기본 수수료율
+DEFAULT_SLIPPAGE_RATE = 0.0005   # 0.05% 기본 슬리피지
+
+def calculate_trading_cost(entry_price: float, exit_price: float, qty: float) -> float:
+    """
+    거래 비용 계산 (수수료 + 슬리피지)
+    매수와 매도 각각에 대해 수수료와 슬리피지가 발생
+    """
+    trade_value = abs(entry_price * qty)
+    commission = trade_value * DEFAULT_COMMISSION_RATE * 2  # 매수 + 매도
+    slippage = trade_value * DEFAULT_SLIPPAGE_RATE * 2  # 매수 + 매도
+    return commission + slippage
+
+def calculate_opportunity_cost(trades_df: pd.DataFrame) -> tuple[float, float, float, float, bool]:
     """
     편향 거래 기간 동안 벤치마크(SPY) 수익률을 계산하여 기회비용 산출
     
     Returns:
-        tuple: (total_opportunity_cost, biased_trades_pnl, spy_return_during_biased, total_bias_loss)
+        tuple: (total_opportunity_cost, biased_trades_pnl, spy_return_during_biased, total_bias_loss, spy_load_failed)
         - total_opportunity_cost: 편향 거래 대신 SPY에 투자했다면 얻었을 수익 (벤치마크 수익률)
         - biased_trades_pnl: 편향 거래들의 실제 손익 합계
         - spy_return_during_biased: 편향 거래 기간 동안 SPY 수익률
         - total_bias_loss: 편향으로 인한 직접 손실
+        - spy_load_failed: SPY 데이터 로드 실패 여부
     """
     try:
         if len(trades_df) == 0:
-            return (0.0, 0.0, 0.0, 0.0)
+            return (0.0, 0.0, 0.0, 0.0, False)
         
         # 편향 거래 식별
         biased_trades = []
@@ -46,7 +61,7 @@ def calculate_opportunity_cost(trades_df: pd.DataFrame) -> tuple[float, float, f
         biased_trades_df = trades_df.loc[list(biased_indices)]
         
         if len(biased_trades_df) == 0:
-            return (0.0, 0.0, 0.0, 0.0)
+            return (0.0, 0.0, 0.0, 0.0, False)
         
         # 편향 거래들의 총 손익
         biased_trades_pnl = biased_trades_df['pnl'].sum()
@@ -62,13 +77,14 @@ def calculate_opportunity_cost(trades_df: pd.DataFrame) -> tuple[float, float, f
         
         spy_df = yf.download('SPY', start=spy_start, end=spy_end, progress=False)
         if spy_df.empty:
-            return (0.0, biased_trades_pnl, 0.0, total_bias_loss)
+            return (0.0, biased_trades_pnl, 0.0, total_bias_loss, True)  # SPY 로드 실패
         
         if isinstance(spy_df.columns, pd.MultiIndex):
             spy_df.columns = spy_df.columns.get_level_values(0)
         
         # 각 편향 거래별로 진입일~청산일 동안 SPY 수익률 계산
-        total_spy_return = 0.0
+        # 개선: % 수익률로 정규화하여 통화 단위 문제 해결
+        total_opportunity_cost = 0.0
         total_invested = 0.0
         
         for _, trade in biased_trades_df.iterrows():
@@ -82,32 +98,48 @@ def calculate_opportunity_cost(trades_df: pd.DataFrame) -> tuple[float, float, f
             if entry_idx == -1 or exit_idx == -1:
                 continue
             
-            # 거래 금액 (진입 가격 * 수량)
+            # 거래 금액 (진입 가격 * 수량) - 통화 단위 무관
             invested_amount = abs(trade['entry_price'] * trade['qty'])
             
-            # SPY 수익률 계산
+            # SPY 수익률 계산 (%)
             entry_price_spy = spy_df.iloc[entry_idx]['Close']
             exit_price_spy = spy_df.iloc[exit_idx]['Close']
             spy_return_pct = (exit_price_spy - entry_price_spy) / entry_price_spy if entry_price_spy > 0 else 0.0
             
-            # 가중치 적용 (거래 금액 기준)
-            weighted_spy_return = invested_amount * spy_return_pct
-            total_spy_return += weighted_spy_return
+            # 사용자 거래 수익률 (%)
+            user_return_pct = trade['return_pct'] if 'return_pct' in trade else (trade['exit_price'] - trade['entry_price']) / trade['entry_price']
+            
+            # 개선: % 수익률 차이를 금액으로 환산 (통화 단위 문제 해결)
+            # SPY가 더 좋았다면 양수, 사용자 거래가 더 좋았다면 음수
+            return_diff_pct = spy_return_pct - user_return_pct
+            opportunity_cost_for_trade = invested_amount * return_diff_pct
+            
+            total_opportunity_cost += opportunity_cost_for_trade
             total_invested += invested_amount
         
         # 총 기회비용 계산
         if total_invested > 0:
-            spy_return_during_biased = total_spy_return / total_invested  # 가중 평균 수익률
-            opportunity_cost = total_spy_return  # 절대 금액
+            # 가중 평균 수익률 차이 (%)
+            spy_return_during_biased = total_opportunity_cost / total_invested
+            opportunity_cost = total_opportunity_cost  # 절대 금액 (통화 단위는 사용자 거래와 동일)
         else:
             spy_return_during_biased = 0.0
             opportunity_cost = 0.0
         
-        return (opportunity_cost, biased_trades_pnl, spy_return_during_biased, total_bias_loss)
+        # 편향 거래 제거 시 수수료 절감분 계산
+        biased_trades_cost = 0.0
+        for _, trade in biased_trades_df.iterrows():
+            trading_cost = calculate_trading_cost(trade['entry_price'], trade['exit_price'], trade['qty'])
+            biased_trades_cost += trading_cost
+        
+        # 기회비용에 수수료 절감분 추가 (편향 거래를 하지 않았다면 절감된 비용)
+        opportunity_cost_with_savings = opportunity_cost + biased_trades_cost
+        
+        return (opportunity_cost_with_savings, biased_trades_pnl, spy_return_during_biased, total_bias_loss, False)
         
     except Exception as e:
         print(f"Error calculating opportunity cost: {e}")
-        return (0.0, 0.0, 0.0, 0.0)
+        return (0.0, 0.0, 0.0, 0.0, True)  # 예외 발생 시 로드 실패로 간주
 
 def calculate_regime_weight(
     market_regime: str, 
@@ -210,8 +242,13 @@ async def analyze_trades(file: UploadFile):
         
         if market_df is not None:
             metrics = calculate_metrics(row, market_df)
-            
-        pnl = (row['exit_price'] - row['entry_price']) * row['qty']
+        
+        # 거래 비용 계산 (수수료 + 슬리피지)
+        trading_cost = calculate_trading_cost(row['entry_price'], row['exit_price'], row['qty'])
+        
+        # PnL 계산 (거래 비용 반영)
+        pnl_gross = (row['exit_price'] - row['entry_price']) * row['qty']
+        pnl = pnl_gross - trading_cost
         ret_pct = (row['exit_price'] - row['entry_price']) / row['entry_price']
         
         # [시간 기능 추가] Duration 계산 시 시간까지 고려
@@ -511,7 +548,7 @@ async def analyze_trades(file: UploadFile):
         ) if bias_loss_mapping else 0.0
         
         # 기회비용 계산 (편향 거래 기간 동안 SPY 수익률)
-        opportunity_cost, biased_trades_pnl, spy_return_rate, total_bias_loss = calculate_opportunity_cost(trades_df)
+        opportunity_cost, biased_trades_pnl, spy_return_rate, total_bias_loss, spy_load_failed_opportunity = calculate_opportunity_cost(trades_df)
         
         # Reflex Adjusted PnL = Actual PnL - (Biased Trades PnL) + (SPY Return during Biased Trade Duration)
         adjusted_pnl = current_total_pnl - biased_trades_pnl + opportunity_cost
@@ -679,6 +716,7 @@ async def analyze_trades(file: UploadFile):
     
     # 벤치마크(SPY) 수익률 계산
     benchmark_data = None
+    benchmark_load_failed = False
     try:
         if len(trades_df_sorted) > 0:
             min_date = trades_df_sorted['entry_dt'].min()
@@ -687,7 +725,9 @@ async def analyze_trades(file: UploadFile):
             spy_end = (max_date + timedelta(days=5)).strftime("%Y-%m-%d")
             
             spy_df = yf.download('SPY', start=spy_start, end=spy_end, progress=False)
-            if not spy_df.empty:
+            if spy_df.empty:
+                benchmark_load_failed = True
+            elif not spy_df.empty:
                 if isinstance(spy_df.columns, pd.MultiIndex):
                     spy_df.columns = spy_df.columns.get_level_values(0)
                 
@@ -709,6 +749,7 @@ async def analyze_trades(file: UploadFile):
                         benchmark_data[row['id']] = initial_investment * spy_return_pct
     except Exception as e:
         print(f"Error calculating benchmark data: {e}")
+        benchmark_load_failed = True
         benchmark_data = None
     
     equity_curve = []
@@ -839,6 +880,9 @@ async def analyze_trades(file: UploadFile):
 
     deep_patterns = extract_deep_patterns(trades_df)
     
+    # SPY 로드 실패 플래그 (기회비용 또는 벤치마크 계산 중 하나라도 실패하면 True)
+    benchmark_load_failed_final = benchmark_load_failed or spy_load_failed_opportunity
+    
     return AnalysisResponse(
         trades=final_trades,
         metrics=metrics_obj,
@@ -849,5 +893,6 @@ async def analyze_trades(file: UploadFile):
         bias_priority=bias_priority,
         behavior_shift=behavior_shift,
         equity_curve=equity_curve,
-        deep_patterns=deep_patterns if deep_patterns else None
+        deep_patterns=deep_patterns if deep_patterns else None,
+        benchmark_load_failed=benchmark_load_failed_final
     )
