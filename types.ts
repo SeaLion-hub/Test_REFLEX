@@ -56,6 +56,12 @@ export interface EnrichedTrade {
   mfe: number; // Max Favorable Excursion %
   efficiency: number; // Captured move %
   regret: number; // Missed profit $
+  
+  // Contextual Score 분해 필드 (조건부 포함)
+  baseScore?: number | null; // volume/regime 가중치 적용 전 순수 심리 지표 기반 점수
+  volumeWeight?: number | null; // 거래량 가중치 (1.0, 1.2, 1.5)
+  regimeWeight?: number | null; // 시장 국면 가중치 (0.8, 1.0, 1.5)
+  contextualScore?: number | null; // baseScore * volumeWeight * regimeWeight (표시용, 0~150 clamp)
 }
 
 export interface BehavioralMetrics {
@@ -86,8 +92,9 @@ export interface BehavioralMetrics {
 
 export interface RAGReference {
   title: string;
-  content: string;
-  action: string;
+  definition: string;  // 학술적/심리적 개념 설명
+  connection: string;  // 시스템 지표와의 연결 (지표 명칭 포함 필수)
+  prescription: string;  // 구체적인 행동 지침
 }
 
 export interface TradeStrength {
@@ -105,12 +112,18 @@ export interface DeepPattern {
 }
 
 export interface PersonalPlaybook {
-  rules: string[];
+  // 3A: 3단계 고정 구조
+  plan_step_1: string;  // 첫 번째 행동 계획 (숫자 인용 필수)
+  plan_step_2: string;  // 두 번째 행동 계획 (숫자 인용 필수)
+  plan_step_3: string;  // 세 번째 행동 계획 (숫자 인용 필수)
   generated_at: string;
   based_on: {
+    primary_bias?: string;
     patterns: number;
     biases: string[];
   };
+  // 하위 호환성을 위한 rules 필드 (deprecated)
+  rules?: string[];
 }
 
 export interface AIAnalysis {
@@ -177,6 +190,12 @@ export interface EquityCurvePoint {
   is_revenge: boolean;
   ticker: string;
   pnl: number;
+  trade_id?: string | null;  // 거래 ID (클릭 인터랙션용)
+  base_score?: number | null;  // 분해 필드
+  volume_weight?: number | null;
+  regime_weight?: number | null;
+  contextual_score?: number | null;
+  market_regime?: string | null;  // 툴팁용
 }
 
 export interface AnalysisResult {

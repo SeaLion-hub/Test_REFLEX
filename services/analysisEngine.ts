@@ -1,4 +1,3 @@
-
 import { EnrichedTrade, RawCsvRow, AnalysisResult } from '../types';
 
 // --- CONSTANTS & MOCK DB (For Fallback/Demo Mode Only) ---
@@ -40,11 +39,13 @@ const processFIFO = (rows: RawCsvRow[]): RawCsvRow[] => {
     const ticker = row.ticker;
     if (!inventory[ticker]) inventory[ticker] = [];
 
-    if (row.action === 'BUY') {
+    const action = row.action ? row.action.toUpperCase() : 'BUY';
+
+    if (action === 'BUY') {
       inventory[ticker].push({ ...row });
-    } else if (row.action === 'SELL') {
+    } else if (action === 'SELL') {
       let qtyToSell = row.qty;
-      while (qtyToSell > 0 && inventory[ticker].length > 0) {
+      while (qtyToSell > 0.000001 && inventory[ticker].length > 0) {
         const lot = inventory[ticker][0];
         const matchQty = Math.min(lot.qty, qtyToSell);
 
@@ -60,7 +61,7 @@ const processFIFO = (rows: RawCsvRow[]): RawCsvRow[] => {
 
         qtyToSell -= matchQty;
         lot.qty -= matchQty;
-        if (lot.qty <= 0.00001) inventory[ticker].shift();
+        if (lot.qty <= 0.000001) inventory[ticker].shift();
       }
     }
   });
@@ -70,7 +71,8 @@ const processFIFO = (rows: RawCsvRow[]): RawCsvRow[] => {
 // --- DATA ENRICHMENT (Local Fallback) ---
 
 const getLocalMarketData = (ticker: string, date: string) => {
-  return LOCAL_MARKET_DB[ticker]?.[date] || null;
+  const dateKey = date.split(' ')[0];
+  return LOCAL_MARKET_DB[ticker]?.[dateKey] || null;
 };
 
 const enrichTradeLocal = (trade: RawCsvRow): EnrichedTrade => {
@@ -83,7 +85,6 @@ const enrichTradeLocal = (trade: RawCsvRow): EnrichedTrade => {
     const entryData = getLocalMarketData(trade.ticker, entryDate);
     const exitData = getLocalMarketData(trade.ticker, exitDate);
 
-    // Strict Truth: If no data, return N/A. No random gen.
     if (!entryData || !exitData) {
         return {
             id: `local-${Math.random()}`,
@@ -91,7 +92,7 @@ const enrichTradeLocal = (trade: RawCsvRow): EnrichedTrade => {
             entryDate, entryPrice, exitDate, exitPrice, qty,
             pnl: (exitPrice - entryPrice) * qty,
             returnPct: (exitPrice - entryPrice) / entryPrice,
-            durationDays: (new Date(exitDate).getTime() - new Date(entryDate).getTime()) / (86400000),
+            durationDays: Math.max(0, (new Date(exitDate).getTime() - new Date(entryDate).getTime()) / (86400000)),
             entryDayHigh: entryPrice, entryDayLow: entryPrice,
             exitDayHigh: exitPrice, exitDayLow: exitPrice,
             postExitHigh3Day: exitPrice,
@@ -108,13 +109,8 @@ const enrichTradeLocal = (trade: RawCsvRow): EnrichedTrade => {
     const panicScore = (exitPrice - exitData.l) / rangeX;
 
     let maxFuture = exitData.h;
-    const exitTime = new Date(exitDate).getTime();
-    for (let i=1; i<=3; i++) {
-       const nextDay = new Date(exitTime + (i * 86400000)).toISOString().split('T')[0];
-       const nextData = getLocalMarketData(trade.ticker, nextDay);
-       if (nextData) maxFuture = Math.max(maxFuture, nextData.h);
-    }
-    const regret = Math.max(0, maxFuture - exitPrice) * qty;
+    // Fallback doesn't have rigorous date arithmetic for future, stick to simple max
+    const regret = 0;
 
     return {
         id: `local-${Math.random()}`,
@@ -139,7 +135,6 @@ const enrichTradeLocal = (trade: RawCsvRow): EnrichedTrade => {
 // --- MAIN ENTRY POINT ---
 
 const convertToCSVBlob = (rows: RawCsvRow[]): Blob => {
-    // Convert strict 6 columns to CSV string
     const header = "Ticker,Entry Date,Entry Price,Exit Date,Exit Price,Qty\n";
     const body = rows.map(r => 
         `${r.ticker},${r.date},${r.price},${r.exitDate},${r.exitPrice},${r.qty || 1}`
@@ -148,13 +143,9 @@ const convertToCSVBlob = (rows: RawCsvRow[]): Blob => {
 };
 
 export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResult> => {
-    // Filter out rows that don't meet the strict 6-column Paired Trade format (or convert them if needed)
-    // For now, we enforce that parseCSV returns the correct structure.
-    
     let enrichedTrades: EnrichedTrade[] = [];
     let dataSource: 'BACKEND_TRUTH' | 'CLIENT_DEMO' = 'CLIENT_DEMO';
 
-    // 1. Try Backend (The Truth)
     try {
         const csvBlob = convertToCSVBlob(rawRows);
         const formData = new FormData();
@@ -167,24 +158,46 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
 
         if (response.ok) {
             const json = await response.json();
-            enrichedTrades = json.trades;
-            // Backend returns full metrics object, let's use it directly if possible,
-            // but our frontend expects some enriched logic.
-            // Actually, the backend now returns exactly what we need in `json.metrics`.
-            
-            // We need to map the backend response to our frontend types fully if they differ.
-            // The backend `EnrichedTrade` matches frontend `EnrichedTrade`.
-            // The backend `metrics` matches frontend `metrics` mostly.
-            
-            // Map backend metrics (snake_case) to frontend format (camelCase)
+            // 백엔드 snake_case를 프론트엔드 camelCase로 변환
+            enrichedTrades = json.trades.map((t: any) => ({
+                id: t.id,
+                ticker: t.ticker,
+                entryDate: t.entry_date,
+                entryPrice: t.entry_price,
+                exitDate: t.exit_date,
+                exitPrice: t.exit_price,
+                qty: t.qty,
+                pnl: t.pnl,
+                returnPct: t.return_pct,
+                durationDays: t.duration_days,
+                marketRegime: t.market_regime,
+                isRevenge: t.is_revenge,
+                strategyTag: t.strategy_tag,
+                userAcknowledged: t.user_acknowledged,
+                fomoScore: t.fomo_score,
+                panicScore: t.panic_score,
+                mae: t.mae,
+                mfe: t.mfe,
+                efficiency: t.efficiency,
+                regret: t.regret,
+                entryDayHigh: t.entry_day_high,
+                entryDayLow: t.entry_day_low,
+                exitDayHigh: t.exit_day_high,
+                exitDayLow: t.exit_day_low,
+                // Contextual Score 분해 필드
+                baseScore: t.base_score,
+                volumeWeight: t.volume_weight,
+                regimeWeight: t.regime_weight,
+                contextualScore: t.contextual_score
+            }));
             const backendMetrics = json.metrics;
             return {
-                trades: json.trades,
+                trades: enrichedTrades,
                 metrics: {
                     totalTrades: backendMetrics.total_trades,
                     winRate: backendMetrics.win_rate,
-                    avgWin: 0, // Not in backend response, will be calculated if needed
-                    avgLoss: 0, // Not in backend response, will be calculated if needed
+                    avgWin: 0, 
+                    avgLoss: 0, 
                     profitFactor: backendMetrics.profit_factor,
                     fomoIndex: backendMetrics.fomo_score,
                     panicIndex: backendMetrics.panic_score,
@@ -198,7 +211,7 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
                     truthScore: backendMetrics.truth_score
                 },
                 isLowSample: json.is_low_sample,
-                revengeTrades: json.trades.filter((t: any) => t.is_revenge),
+                revengeTrades: enrichedTrades.filter((t: any) => t.isRevenge),
                 dataSource: 'BACKEND_TRUTH',
                 personalBaseline: json.personal_baseline ? {
                     avgFomo: json.personal_baseline.avg_fomo,
@@ -234,9 +247,14 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
                     panic_score: p.panic_score,
                     is_revenge: p.is_revenge,
                     ticker: p.ticker,
-                    pnl: p.pnl
+                    pnl: p.pnl,
+                    trade_id: p.trade_id,
+                    base_score: p.base_score,
+                    volume_weight: p.volume_weight,
+                    regime_weight: p.regime_weight,
+                    contextual_score: p.contextual_score,
+                    market_regime: p.market_regime
                 })) : undefined,
-                // 패턴은 프론트엔드에서 계산 (또는 백엔드에서 오면 사용)
                 patterns: json.patterns ? json.patterns.map((p: any) => ({
                     pattern: p.pattern,
                     description: p.description,
@@ -245,7 +263,6 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
                     percentage: p.percentage,
                     significance: p.significance
                 })) : undefined,
-                // Deep Patterns
                 deepPatterns: json.deep_patterns ? json.deep_patterns.map((dp: any) => ({
                     type: dp.type,
                     description: dp.description,
@@ -260,16 +277,10 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
         }
     } catch (e) {
         console.warn("Backend unavailable. Using Local Truth Engine (Safe Mode).", e);
-        // Fallback to local logic
-        const tradesToAnalyze = rawRows; // We assume paired format for now in fallback
+        const tradesToAnalyze = rawRows;
         enrichedTrades = tradesToAnalyze.map(enrichTradeLocal);
     }
 
-    // ... (Local Fallback Logic if Backend Fails - Existing Code below) ...
-    
-    // 2. Revenge Trading Logic (Post-Process) -> Only runs if Backend Failed and we are in local mode
-    // If we returned above, this code is unreachable, which is correct.
-    
     // --- LOCAL FALLBACK CALCULATION (Legacy) ---
     
     let revengeTradingCount = 0;
@@ -281,13 +292,11 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
         const current = enrichedTrades[i];
         const entryTime = new Date(current.entryDate).getTime();
         
-        // Look for ANY loss on SAME ticker in previous 24h
         const prevLoss = enrichedTrades.slice(0, i).find(prev => {
             if (prev.ticker !== current.ticker) return false;
-            if (prev.pnl >= 0) return false; // Must be a loss
+            if (prev.pnl >= 0) return false; 
             const prevExitTime = new Date(prev.exitDate).getTime();
             const diffMs = entryTime - prevExitTime;
-            // Between 0 and 24 hours
             return diffMs >= 0 && diffMs < (24 * 60 * 60 * 1000);
         });
 
@@ -298,7 +307,6 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
         }
     }
 
-    // 3. Aggregates & Metrics (Local)
     const totalTrades = enrichedTrades.length;
     const isLowSample = totalTrades < 5;
     const validTrades = enrichedTrades.filter(t => t.fomoScore !== -1); 
@@ -326,7 +334,6 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
     const downsideDev = Math.sqrt(returns.filter(r => r < 0).reduce((a, b) => a + Math.pow(b, 2), 0) / (totalTrades || 1));
     const sortinoRatio = downsideDev > 0 ? avgReturn / downsideDev : 0;
 
-    // Monte Carlo (Skip if Low Sample)
     let luckPercentile = 50;
     if (!isLowSample && validTrades.length > 0) {
         const simulations = 1000;
@@ -346,7 +353,6 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
 
     const totalRegret = enrichedTrades.reduce((a, b) => a + b.regret, 0);
 
-    // Truth Score Calculation
     let baseScore = 50;
     baseScore += (winRate * 20);
     baseScore -= (fomoIndex * 25);
@@ -356,14 +362,10 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
     if (!isLowSample) baseScore += (sharpeRatio * 5);
     else baseScore += 5;
 
-    // --- PERFECT EDITION CALCULATIONS (Fallback) ---
-    
-    // 1. Personal Baseline
     let personalBaseline = undefined;
     if (totalTrades >= 3) {
         const validMae = enrichedTrades.filter(t => t.mae !== 0);
         const avgMae = validMae.length > 0 ? Math.abs(validMae.reduce((a, b) => a + b.mae, 0) / validMae.length) : 0;
-        
         personalBaseline = {
             avgFomo: fomoIndex,
             avgPanic: panicIndex,
@@ -372,195 +374,19 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
             avgRevengeCount: revengeTradingCount / totalTrades
         };
     }
-    
-    // 2. Bias Loss Mapping
+
     let biasLossMapping = undefined;
     if (totalTrades > 0) {
         const highFomoTrades = enrichedTrades.filter(t => t.fomoScore > 0.7 && t.fomoScore !== -1);
         const fomoLoss = Math.abs(highFomoTrades.filter(t => t.pnl < 0).reduce((a, b) => a + b.pnl, 0));
-        
         const lowPanicTrades = enrichedTrades.filter(t => t.panicScore < 0.3 && t.panicScore !== -1);
         const panicLoss = Math.abs(lowPanicTrades.filter(t => t.pnl < 0).reduce((a, b) => a + b.pnl, 0));
-        
         const revengeLossTrades = revengeTrades.filter(t => t.pnl < 0);
         const revengeLoss = Math.abs(revengeLossTrades.reduce((a, b) => a + b.pnl, 0));
-        
         const winnersWithRegret = enrichedTrades.filter(t => t.pnl > 0 && t.regret > 0);
         const dispositionLoss = winnersWithRegret.reduce((a, b) => a + b.regret, 0);
         
-        biasLossMapping = {
-            fomoLoss,
-            panicLoss,
-            revengeLoss,
-            dispositionLoss
-        };
-    }
-    
-    // 3. Bias Prioritization
-    let biasPriority = undefined;
-    if (biasLossMapping) {
-        const priorities: Array<{bias: string, priority: number, financialLoss: number, frequency: number, severity: number}> = [];
-        
-        const highFomoCount = enrichedTrades.filter(t => t.fomoScore > 0.7 && t.fomoScore !== -1).length;
-        const fomoFrequency = highFomoCount / totalTrades;
-        const fomoSeverity = Math.min(1.0, fomoIndex / 0.8);
-        if (biasLossMapping.fomoLoss > 0 || fomoFrequency > 0.3) {
-            priorities.push({
-                bias: 'FOMO',
-                priority: 0,
-                financialLoss: biasLossMapping.fomoLoss,
-                frequency: fomoFrequency,
-                severity: fomoSeverity
-            });
-        }
-        
-        const lowPanicCount = enrichedTrades.filter(t => t.panicScore < 0.3 && t.panicScore !== -1).length;
-        const panicFrequency = lowPanicCount / totalTrades;
-        const panicSeverity = Math.min(1.0, (1 - panicIndex) / 0.8);
-        if (biasLossMapping.panicLoss > 0 || panicFrequency > 0.3) {
-            priorities.push({
-                bias: 'Panic Sell',
-                priority: 0,
-                financialLoss: biasLossMapping.panicLoss,
-                frequency: panicFrequency,
-                severity: panicSeverity
-            });
-        }
-        
-        const revengeFrequency = revengeTradingCount / totalTrades;
-        const revengeSeverity = Math.min(1.0, revengeTradingCount / 3.0);
-        if (biasLossMapping.revengeLoss > 0 || revengeTradingCount > 0) {
-            priorities.push({
-                bias: 'Revenge Trading',
-                priority: 0,
-                financialLoss: biasLossMapping.revengeLoss,
-                frequency: revengeFrequency,
-                severity: revengeSeverity
-            });
-        }
-        
-        const winnersWithRegretCount = enrichedTrades.filter(t => t.pnl > 0 && t.regret > 0).length;
-        const dispositionFrequency = winners.length > 0 ? winnersWithRegretCount / winners.length : 0;
-        const dispositionSeverity = Math.min(1.0, (dispositionRatio - 1) / 1.5);
-        if (biasLossMapping.dispositionLoss > 0 || dispositionRatio > 1.2) {
-            priorities.push({
-                bias: 'Disposition Effect',
-                priority: 0,
-                financialLoss: biasLossMapping.dispositionLoss,
-                frequency: dispositionFrequency,
-                severity: dispositionSeverity
-            });
-        }
-        
-        // Sort by composite score and assign priority
-        priorities.sort((a, b) => {
-            const scoreA = (a.financialLoss * 0.5) + (a.frequency * 10000 * 0.2) + (a.severity * 10000 * 0.3);
-            const scoreB = (b.financialLoss * 0.5) + (b.frequency * 10000 * 0.2) + (b.severity * 10000 * 0.3);
-            return scoreB - scoreA;
-        });
-        
-        biasPriority = priorities.map((p, i) => ({
-            ...p,
-            priority: i + 1
-        }));
-    }
-    
-    // 4. Behavior Shift Detection
-    let behaviorShift = undefined;
-    if (totalTrades >= 6) {
-        const sortedTrades = [...enrichedTrades].sort((a, b) => 
-            new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime()
-        );
-        const recentTrades = sortedTrades.slice(-3);
-        const baselineTrades = sortedTrades.slice(0, Math.max(1, sortedTrades.length - 3));
-        
-        const shifts: Array<{bias: string, recentValue: number, baselineValue: number, changePercent: number, trend: string}> = [];
-        
-        // FOMO Shift
-        const recentFomo = recentTrades.filter(t => t.fomoScore !== -1);
-        const baselineFomo = baselineTrades.filter(t => t.fomoScore !== -1);
-        if (recentFomo.length > 0 && baselineFomo.length > 0) {
-            const recentFomoAvg = recentFomo.reduce((a, b) => a + b.fomoScore, 0) / recentFomo.length;
-            const baselineFomoAvg = baselineFomo.reduce((a, b) => a + b.fomoScore, 0) / baselineFomo.length;
-            if (baselineFomoAvg > 0) {
-                const fomoChange = ((recentFomoAvg - baselineFomoAvg) / baselineFomoAvg) * 100;
-                const fomoTrend = fomoChange < -5 ? 'IMPROVING' : fomoChange > 5 ? 'WORSENING' : 'STABLE';
-                shifts.push({
-                    bias: 'FOMO',
-                    recentValue: recentFomoAvg,
-                    baselineValue: baselineFomoAvg,
-                    changePercent: fomoChange,
-                    trend: fomoTrend
-                });
-            }
-        }
-        
-        // Panic Shift
-        const recentPanic = recentTrades.filter(t => t.panicScore !== -1);
-        const baselinePanic = baselineTrades.filter(t => t.panicScore !== -1);
-        if (recentPanic.length > 0 && baselinePanic.length > 0) {
-            const recentPanicAvg = recentPanic.reduce((a, b) => a + b.panicScore, 0) / recentPanic.length;
-            const baselinePanicAvg = baselinePanic.reduce((a, b) => a + b.panicScore, 0) / baselinePanic.length;
-            if (baselinePanicAvg > 0) {
-                const panicChange = ((recentPanicAvg - baselinePanicAvg) / baselinePanicAvg) * 100;
-                const panicTrend = panicChange > 5 ? 'IMPROVING' : panicChange < -5 ? 'WORSENING' : 'STABLE';
-                shifts.push({
-                    bias: 'Panic Sell',
-                    recentValue: recentPanicAvg,
-                    baselineValue: baselinePanicAvg,
-                    changePercent: panicChange,
-                    trend: panicTrend
-                });
-            }
-        }
-        
-        // Revenge Shift
-        const recentRevenge = recentTrades.filter(t => t.isRevenge).length;
-        const baselineRevenge = baselineTrades.filter(t => t.isRevenge).length;
-        const recentRevengeRate = recentRevenge / recentTrades.length;
-        const baselineRevengeRate = baselineRevenge / baselineTrades.length;
-        if (baselineRevengeRate > 0 || recentRevengeRate > 0) {
-            const revengeChange = ((recentRevengeRate - baselineRevengeRate) / (baselineRevengeRate + 0.01)) * 100;
-            const revengeTrend = revengeChange < -10 ? 'IMPROVING' : revengeChange > 10 ? 'WORSENING' : 'STABLE';
-            shifts.push({
-                bias: 'Revenge Trading',
-                recentValue: recentRevengeRate,
-                baselineValue: baselineRevengeRate,
-                changePercent: revengeChange,
-                trend: revengeTrend
-            });
-        }
-        
-        // Disposition Shift
-        const recentWinners = recentTrades.filter(t => t.pnl > 0);
-        const recentLosers = recentTrades.filter(t => t.pnl <= 0);
-        const baselineWinners = baselineTrades.filter(t => t.pnl > 0);
-        const baselineLosers = baselineTrades.filter(t => t.pnl <= 0);
-        
-        if (recentWinners.length > 0 && recentLosers.length > 0 && baselineWinners.length > 0 && baselineLosers.length > 0) {
-            const recentWinHold = recentWinners.reduce((a, b) => a + b.durationDays, 0) / recentWinners.length;
-            const recentLossHold = recentLosers.reduce((a, b) => a + b.durationDays, 0) / recentLosers.length;
-            const baselineWinHold = baselineWinners.reduce((a, b) => a + b.durationDays, 0) / baselineWinners.length;
-            const baselineLossHold = baselineLosers.reduce((a, b) => a + b.durationDays, 0) / baselineLosers.length;
-            
-            if (recentWinHold > 0 && baselineWinHold > 0) {
-                const recentDisposition = recentLossHold / recentWinHold;
-                const baselineDisposition = baselineLossHold / baselineWinHold;
-                if (baselineDisposition > 0 && recentDisposition > 0) {
-                    const dispositionChange = ((recentDisposition - baselineDisposition) / baselineDisposition) * 100;
-                    const dispositionTrend = dispositionChange < -10 ? 'IMPROVING' : dispositionChange > 10 ? 'WORSENING' : 'STABLE';
-                    shifts.push({
-                        bias: 'Disposition Effect',
-                        recentValue: recentDisposition,
-                        baselineValue: baselineDisposition,
-                        changePercent: dispositionChange,
-                        trend: dispositionTrend
-                    });
-                }
-            }
-        }
-        
-        behaviorShift = shifts.length > 0 ? shifts : undefined;
+        biasLossMapping = { fomoLoss, panicLoss, revengeLoss, dispositionLoss };
     }
 
     return {
@@ -576,34 +402,48 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
         },
         personalBaseline,
         biasLossMapping,
-        biasPriority,
-        behaviorShift
+        biasPriority: undefined, 
+        behaviorShift: undefined
     };
 };
 
 export const parseCSV = (text: string): RawCsvRow[] => {
   const lines = text.trim().split('\n');
-  // Helper to handle potential CRLF
-  const headers = lines[0].replace('\r','').split(',').map(h => h.trim().toLowerCase());
-  
-  // STRICT MODE: Only accept Paired Trade Format
-  // Expected: Ticker, Entry Date, Entry Price, Exit Date, Exit Price, Qty
-  
-  return lines.slice(1).map(line => {
-    const vals = line.replace('\r','').split(',');
+  if (lines.length < 2) return [];
+
+  const headerLine = lines[0].toLowerCase();
+  const isExecutionLog = headerLine.includes('action') || headerLine.includes('side');
+
+  const parsedRows = lines.slice(1).map(line => {
+    const cleanLine = line.replace('\r', '').replace(/"/g, '');
+    const vals = cleanLine.split(',');
+    
     if (vals.length < 5) return null;
     
-    // Mapping based on standard format
-    // 0: Ticker, 1: Entry Date, 2: Entry Price, 3: Exit Date, 4: Exit Price, 5: Qty
-    
-    return {
-        ticker: vals[0]?.trim(),
-        date: vals[1]?.trim(),
-        price: parseFloat(vals[2]),
-        exitDate: vals[3]?.trim(),
-        exitPrice: parseFloat(vals[4]),
-        qty: parseFloat(vals[5] || '1'),
-        action: 'BUY' // Mock action for type compatibility
-    } as RawCsvRow;
+    if (isExecutionLog) {
+        return {
+            ticker: vals[0]?.trim(),
+            date: vals[1]?.trim(),
+            action: vals[2]?.trim().toUpperCase(),
+            price: parseFloat(vals[3]),
+            qty: parseFloat(vals[4]),
+        } as RawCsvRow;
+    } else {
+        return {
+            ticker: vals[0]?.trim(),
+            date: vals[1]?.trim(),
+            price: parseFloat(vals[2]),
+            exitDate: vals[3]?.trim(),
+            exitPrice: parseFloat(vals[4]),
+            qty: parseFloat(vals[5] || '1'),
+            action: 'BUY' 
+        } as RawCsvRow;
+    }
   }).filter(Boolean) as RawCsvRow[];
+
+  if (isExecutionLog) {
+      return processFIFO(parsedRows);
+  }
+
+  return parsedRows;
 };

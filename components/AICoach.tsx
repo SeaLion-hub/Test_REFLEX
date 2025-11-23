@@ -58,37 +58,66 @@ const RAGModal: React.FC<RAGModalProps> = ({ reference, isOpen, onClose, isDarkM
         </div>
         <div className="p-6 space-y-4">
           <div>
-            <h3 className={`text-xl font-bold mb-2 ${
+            <h3 className={`text-xl font-bold mb-3 ${
               isDarkMode ? 'text-purple-300' : 'text-purple-900'
             }`}>
               {reference.title}
             </h3>
-            <p className={`text-sm leading-relaxed ${
-              isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
+            
+            {/* Definition */}
+            <div className="mb-4">
+              <h4 className={`text-xs font-bold uppercase tracking-wider mb-2 ${
+                isDarkMode ? 'text-purple-400' : 'text-purple-700'
+              }`}>
+                정의
+              </h4>
+              <p className={`text-sm leading-relaxed ${
+                isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
+              }`}>
+                {reference.definition}
+              </p>
+            </div>
+
+            {/* Connection */}
+            <div className={`mb-4 p-3 rounded-lg border ${
+              isDarkMode
+                ? 'bg-blue-950/20 border-blue-900/30'
+                : 'bg-blue-50 border-blue-200'
             }`}>
-              {reference.content}
-            </p>
-          </div>
-          <div className={`p-4 rounded-lg border ${
-            isDarkMode
-              ? 'bg-emerald-950/20 border-emerald-900/30'
-              : 'bg-emerald-50 border-emerald-200'
-          }`}>
-            <div className="flex items-start gap-2">
-              <Zap className={`w-5 h-5 mt-0.5 ${
-                isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
-              }`} />
-              <div>
-                <h4 className={`font-semibold mb-1 ${
-                  isDarkMode ? 'text-emerald-300' : 'text-emerald-900'
-                }`}>
-                  실천 방법
-                </h4>
-                <p className={`text-sm ${
-                  isDarkMode ? 'text-emerald-200' : 'text-emerald-700'
-                }`}>
-                  {reference.action}
-                </p>
+              <h4 className={`text-xs font-bold uppercase tracking-wider mb-2 ${
+                isDarkMode ? 'text-blue-400' : 'text-blue-700'
+              }`}>
+                시스템 연결
+              </h4>
+              <p className={`text-sm leading-relaxed ${
+                isDarkMode ? 'text-blue-200' : 'text-blue-800'
+              }`}>
+                {reference.connection}
+              </p>
+            </div>
+
+            {/* Prescription */}
+            <div className={`p-4 rounded-lg border ${
+              isDarkMode
+                ? 'bg-emerald-950/20 border-emerald-900/30'
+                : 'bg-emerald-50 border-emerald-200'
+            }`}>
+              <div className="flex items-start gap-2">
+                <Zap className={`w-5 h-5 mt-0.5 ${
+                  isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
+                }`} />
+                <div>
+                  <h4 className={`font-semibold mb-1 ${
+                    isDarkMode ? 'text-emerald-300' : 'text-emerald-900'
+                  }`}>
+                    처방
+                  </h4>
+                  <p className={`text-sm ${
+                    isDarkMode ? 'text-emerald-200' : 'text-emerald-700'
+                  }`}>
+                    {reference.prescription}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -289,8 +318,8 @@ export const AICoach: React.FC<AICoachProps> = ({ analysis, loading, truthScore 
         </div>
       )}
 
-      {/* Personal Playbook */}
-      {analysis.playbook && analysis.playbook.rules.length > 0 && (
+      {/* Personal Playbook (3A: 3단계 구조) */}
+      {analysis.playbook && (analysis.playbook.plan_step_1 || analysis.playbook.rules) && (
         <div className="bg-gradient-to-br from-blue-950/20 to-indigo-900/10 border border-blue-900/30 rounded-xl p-6 space-y-4">
           <div className="flex items-center gap-2 mb-4">
             <BookOpen className="w-5 h-5 text-blue-400" />
@@ -300,20 +329,42 @@ export const AICoach: React.FC<AICoachProps> = ({ analysis, loading, truthScore 
           </div>
           <div className="bg-blue-950/30 border border-blue-900/40 rounded-lg p-4 mb-3">
             <p className="text-xs text-blue-200/80 mb-2">
-              AI가 당신의 거래 패턴을 분석하여 생성한 개인화된 투자 원칙입니다.
+              AI가 당신의 거래 패턴을 분석하여 생성한 개인화된 행동 계획입니다.
             </p>
             <p className="text-xs text-blue-300/60 italic">
-              기반: {analysis.playbook.based_on.patterns}개 패턴, {analysis.playbook.based_on.biases.length > 0 ? analysis.playbook.based_on.biases.join(', ') : '일반'} 편향
+              기반: {analysis.playbook.based_on?.primary_bias || '일반'} 편향, {analysis.playbook.based_on?.patterns || 0}개 패턴
             </p>
           </div>
-          <ul className="space-y-2">
-            {analysis.playbook.rules.map((rule, idx) => (
-              <li key={idx} className="flex items-start gap-3 text-zinc-200">
-                <span className="text-blue-400 mt-1 font-bold">•</span>
-                <span className="flex-1 leading-relaxed">{rule}</span>
-              </li>
-            ))}
-          </ul>
+          
+          {/* 3A: 3단계 고정 구조 표시 */}
+          {analysis.playbook.plan_step_1 ? (
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 p-3 bg-blue-950/20 rounded-lg border border-blue-900/30">
+                <span className="text-blue-400 mt-1 font-bold text-lg">1</span>
+                <span className="flex-1 leading-relaxed text-zinc-200">{analysis.playbook.plan_step_1}</span>
+              </div>
+              <div className="flex items-start gap-3 p-3 bg-blue-950/20 rounded-lg border border-blue-900/30">
+                <span className="text-blue-400 mt-1 font-bold text-lg">2</span>
+                <span className="flex-1 leading-relaxed text-zinc-200">{analysis.playbook.plan_step_2}</span>
+              </div>
+              <div className="flex items-start gap-3 p-3 bg-blue-950/20 rounded-lg border border-blue-900/30">
+                <span className="text-blue-400 mt-1 font-bold text-lg">3</span>
+                <span className="flex-1 leading-relaxed text-zinc-200">{analysis.playbook.plan_step_3}</span>
+              </div>
+            </div>
+          ) : (
+            /* 하위 호환성: 기존 rules 표시 */
+            analysis.playbook.rules && analysis.playbook.rules.length > 0 && (
+              <ul className="space-y-2">
+                {analysis.playbook.rules.map((rule, idx) => (
+                  <li key={idx} className="flex items-start gap-3 text-zinc-200">
+                    <span className="text-blue-400 mt-1 font-bold">•</span>
+                    <span className="flex-1 leading-relaxed">{rule}</span>
+                  </li>
+                ))}
+              </ul>
+            )
+          )}
         </div>
       )}
 

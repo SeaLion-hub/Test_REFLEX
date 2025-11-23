@@ -25,6 +25,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   const [showStrategyModal, setShowStrategyModal] = useState(false);
   const [trades, setTrades] = useState<EnrichedTrade[]>(data.trades);
   
+  // Chart Interaction State (2A: 거래 차트 매핑 시각화)
+  const [selectedTradeFromChart, setSelectedTradeFromChart] = useState<EnrichedTrade | null>(null);
+  
   // Truth Score 애니메이션 State
   const [isScoreVisible, setIsScoreVisible] = useState(false);
   const [displayMetrics, setDisplayMetrics] = useState(data.metrics);
@@ -1144,6 +1147,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                       equityCurve={data.equityCurve}
                       biasFreeMetrics={biasFreeMetrics}
                       showBiasFree={showBiasFreeSimulation}
+                      onTradeClick={(tradeId) => {
+                        // 차트에서 거래 클릭 시 해당 거래 찾기
+                        const trade = trades.find(t => t.id === tradeId);
+                        if (trade) {
+                          setSelectedTradeFromChart(trade);
+                          // 분해 영역으로 스크롤
+                          setTimeout(() => {
+                            const decomposeSection = document.querySelector('[data-section="decompose"]');
+                            if (decomposeSection) {
+                              decomposeSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                          }, 100);
+                        }
+                      }}
+                      demoMode={data.dataSource === 'CLIENT_DEMO'}
                     />
                 </div>
             )}
@@ -1200,6 +1218,65 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                 </div>
             )}
         </div>
+
+        {/* 2A: Contextual Score 분해 영역 (차트 클릭 시 업데이트) */}
+        {selectedTradeFromChart && selectedTradeFromChart.baseScore !== null && selectedTradeFromChart.baseScore !== undefined && (
+          <div className="rounded-xl p-6 border mb-6" data-section="decompose">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-sm font-bold uppercase tracking-wider ${
+                isDarkMode ? 'text-purple-300' : 'text-purple-900'
+              }`}>
+                선택된 거래: {selectedTradeFromChart.ticker} - Contextual Score 분해
+              </h3>
+              <button
+                onClick={() => setSelectedTradeFromChart(null)}
+                className={`text-xs px-3 py-1 rounded ${
+                  isDarkMode 
+                    ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' 
+                    : 'bg-zinc-200 text-zinc-600 hover:bg-zinc-300'
+                }`}
+              >
+                닫기
+              </button>
+            </div>
+            <div className={`p-4 rounded-lg border ${
+              isDarkMode 
+                ? 'bg-purple-950/20 border-purple-900/30' 
+                : 'bg-purple-50 border-purple-200'
+            }`}>
+              <div className={`text-xs font-mono space-y-1 ${
+                isDarkMode ? 'text-purple-200/80' : 'text-purple-800'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">Base:</span>
+                  <span>{selectedTradeFromChart.baseScore.toFixed(1)}</span>
+                  <span className="text-[10px] opacity-70">(순수 심리 지표)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>×</span>
+                  <span className="font-semibold">Volume:</span>
+                  <span>{selectedTradeFromChart.volumeWeight?.toFixed(1)}</span>
+                  <span className="text-[10px] opacity-70">(거래량 가중치)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>×</span>
+                  <span className="font-semibold">Regime:</span>
+                  <span>{selectedTradeFromChart.regimeWeight?.toFixed(1)}</span>
+                  <span className="text-[10px] opacity-70">(시장 국면 가중치)</span>
+                </div>
+                <div className={`pt-1 mt-1 border-t ${
+                  isDarkMode ? 'border-purple-900/30' : 'border-purple-200'
+                } flex items-center gap-2`}>
+                  <span>=</span>
+                  <span className="font-bold text-sm">Contextual:</span>
+                  <span className="font-bold text-sm text-purple-400">
+                    {selectedTradeFromChart.contextualScore?.toFixed(1)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* LEVEL 4: DEEP DIVE (COLLAPSIBLE) */}
         <div className="flex flex-col items-center pt-8 pb-20" data-section="trade-log">
@@ -1334,18 +1411,45 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                         ? 'bg-purple-950/10 border-purple-900/20' 
                                         : 'bg-white border-purple-200'
                                     }`}>
-                                        <h4 className={`font-semibold mb-2 ${
+                                        <h4 className={`font-semibold mb-3 ${
                                           isDarkMode ? 'text-purple-200' : 'text-purple-900'
                                         }`}>{ref.title}</h4>
-                                        <p className={`text-sm mb-3 ${
-                                          isDarkMode ? 'text-purple-200/80' : 'text-purple-800'
-                                        }`}>{ref.content}</p>
+                                        
+                                        {/* Definition */}
+                                        <div className="mb-3">
+                                          <div className={`text-xs font-bold uppercase tracking-wider mb-1 ${
+                                            isDarkMode ? 'text-purple-400' : 'text-purple-700'
+                                          }`}>
+                                            정의
+                                          </div>
+                                          <p className={`text-sm mb-2 ${
+                                            isDarkMode ? 'text-purple-200/80' : 'text-purple-800'
+                                          }`}>{ref.definition}</p>
+                                        </div>
+
+                                        {/* Connection */}
+                                        <div className={`mb-3 p-2 rounded border ${
+                                          isDarkMode 
+                                            ? 'bg-blue-950/20 border-blue-900/30' 
+                                            : 'bg-blue-50 border-blue-200'
+                                        }`}>
+                                          <div className={`text-xs font-bold uppercase tracking-wider mb-1 ${
+                                            isDarkMode ? 'text-blue-400' : 'text-blue-700'
+                                          }`}>
+                                            시스템 연결
+                                          </div>
+                                          <p className={`text-xs ${
+                                            isDarkMode ? 'text-blue-200' : 'text-blue-800'
+                                          }`}>{ref.connection}</p>
+                                        </div>
+
+                                        {/* Prescription */}
                                         <div className={`text-xs italic p-2 rounded ${
                                           isDarkMode 
                                             ? 'bg-purple-900/20 text-purple-300' 
                                             : 'bg-purple-100 text-purple-700'
                                         }`}>
-                                            💡 {ref.action}
+                                            💡 처방: {ref.prescription}
                                         </div>
                                     </div>
                                 ))}
@@ -1385,7 +1489,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                             </thead>
                             <tbody className="divide-y divide-zinc-800/50">
                                 {trades.map((trade) => (
-                                    <tr key={trade.id} className="hover:bg-zinc-800/20 transition-colors">
+                                    <React.Fragment key={trade.id}>
+                                    <tr className="hover:bg-zinc-800/20 transition-colors">
                                         <td className="px-6 py-4 font-medium text-zinc-200">
                                             <div className="flex items-center gap-2">
                                                 {trade.ticker}
@@ -1463,6 +1568,57 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                             {trade.regret > 0 ? `$${trade.regret.toFixed(0)}` : <span className={isDarkMode ? 'text-zinc-800' : 'text-zinc-300'}>-</span>}
                                         </td>
                                     </tr>
+                                    {/* Contextual Score 분해 정보 (조건부 표시) */}
+                                    {trade.baseScore !== null && trade.baseScore !== undefined && (
+                                        <tr className="bg-zinc-950/50">
+                                            <td colSpan={7} className="px-6 py-3">
+                                                <div className={`p-3 rounded-lg border ${
+                                                    isDarkMode 
+                                                        ? 'bg-purple-950/20 border-purple-900/30' 
+                                                        : 'bg-purple-50 border-purple-200'
+                                                }`}>
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <span className={`text-xs font-bold uppercase tracking-wider ${
+                                                            isDarkMode ? 'text-purple-300' : 'text-purple-900'
+                                                        }`}>
+                                                            Contextual Score 분해
+                                                        </span>
+                                                    </div>
+                                                    <div className={`text-xs font-mono space-y-1 ${
+                                                        isDarkMode ? 'text-purple-200/80' : 'text-purple-800'
+                                                    }`}>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-semibold">Base:</span>
+                                                            <span>{trade.baseScore.toFixed(1)}</span>
+                                                            <span className="text-[10px] opacity-70">(순수 심리 지표)</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span>×</span>
+                                                            <span className="font-semibold">Volume:</span>
+                                                            <span>{trade.volumeWeight?.toFixed(1)}</span>
+                                                            <span className="text-[10px] opacity-70">(거래량 가중치)</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span>×</span>
+                                                            <span className="font-semibold">Regime:</span>
+                                                            <span>{trade.regimeWeight?.toFixed(1)}</span>
+                                                            <span className="text-[10px] opacity-70">(시장 국면 가중치)</span>
+                                                        </div>
+                                                        <div className={`pt-1 mt-1 border-t ${
+                                                            isDarkMode ? 'border-purple-900/30' : 'border-purple-200'
+                                                        } flex items-center gap-2`}>
+                                                            <span>=</span>
+                                                            <span className="font-bold text-sm">Contextual:</span>
+                                                            <span className="font-bold text-sm text-purple-400">
+                                                                {trade.contextualScore?.toFixed(1)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                    </React.Fragment>
                                 ))}
                             </tbody>
                         </table>
