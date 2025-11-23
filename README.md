@@ -46,6 +46,7 @@
 - **yfinance** (시장 데이터 수집)
 - **OpenAI API** (GPT-4o-mini 기반 AI 코칭)
 - **OpenAI Embeddings** (RAG 임베딩)
+- **DuckDuckGo Search** (뉴스 검색)
 - **SQLAlchemy** + **Alembic** (데이터베이스 ORM 및 마이그레이션)
 - **PostgreSQL** (데이터베이스)
 
@@ -90,9 +91,43 @@
   5. **Fix**: 즉시 실행 가능한 개선 방안
 - **Personal Playbook**: 개인화된 투자 원칙 생성 (3단계 액션 플랜)
 
-### 5. 전략 태그 관리 (`/strategy-tag` 엔드포인트)
+### 5. 하이브리드 AI 뉴스 검증 (`/verify-news` 엔드포인트)
+- **GenAI 프로젝트의 핵심 차별화 기능**
+- FOMO 점수가 높은 거래에 대해 뉴스를 검색하고 AI가 판단
+- 수식 기반 점수만으로는 놓칠 수 있는 시장 맥락을 AI가 분석
+- **캐시 우선 전략**: 시연용 고품질 데이터 우선 사용, 없으면 실시간 검색
+- **2단계 판단 프로세스**:
+  1. 뉴스 적합성 판단 (Relevance Filter): 주가 변동과 관련된 뉴스인지 확인
+  2. FOMO 판단 (Main Judge): 뉴스 내용을 바탕으로 "유죄(뇌동매매)" / "무죄(전략적 진입)" / "보류(증거 불충분)" 판결
+- **AI Judge Modal**: 법정 판결문 스타일의 UI로 판결 결과 표시
+- 판결 근거, 확신도, 참조한 뉴스 헤드라인 제공
+
+### 6. 스마트 컷 소명 기능
+- Panic Score가 낮은 거래에 대해 "계획된 손절(Planned Cut)" 소명 가능
+- 사용자가 의도적인 손절임을 명시하면 Panic Score 계산에서 제외
+- Truth Score 자동 재계산으로 즉시 반영
+- FOMO 거래 소명과 동일한 UX 패턴 (BREAKOUT, AGGRESSIVE_ENTRY 옵션)
+
+### 7. 맥락 기반 점수 고도화
+- **Volume Weight**: 거래량 폭발 시 FOMO/Panic 점수 가중치 적용
+  - 평소 거래량의 2.5배 이상: 1.2배 가중치
+  - 평소 거래량의 5배 이상: 1.5배 가중치
+- **Regime Weight**: 시장 국면에 따른 가중치 적용
+  - 상승장에서 공포 매도: 1.5배 페널티
+  - 하락장에서 반등 추격 매수: 1.5배 페널티
+  - 상승장에서 FOMO 매수: 0.8배 완화
+- **Contextual Score**: Base Score × Volume Weight × Regime Weight
+- 단순 고점 매수와 "거래량이 터진 고점 매수"를 구분
+
+### 8. 전략 태그 관리 (`/strategy-tag` 엔드포인트)
 - 각 거래에 전략 태그를 저장하고 관리
+- 지원 태그:
+  - `BREAKOUT`: 돌파 매매 전략
+  - `AGGRESSIVE_ENTRY`: 공격적 진입 전략
+  - `PLANNED_CUT`: 계획된 손절
+  - `FOMO`: 뇌동매매 인정
 - 데이터베이스에 영구 저장
+- 태그 선택 시 Truth Score 자동 재계산
 
 ## 🚀 실행 방법
 
@@ -173,6 +208,34 @@ python generate_embeddings.py
 
 **참고**: `rag_embeddings.npy` 파일이 없어도 서버는 정상 작동하지만, RAG 기능은 비활성화됩니다. 이 파일은 대용량이므로 Git에 커밋하지 않습니다 (`.gitignore`에 포함됨).
 
+### 4-1단계: 뉴스 캐시 준비 (시연용, 선택사항)
+
+뉴스 검증 기능의 시연 안정성을 위해 캐시 파일을 준비할 수 있습니다:
+
+```bash
+# 프로젝트 루트에 news_cache.json 파일 생성
+```
+
+**캐시 파일 형식**:
+```json
+{
+  "086520": {
+    "2023-07-26": {
+      "news": [
+        "에코프로 150만원 돌파... 증권가 '과열 경고'",
+        "2차전지 광풍, 묻지마 투자 주의보",
+        "공매도 숏스퀴즈로 인한 단기 급등 분석"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "과열 경고 뉴스가 지배적이었습니다.",
+      "confidence": "HIGH"
+    }
+  }
+}
+```
+
+**참고**: 캐시 파일이 없어도 서버는 정상 작동하며, 실시간 검색을 시도합니다. 시연 시 안정성을 위해 캐시 파일을 준비하는 것을 권장합니다.
+
 ### 5단계: 서버 실행
 
 #### 백엔드 서버 실행
@@ -203,6 +266,8 @@ npm run dev
    - 차트: Equity Curve, FOMO/Panic 분포
    - AI 코치: 맞춤형 피드백 및 개선 방안
    - 거래 목록: 각 거래의 상세 메트릭
+   - AI 검증: FOMO 점수 높은 거래에 "⚖️ AI 검증" 버튼 클릭하여 뉴스 기반 판단 확인
+   - 소명하기: 전략적 진입이었거나 계획된 손절이었을 경우 소명하여 점수 보정
 
 ## 📄 CSV 파일 형식
 
@@ -248,11 +313,12 @@ REFLEX_1122/
 │   │   └── database.py      # 데이터베이스 연결 설정
 │   ├── routers/             # API 라우터
 │   │   ├── analysis.py     # 거래 분석 엔드포인트
-│   │   └── coach.py        # AI 코칭 엔드포인트
+│   │   └── coach.py        # AI 코칭 및 뉴스 검증 엔드포인트
 │   ├── services/            # 비즈니스 로직
 │   │   ├── market.py       # 시장 데이터 수집
 │   │   ├── patterns.py     # 패턴 분석
-│   │   └── rag.py          # RAG 서비스
+│   │   ├── rag.py          # RAG 서비스
+│   │   └── news.py         # 뉴스 검색 서비스
 │   ├── models.py           # Pydantic 모델
 │   └── orm.py              # SQLAlchemy ORM 모델
 │
@@ -267,6 +333,7 @@ REFLEX_1122/
 │   ├── Charts.tsx          # 차트 시각화
 │   ├── AICoach.tsx         # AI 코치 UI
 │   ├── StrategyTagModal.tsx # 전략 태그 모달
+│   ├── AIJudgeModal.tsx    # AI 판사 모달 (뉴스 검증)
 │   ├── Threads.tsx         # 스레드 UI
 │   └── Toast.tsx           # 토스트 알림
 │
@@ -308,6 +375,13 @@ REFLEX_1122/
 종합 점수 (0-100)
 - Win Rate, FOMO, Panic, Disposition Ratio, Revenge Trading을 종합
 - 높을수록 심리적 편향이 적고, 거래 습관이 좋음
+- 전략 태그(BREAKOUT, AGGRESSIVE_ENTRY, PLANNED_CUT) 선택 시 자동 재계산
+
+### Contextual Score
+맥락 기반 점수 (0-150)
+- Base Score × Volume Weight × Regime Weight
+- 단순 고점 매수와 "거래량이 터진 고점 매수"를 구분
+- 시장 국면에 따른 편향의 심각도를 반영
 
 ## 🐛 문제 해결
 
@@ -338,6 +412,12 @@ REFLEX_1122/
 - OpenAI API 크레딧 확인
 - 네트워크 연결 확인
 - 백엔드 로그 확인 (`main.py` 실행 터미널)
+
+### 뉴스 검증이 작동하지 않음
+- `duckduckgo-search` 패키지가 설치되어 있는지 확인: `pip install duckduckgo-search`
+- 인터넷 연결 확인 (실시간 검색 시)
+- `news_cache.json` 파일이 올바른 형식인지 확인 (캐시 사용 시)
+- 백엔드 로그에서 검색 오류 확인
 
 ## 📝 라이선스
 
