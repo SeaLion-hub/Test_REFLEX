@@ -13,24 +13,55 @@ def extract_deep_patterns(trades_df: pd.DataFrame) -> List[DeepPattern]:
     # [시간 기능 추가] 시간 정보가 있으면 추출
     trades_df['entry_dt'] = pd.to_datetime(trades_df['entry_date'])
     trades_df['entry_hour'] = trades_df['entry_dt'].dt.hour
+    trades_df['entry_minute'] = trades_df['entry_dt'].dt.minute
+    trades_df['entry_second'] = trades_df['entry_dt'].dt.second
+    
+    # 시간 정보 유효성 검증: 실제로 다양한 시간대가 있는지 확인
+    # 1) 분/초가 모두 0이 아닌 거래가 있거나
+    # 2) 시간대가 3개 이상 분산되어 있으면 유효한 시간 정보로 간주
+    has_time_info = (
+        (trades_df['entry_minute'] != 0).any() or 
+        (trades_df['entry_second'] != 0).any() or
+        trades_df['entry_hour'].nunique() >= 3  # 최소 3개 시간대 이상
+    )
     
     # 1. MAE Time Cluster (시간 정보 활용)
     high_mae_trades = trades_df[trades_df['mae'] < -0.02]
     if len(high_mae_trades) >= 3:
-        hour_distribution = high_mae_trades['entry_hour'].value_counts()
-        if len(hour_distribution) > 0:
-            peak_hour = hour_distribution.idxmax()
-            peak_count = hour_distribution.max()
-            peak_percentage = (peak_count / len(high_mae_trades)) * 100
-            
-            if peak_percentage >= 40:
-                significance = 'HIGH' if peak_percentage >= 60 else 'MEDIUM'
-                patterns.append(DeepPattern(
-                    type='TIME_CLUSTER',
-                    description=f"MAE가 큰 포지션({len(high_mae_trades)}건) 중 {peak_count}건({peak_percentage:.0f}%)이 {peak_hour}시에 발생",
-                    significance=significance,
-                    metadata={'hour': int(peak_hour), 'count': int(peak_count), 'total': len(high_mae_trades)}
-                ))
+        if has_time_info:
+            # 시간 정보가 있을 때만 시간 클러스터 분석
+            hour_distribution = high_mae_trades['entry_hour'].value_counts()
+            if len(hour_distribution) > 0:
+                peak_hour = hour_distribution.idxmax()
+                peak_count = hour_distribution.max()
+                peak_percentage = (peak_count / len(high_mae_trades)) * 100
+                
+                if peak_percentage >= 40:
+                    significance = 'HIGH' if peak_percentage >= 60 else 'MEDIUM'
+                    patterns.append(DeepPattern(
+                        type='TIME_CLUSTER',
+                        description=f"MAE가 큰 포지션({len(high_mae_trades)}건) 중 {peak_count}건({peak_percentage:.0f}%)이 {peak_hour}시에 발생",
+                        significance=significance,
+                        metadata={'hour': int(peak_hour), 'count': int(peak_count), 'total': len(high_mae_trades)}
+                    ))
+        else:
+            # 시간 정보가 없을 때: 요일별 패턴으로 대체
+            high_mae_trades = high_mae_trades.copy()
+            high_mae_trades['weekday'] = high_mae_trades['entry_dt'].dt.dayofweek
+            weekday_distribution = high_mae_trades['weekday'].value_counts()
+            if len(weekday_distribution) > 0:
+                peak_weekday = weekday_distribution.idxmax()
+                peak_count = weekday_distribution.max()
+                peak_percentage = (peak_count / len(high_mae_trades)) * 100
+                weekday_names = ['월', '화', '수', '목', '금', '토', '일']
+                
+                if peak_percentage >= 40:
+                    patterns.append(DeepPattern(
+                        type='TIME_CLUSTER',
+                        description=f"MAE가 큰 포지션({len(high_mae_trades)}건) 중 {peak_count}건({peak_percentage:.0f}%)이 {weekday_names[peak_weekday]}요일에 발생",
+                        significance='MEDIUM',
+                        metadata={'weekday': int(peak_weekday), 'count': int(peak_count), 'total': len(high_mae_trades), 'has_time': False}
+                    ))
     
     # 2. Price Cluster (Exit)
     valid_exits = trades_df[(trades_df['exit_day_high'] > 0) & (trades_df['panic_score'] != -1)]

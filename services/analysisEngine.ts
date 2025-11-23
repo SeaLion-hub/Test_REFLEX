@@ -338,17 +338,60 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
     if (!isLowSample && validTrades.length > 0) {
         const simulations = 1000;
         const realizedTotalPnl = enrichedTrades.reduce((a, b) => a + b.pnl, 0);
+        
+        // 실제 통계 계산
+        const winners = enrichedTrades.filter(t => t.pnl > 0);
+        const losers = enrichedTrades.filter(t => t.pnl <= 0);
+        const winRate = winners.length / enrichedTrades.length;
+        
+        // 실제 PnL 분포 (시뮬레이션에 사용)
+        const winPnls = winners.map(t => t.pnl);
+        const lossPnls = losers.map(t => Math.abs(t.pnl));
+        
         let betterOutcomes = 0;
-        const allPnls = enrichedTrades.map(t => t.pnl);
+        const simulationResults: number[] = [];
         
         for (let i = 0; i < simulations; i++) {
             let simTotal = 0;
+            
+            // 실제 승률을 유지하면서 실제 PnL 분포에서 샘플링
             for (let j = 0; j < totalTrades; j++) {
-                simTotal += allPnls[Math.floor(Math.random() * totalTrades)];
+                if (Math.random() < winRate) {
+                    // 승리: 실제 승리 PnL 중 랜덤 선택
+                    if (winPnls.length > 0) {
+                        simTotal += winPnls[Math.floor(Math.random() * winPnls.length)];
+                    }
+                } else {
+                    // 패배: 실제 손실 PnL 중 랜덤 선택
+                    if (lossPnls.length > 0) {
+                        simTotal -= lossPnls[Math.floor(Math.random() * lossPnls.length)];
+                    }
+                }
             }
+            
+            simulationResults.push(simTotal);
             if (simTotal > realizedTotalPnl) betterOutcomes++;
         }
+        
+        // Percentile 계산
         luckPercentile = (betterOutcomes / simulations) * 100;
+        
+        // 추가: 시뮬레이션 결과의 분포를 보고 해석 개선
+        if (simulationResults.length > 0) {
+            simulationResults.sort((a, b) => a - b);
+            const median = simulationResults[Math.floor(simulations / 2)];
+            const p25 = simulationResults[Math.floor(simulations * 0.25)];
+            const p75 = simulationResults[Math.floor(simulations * 0.75)];
+            
+            // 실제 성과가 중앙값보다 얼마나 다른지
+            if (realizedTotalPnl > p75) {
+                // 상위 25%에 속함 = 운이 좋음
+                luckPercentile = Math.max(0, luckPercentile - 5);
+            } else if (realizedTotalPnl < p25) {
+                // 하위 25%에 속함 = 운이 나쁨
+                luckPercentile = Math.min(100, luckPercentile + 5);
+            }
+        }
     }
 
     const totalRegret = enrichedTrades.reduce((a, b) => a + b.regret, 0);

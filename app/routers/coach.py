@@ -152,9 +152,29 @@ async def get_ai_coach(request: CoachRequest):
         def get_severity(p: dict) -> float:
             return p.get('severity') or 0.0
         
+        # 우선순위 점수 계산 (사용자에게 보여주기 위해)
+        def calculate_priority_score(p: dict) -> float:
+            loss = get_financial_loss(p)
+            freq = get_frequency(p)
+            sev = get_severity(p)
+            # analysis.py와 동일한 로직 사용
+            base_score = loss * 10
+            if loss < 50:
+                if freq > 0.5 and sev > 0.6:
+                    base_score += (freq * 100 * 20) + (sev * 100 * 15)
+                else:
+                    base_score += (freq * 100 * 10) + (sev * 100 * 5)
+            else:
+                base_score += (freq * 100 * 20) + (sev * 100 * 10)
+            return base_score
+        
+        # 점수 순으로 정렬하여 표시
+        sorted_biases = sorted(request.bias_priority, key=calculate_priority_score, reverse=True)
+        
         bias_priority_text = f"""
-    FIX PRIORITY (Ranked by Impact):
-    {chr(10).join([f"    {i+1}. {p.get('bias', 'Unknown')}: -${get_financial_loss(p):.0f} (Frequency: {(get_frequency(p)*100):.0f}%, Severity: {(get_severity(p)*100):.0f}%)" for i, p in enumerate(request.bias_priority)])}
+    FIX PRIORITY (Ranked by Financial Impact):
+    * 우선순위는 실제 금전적 손실을 최우선으로, 빈도와 심각도를 보조 지표로 산정되었습니다.
+    {chr(10).join([f"    {i+1}. {p.get('bias', 'Unknown')}: -${get_financial_loss(p):.0f} 손실 | {get_frequency(p)*100:.0f}% 빈도 | {get_severity(p)*100:.0f}% 심각도" for i, p in enumerate(sorted_biases)])}
     """
     
     behavior_shift_text = ''
@@ -267,8 +287,12 @@ async def get_ai_coach(request: CoachRequest):
 
     INSTRUCTIONS (INTELLIGENT DIAGNOSIS IN KOREAN):
     
-    0. STRENGTHS:
-       - If BEST EXECUTIONS exist, praise 1-2 specific trades first.
+    0. STRENGTHS (이달의 명장면):
+       - **CRITICAL**: BEST EXECUTIONS가 제공되면 반드시 strengths 배열을 생성하세요.
+       - 형식: [{{"ticker": "종목코드", "execution": "완벽한 진입/고점 매도/칼손절/완벽한 거래", "lesson": "칭찬 메시지 (1문장)", "reason": "구체적 이유"}}]
+       - 예시: [{{"ticker": "AAPL", "execution": "완벽한 진입", "lesson": "FOMO 점수 5%로 저점 매수를 잘 잡으셨습니다. 이 타이밍 감각을 유지하세요.", "reason": "FOMO 점수 5%로 저점 매수"}}]
+       - BEST EXECUTIONS가 없으면 strengths는 빈 배열 []로 반환하세요.
+       - 최대 3개까지만 생성하세요.
     
     1. DIAGNOSIS (3 sentences, DATA-DRIVEN REASONING):
        - Sentence 1: **Analyze the User's Trading Health**. 
@@ -325,6 +349,32 @@ async def get_ai_coach(request: CoachRequest):
         
         if retrieved_cards_for_response: result["references"] = retrieved_cards_for_response
         if "strengths" not in result: result["strengths"] = []
+        
+        # 이달의 명장면 Fallback: best_executions를 strengths로 변환
+        if len(result.get("strengths", [])) == 0 and request.best_executions:
+            execution_type_map = {
+                "PERFECT_ENTRY": "완벽한 진입",
+                "PERFECT_EXIT": "고점 매도",
+                "CLEAN_CUT": "칼손절",
+                "PERFECT_TRADE": "완벽한 거래"
+            }
+            
+            lesson_map = {
+                "PERFECT_ENTRY": "저점 매수 타이밍을 잘 잡으셨습니다. 이 원칙을 다른 종목에도 적용해보세요.",
+                "PERFECT_EXIT": "고점 매도로 수익을 극대화하셨습니다. 이 판단력을 유지하세요.",
+                "CLEAN_CUT": "빠른 손절로 큰 손실을 막았습니다. 이 훈련된 반사신경이 중요합니다.",
+                "PERFECT_TRADE": "진입과 청산 모두 완벽했습니다. 이런 거래를 템플릿으로 삼으세요."
+            }
+            
+            result["strengths"] = [
+                {
+                    "ticker": be.get("ticker", ""),
+                    "execution": execution_type_map.get(be.get("execution_type", ""), "우수한 거래"),
+                    "lesson": lesson_map.get(be.get("execution_type", ""), "잘한 매매입니다."),
+                    "reason": be.get("reason", "")
+                }
+                for be in request.best_executions[:3]  # 최대 3개
+            ]
         
         # 3A: PersonalPlaybook 생성 (LLM이 생성한 plan_step_1/2/3 사용)
         plan_step_1 = result.get("plan_step_1", "거래 전 잠시 멈추고 감정을 점검하십시오.")

@@ -262,16 +262,54 @@ async def analyze_trades(file: UploadFile):
     if not is_low_sample and len(trades_df) > 0:
         simulations = 1000
         realized_total_pnl = trades_df['pnl'].sum()
-        all_pnls = trades_df['pnl'].tolist()
+        
+        # 실제 통계 계산
+        winners_df = trades_df[trades_df['pnl'] > 0]
+        losers_df = trades_df[trades_df['pnl'] <= 0]
+        win_rate = len(winners_df) / len(trades_df) if len(trades_df) > 0 else 0
+        
+        # 실제 PnL 분포
+        win_pnls = winners_df['pnl'].tolist()
+        loss_pnls = losers_df['pnl'].abs().tolist()
+        
         better_outcomes = 0
+        simulation_results = []
         
         np.random.seed(42)
         for _ in range(simulations):
-            sim_total = sum(np.random.choice(all_pnls) for _ in range(total_trades))
+            sim_total = 0
+            
+            # 실제 승률을 유지하면서 실제 PnL 분포에서 샘플링
+            for _ in range(total_trades):
+                if np.random.random() < win_rate:
+                    # 승리: 실제 승리 PnL 중 랜덤 선택
+                    if len(win_pnls) > 0:
+                        sim_total += np.random.choice(win_pnls)
+                else:
+                    # 패배: 실제 손실 PnL 중 랜덤 선택
+                    if len(loss_pnls) > 0:
+                        sim_total -= np.random.choice(loss_pnls)
+            
+            simulation_results.append(sim_total)
             if sim_total > realized_total_pnl:
                 better_outcomes += 1
         
+        # Percentile 계산
         luck_percentile = (better_outcomes / simulations) * 100
+        
+        # 추가: 시뮬레이션 결과의 분포를 보고 해석 개선
+        if len(simulation_results) > 0:
+            simulation_results.sort()
+            p25 = simulation_results[int(simulations * 0.25)]
+            p75 = simulation_results[int(simulations * 0.75)]
+            
+            # 실제 성과가 분위수보다 얼마나 다른지
+            if realized_total_pnl > p75:
+                # 상위 25%에 속함 = 운이 좋음
+                luck_percentile = max(0, luck_percentile - 5)
+            elif realized_total_pnl < p25:
+                # 하위 25%에 속함 = 운이 나쁨
+                luck_percentile = min(100, luck_percentile + 5)
     
     # --- Truth Score Calculation (Market Regime Weighted) ---
     weighted_fomo_sum = 0
@@ -389,7 +427,32 @@ async def analyze_trades(file: UploadFile):
                 severity=disposition_severity
             ))
         
-        priorities.sort(key=lambda x: (x.financial_loss * 0.5) + (x.frequency * 10000 * 0.2) + (x.severity * 10000 * 0.3), reverse=True)
+        # 정렬: 손실 중심이지만 빈도와 심각도도 합리적으로 반영
+        # 공식: 손실($) * 10 + 빈도(%) * 30 + 심각도(%) * 20
+        # 예시:
+        # - $500 손실, 20% 빈도, 50% 심각도 = 5000 + 600 + 1000 = 6600점
+        # - $100 손실, 50% 빈도, 80% 심각도 = 1000 + 1500 + 1600 = 4100점
+        # → 손실이 큰 편향이 우선순위가 높음
+        
+        # 손실이 0이지만 빈도와 심각도가 매우 높은 경우도 고려
+        def calculate_priority_score(p: BiasPriority) -> float:
+            # 기본 점수: 손실 중심
+            base_score = p.financial_loss * 10
+            
+            # 손실이 없거나 작을 때: 빈도와 심각도로 보완
+            if p.financial_loss < 50:
+                # 빈도와 심각도가 모두 높으면 잠재적 위험으로 간주
+                if p.frequency > 0.5 and p.severity > 0.6:
+                    base_score += (p.frequency * 100 * 20) + (p.severity * 100 * 15)
+                else:
+                    base_score += (p.frequency * 100 * 10) + (p.severity * 100 * 5)
+            else:
+                # 손실이 있을 때: 빈도와 심각도는 보조 지표
+                base_score += (p.frequency * 100 * 20) + (p.severity * 100 * 10)
+            
+            return base_score
+        
+        priorities.sort(key=calculate_priority_score, reverse=True)
         for i, p in enumerate(priorities):
             p.priority = i + 1
         
