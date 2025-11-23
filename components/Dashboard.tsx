@@ -376,8 +376,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
     }
   ];
 
-  // 편향 제거 시뮬레이션 계산
+  // 편향 제거 시뮬레이션 계산 (백엔드에서 계산된 기회비용 반영)
   const biasFreeMetrics = React.useMemo(() => {
+    // 백엔드에서 계산된 bias_free_metrics가 있으면 사용
+    if (data.biasFreeMetrics) {
+      const iphonePrice = 1200; // $1200 가정
+      const equivalentItems = Math.abs(data.biasFreeMetrics.opportunityCost + data.biasFreeMetrics.biasLoss) / iphonePrice;
+      
+      return {
+        currentPnL: data.biasFreeMetrics.currentPnL,
+        potentialPnL: data.biasFreeMetrics.potentialPnL,
+        biasLoss: data.biasFreeMetrics.biasLoss,
+        opportunityCost: data.biasFreeMetrics.opportunityCost,
+        improvement: data.biasFreeMetrics.adjustedImprovement,
+        equivalentItems,
+        itemName: 'iPhone'
+      };
+    }
+    
+    // Fallback: 기존 로직 (biasLossMapping만 있는 경우)
     if (!data.biasLossMapping) return null;
     
     const totalBiasLoss = 
@@ -389,19 +406,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
     const currentTotalPnL = data.trades.reduce((sum, t) => sum + t.pnl, 0);
     const potentialPnL = currentTotalPnL + totalBiasLoss;
     
-    // 환산 (예: 아이폰 가격 대비)
-    const iphonePrice = 1200; // $1200 가정
+    const iphonePrice = 1200;
     const equivalentItems = Math.abs(totalBiasLoss) / iphonePrice;
     
     return {
       currentPnL: currentTotalPnL,
       potentialPnL,
       biasLoss: totalBiasLoss,
+      opportunityCost: 0, // Fallback에서는 기회비용 없음
       improvement: potentialPnL - currentTotalPnL,
       equivalentItems,
       itemName: 'iPhone'
     };
-  }, [data.biasLossMapping, data.trades]);
+  }, [data.biasFreeMetrics, data.biasLossMapping, data.trades]);
 
   return (
     <div className={`min-h-screen font-sans selection:bg-emerald-900/30 ${
@@ -640,6 +657,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                 <p className={`mt-2 pt-2 border-t ${
                   isDarkMode ? 'border-blue-900/30' : 'border-blue-200'
                 }`}>
+                  <strong>⚠️ 사후적 감사 (Post-trade Audit):</strong> 이 지표는 <strong>매매 시점에는 사용할 수 없습니다.</strong> 
+                  당일 고가/저가는 장 마감 후에야 알 수 있기 때문입니다. 이 지표는 "복기해보니 결과적으로 나쁜 위치였다"는 
+                  교육적 평가를 위한 사후 분석 도구입니다.
+                </p>
+                <p className={`mt-2 pt-2 border-t ${
+                  isDarkMode ? 'border-blue-900/30' : 'border-blue-200'
+                }`}>
                   <strong>과정 평가 (Process Evaluation):</strong> 단일 거래의 결과가 아니라 <strong>반복되는 패턴</strong>에 집중합니다. 
                   "한두 번은 운 탓일 수 있지만, 10번 반복되면 실력(편향)입니다."
                 </p>
@@ -786,6 +810,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                         {!isLowSample && <div className={`text-xs mt-1 ${
                           isDarkMode ? 'text-zinc-600' : 'text-zinc-500'
                         }`}>Monte Carlo Pctl</div>}
+                     </div>
+                     
+                     <div className={`p-4 rounded-lg border hover:border-zinc-700 transition-colors ${
+                       isDarkMode 
+                         ? 'bg-zinc-950 border-zinc-800' 
+                         : 'bg-zinc-100 border-zinc-300'
+                     }`}>
+                        <div className={`flex items-center gap-2 mb-2 ${
+                          isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                        }`}>
+                            <TrendingDown className="w-3 h-3" />
+                            <span className="text-xs uppercase font-bold">Max Drawdown</span>
+                        </div>
+                        <div className={`text-2xl font-mono ${
+                          metrics.maxDrawdown > 30 
+                            ? 'text-red-400' 
+                            : metrics.maxDrawdown > 15
+                            ? 'text-orange-400'
+                            : isDarkMode ? 'text-white' : 'text-zinc-900'
+                        }`}>
+                            {metrics.maxDrawdown.toFixed(1)}%
+                        </div>
+                        <div className={`text-xs mt-1 ${
+                          isDarkMode ? 'text-zinc-600' : 'text-zinc-500'
+                        }`}>고점 대비 최대 낙폭</div>
                      </div>
                 </div>
 
@@ -1179,9 +1228,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
             {/* Equity Curve Chart */}
             {data.equityCurve && data.equityCurve.length > 0 && (
                 <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                    <div className="flex items-center gap-2 mb-4">
-                        <TrendingUp className="w-4 h-4 text-emerald-500" />
-                        <h3 className="text-zinc-200 text-sm font-bold uppercase tracking-wider">Equity Curve (누적 수익 곡선)</h3>
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4 text-emerald-500" />
+                            <h3 className="text-zinc-200 text-sm font-bold uppercase tracking-wider">Equity Curve (누적 수익 곡선)</h3>
+                        </div>
+                        <div className="text-xs text-zinc-500">
+                            당신은 시장을 이기고 있습니까?
+                        </div>
                     </div>
                     <div className="mb-4 flex flex-wrap gap-3 text-xs text-zinc-400">
                         <div className="flex items-center gap-1">
@@ -1259,12 +1313,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                 </div>
                             </div>
                             
-                            <div className="p-4 bg-orange-950/20 rounded-lg border border-orange-900/30">
-                                <div className="text-sm text-zinc-300 mb-2">
-                                    💡 편향 비용: <span className="text-red-400 font-bold">-${biasFreeMetrics.biasLoss.toFixed(0)}</span>
+                            <div className="p-4 bg-red-950/20 rounded-lg border border-red-900/30">
+                                <div className="text-sm text-red-300 mb-2 font-semibold">
+                                    ⚠️ 이 편향 때문에 당신은 매달 손실을 보고 있습니다:
                                 </div>
-                                <div className="text-xs text-zinc-500">
-                                    이는 약 <span className="text-orange-400 font-semibold">{biasFreeMetrics.equivalentItems.toFixed(1)}대의 {biasFreeMetrics.itemName}</span> 가격과 같습니다.
+                                <div className="text-xl text-red-400 font-bold mb-2">
+                                    -${(biasFreeMetrics.biasLoss + (biasFreeMetrics.opportunityCost < 0 ? Math.abs(biasFreeMetrics.opportunityCost) : 0)).toFixed(0)}
+                                </div>
+                                <div className="text-xs text-red-200/80 mb-2 space-y-1">
+                                    {biasFreeMetrics.biasLoss > 0 && (
+                                        <div>• 직접 손실: <span className="font-semibold">-${biasFreeMetrics.biasLoss.toFixed(0)}</span></div>
+                                    )}
+                                    {biasFreeMetrics.opportunityCost !== undefined && biasFreeMetrics.opportunityCost < 0 && (
+                                        <div>• 기회비용 (시장 지수 대비): <span className="font-semibold">-${Math.abs(biasFreeMetrics.opportunityCost).toFixed(0)}</span></div>
+                                    )}
+                                </div>
+                                <div className="text-xs text-red-200/60 mt-2 pt-2 border-t border-red-900/30">
+                                    이는 약 <span className="font-semibold">{biasFreeMetrics.equivalentItems.toFixed(1)}대의 {biasFreeMetrics.itemName}</span> 가격과 같습니다.
+                                    <br />
+                                    <span className="italic">손실에 대한 심리적 영향은 이익보다 2.5배 강합니다.</span>
                                 </div>
                             </div>
                         </div>
@@ -1364,6 +1431,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                 : 'text-emerald-600 bg-emerald-50 border border-emerald-200'
                             }`}>AI 전달됨</span>
                         </div>
+                        
+                        {/* FOMO/Panic Score 경고 박스 */}
+                        <div className={`mb-4 p-3 rounded-lg border ${
+                          isDarkMode 
+                            ? 'bg-blue-950/20 border-blue-900/30' 
+                            : 'bg-blue-50 border-blue-200'
+                        }`}>
+                            <p className={`text-xs leading-relaxed ${
+                              isDarkMode ? 'text-blue-200/80' : 'text-blue-800'
+                            }`}>
+                                <span className="font-bold">⚠️ 중요:</span> FOMO/Panic 점수는 <strong>사후적 감사(Post-trade Audit)</strong> 지표입니다.
+                                매매 시점에는 당일 고가/저가를 알 수 없습니다. 이 지표는 "복기해보니 결과적으로 나쁜 위치였다"는 
+                                교육적 평가를 위한 것입니다.
+                            </p>
+                        </div>
+                        
                         <div className="space-y-3 mb-4">
                             {evidenceItems.map((item, idx) => (
                                 <div key={idx} className={`p-4 rounded-lg border flex items-start justify-between gap-4 ${

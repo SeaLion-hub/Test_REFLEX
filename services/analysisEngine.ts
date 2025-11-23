@@ -206,6 +206,7 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
                     sharpeRatio: backendMetrics.sharpe_ratio || 0,
                     sortinoRatio: backendMetrics.sortino_ratio || 0,
                     alpha: backendMetrics.alpha || 0,
+                    maxDrawdown: backendMetrics.max_drawdown || 0,
                     luckPercentile: backendMetrics.luck_percentile || 50,
                     totalRegret: json.trades.reduce((sum: number, t: any) => sum + (t.regret || 0), 0),
                     truthScore: backendMetrics.truth_score
@@ -225,6 +226,13 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
                     panicLoss: json.bias_loss_mapping.panic_loss,
                     revengeLoss: json.bias_loss_mapping.revenge_loss,
                     dispositionLoss: json.bias_loss_mapping.disposition_loss
+                } : undefined,
+                biasFreeMetrics: json.bias_free_metrics ? {
+                    currentPnL: json.bias_free_metrics.current_pnl,
+                    potentialPnL: json.bias_free_metrics.potential_pnl,
+                    biasLoss: json.bias_free_metrics.bias_loss,
+                    opportunityCost: json.bias_free_metrics.opportunity_cost,
+                    adjustedImprovement: json.bias_free_metrics.adjusted_improvement
                 } : undefined,
                 biasPriority: json.bias_priority ? json.bias_priority.map((p: any) => ({
                     bias: p.bias,
@@ -253,7 +261,8 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
                     volume_weight: p.volume_weight,
                     regime_weight: p.regime_weight,
                     contextual_score: p.contextual_score,
-                    market_regime: p.market_regime
+                    market_regime: p.market_regime,
+                    benchmark_cumulative_pnl: p.benchmark_cumulative_pnl
                 })) : undefined,
                 patterns: json.patterns ? json.patterns.map((p: any) => ({
                     pattern: p.pattern,
@@ -440,7 +449,7 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
         metrics: {
             totalTrades, winRate, avgWin, avgLoss, profitFactor,
             fomoIndex, panicIndex, dispositionRatio, revengeTradingCount,
-            sharpeRatio, sortinoRatio, alpha: avgReturn, luckPercentile,
+            sharpeRatio, sortinoRatio, alpha: avgReturn, maxDrawdown: 0, luckPercentile,
             totalRegret, truthScore: Math.max(0, Math.min(100, Math.round(baseScore)))
         },
         personalBaseline,

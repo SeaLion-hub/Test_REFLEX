@@ -119,6 +119,7 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({
     index: idx,
     date: point.date,
     cumulativePnl: point.cumulative_pnl,
+    benchmarkPnl: point.benchmark_cumulative_pnl,
     pnl: point.pnl,
     fomoScore: point.fomo_score,
     panicScore: point.panic_score,
@@ -216,6 +217,14 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({
                   <div className="text-sm text-emerald-400 font-mono mb-2">
                     누적 손익: ${point.cumulativePnl.toFixed(0)}
                   </div>
+                  {point.benchmarkPnl !== null && point.benchmarkPnl !== undefined && (
+                    <div className="text-sm text-blue-400 font-mono mb-2">
+                      SPY 누적 수익: ${point.benchmarkPnl.toFixed(0)}
+                      <span className={`text-xs ml-2 ${point.cumulativePnl > point.benchmarkPnl ? 'text-emerald-400' : 'text-red-400'}`}>
+                        ({point.cumulativePnl > point.benchmarkPnl ? '+' : ''}${(point.cumulativePnl - point.benchmarkPnl).toFixed(0)})
+                      </span>
+                    </div>
+                  )}
                   <div className="text-xs text-zinc-400 mb-2">
                     거래 손익: ${point.pnl.toFixed(0)}
                   </div>
@@ -283,6 +292,19 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({
             dot={false}
             name="cumulativePnl"
           />
+          
+          {/* 벤치마크(SPY) 라인 */}
+          {chartData.some(p => p.benchmarkPnl !== null && p.benchmarkPnl !== undefined) && (
+            <Line
+              type="monotone"
+              dataKey="benchmarkPnl"
+              stroke="#3b82f6"
+              strokeWidth={2}
+              strokeDasharray="3 3"
+              dot={false}
+              name="benchmarkPnl"
+            />
+          )}
           
           {/* What-If 점선 (토글 시 표시) */}
           {biasFreeData && (
@@ -390,12 +412,22 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({
       {/* 범례 */}
       <div className="flex items-center justify-center gap-4 mt-2 text-xs text-zinc-500 flex-wrap">
         <div className="flex items-center gap-1">
+          <div className="w-4 h-0.5 bg-emerald-500"></div>
+          <span>사용자 수익률</span>
+        </div>
+        {chartData.some(p => p.benchmarkPnl !== null && p.benchmarkPnl !== undefined) && (
+          <div className="flex items-center gap-1">
+            <div className="w-4 h-0.5 bg-blue-500 border-dashed border-t-2"></div>
+            <span>SPY (벤치마크)</span>
+          </div>
+        )}
+        <div className="flex items-center gap-1">
           <div className="w-3 h-3 bg-red-500/30 border border-red-500/50 rounded"></div>
-          <span>FOMO 시점 (고점 매수)</span>
+          <span>FOMO 시점</span>
         </div>
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-          <span>Panic Sell (저점 매도)</span>
+          <span>Panic Sell</span>
         </div>
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 bg-amber-500 rounded-full"></div>

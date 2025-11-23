@@ -81,6 +81,7 @@ export interface BehavioralMetrics {
   sharpeRatio: number;
   sortinoRatio: number;
   alpha: number; // Vs Benchmark (simulated)
+  maxDrawdown: number; // Maximum Drawdown (%)
   
   // Simulation
   luckPercentile: number; // Monte Carlo result (0-100)
@@ -165,6 +166,15 @@ export interface BiasLossMapping {
   dispositionLoss: number; // Disposition Effect로 놓친 수익
 }
 
+// Bias-Free Metrics (기회비용 반영)
+export interface BiasFreeMetrics {
+  currentPnL: number; // 현재 총 손익
+  potentialPnL: number; // 편향 제거 후 잠재 손익
+  biasLoss: number; // 편향으로 인한 직접 손실
+  opportunityCost: number; // 벤치마크 대비 기회비용 (음수면 기회 상실)
+  adjustedImprovement: number; // 실제 개선액 (기회비용 반영)
+}
+
 // Perfect Edition: Bias Priority
 export interface BiasPriority {
   bias: 'FOMO' | 'Panic Sell' | 'Revenge Trading' | 'Disposition Effect';
@@ -207,6 +217,7 @@ export interface EquityCurvePoint {
   regime_weight?: number | null;
   contextual_score?: number | null;
   market_regime?: string | null;  // 툴팁용
+  benchmark_cumulative_pnl?: number | null;  // SPY 누적 수익률
 }
 
 export interface AnalysisResult {
@@ -219,6 +230,7 @@ export interface AnalysisResult {
   // Perfect Edition
   personalBaseline?: PersonalBaseline;
   biasLossMapping?: BiasLossMapping;
+  biasFreeMetrics?: BiasFreeMetrics; // 기회비용 반영 시뮬레이션
   biasPriority?: BiasPriority[];
   behaviorShift?: BehaviorShift[];
   equityCurve?: EquityCurvePoint[];

@@ -4,11 +4,110 @@ import io
 import numpy as np
 from datetime import datetime, timedelta
 import yfinance as yf
-from app.models import AnalysisResponse, EnrichedTrade, BehavioralMetrics, PersonalBaseline, BiasLossMapping, BiasPriority, BehaviorShift, EquityCurvePoint
+from app.models import AnalysisResponse, EnrichedTrade, BehavioralMetrics, PersonalBaseline, BiasLossMapping, BiasPriority, BehaviorShift, EquityCurvePoint, BiasFreeMetrics
 from app.services.market import fetch_market_data_cached, calculate_metrics, detect_market_regime
 from app.services.patterns import extract_deep_patterns
 
 router = APIRouter()
+
+def calculate_opportunity_cost(trades_df: pd.DataFrame) -> tuple[float, float, float, float]:
+    """
+    편향 거래 기간 동안 벤치마크(SPY) 수익률을 계산하여 기회비용 산출
+    
+    Returns:
+        tuple: (total_opportunity_cost, biased_trades_pnl, spy_return_during_biased, total_bias_loss)
+        - total_opportunity_cost: 편향 거래 대신 SPY에 투자했다면 얻었을 수익 (벤치마크 수익률)
+        - biased_trades_pnl: 편향 거래들의 실제 손익 합계
+        - spy_return_during_biased: 편향 거래 기간 동안 SPY 수익률
+        - total_bias_loss: 편향으로 인한 직접 손실
+    """
+    try:
+        if len(trades_df) == 0:
+            return (0.0, 0.0, 0.0, 0.0)
+        
+        # 편향 거래 식별
+        biased_trades = []
+        
+        # FOMO 거래 (FOMO > 0.7이고 손실인 거래)
+        high_fomo = trades_df[(trades_df['fomo_score'] > 0.7) & (trades_df['fomo_score'] != -1) & (trades_df['pnl'] < 0)]
+        
+        # Panic Sell 거래 (Panic < 0.3이고 손실인 거래)
+        low_panic = trades_df[(trades_df['panic_score'] < 0.3) & (trades_df['panic_score'] != -1) & (trades_df['pnl'] < 0)]
+        
+        # Revenge Trading (복수 매매)
+        revenge = trades_df[(trades_df['is_revenge'] == True) & (trades_df['pnl'] < 0)]
+        
+        # 편향 거래 합치기 (중복 제거)
+        biased_indices = set()
+        biased_indices.update(high_fomo.index)
+        biased_indices.update(low_panic.index)
+        biased_indices.update(revenge.index)
+        
+        biased_trades_df = trades_df.loc[list(biased_indices)]
+        
+        if len(biased_trades_df) == 0:
+            return (0.0, 0.0, 0.0, 0.0)
+        
+        # 편향 거래들의 총 손익
+        biased_trades_pnl = biased_trades_df['pnl'].sum()
+        total_bias_loss = abs(biased_trades_pnl)
+        
+        # 편향 거래 기간 전체 범위
+        min_date = biased_trades_df['entry_dt'].min()
+        max_date = biased_trades_df['exit_dt'].max()
+        
+        # SPY 데이터 다운로드 (버퍼 포함)
+        spy_start = (min_date - timedelta(days=5)).strftime("%Y-%m-%d")
+        spy_end = (max_date + timedelta(days=5)).strftime("%Y-%m-%d")
+        
+        spy_df = yf.download('SPY', start=spy_start, end=spy_end, progress=False)
+        if spy_df.empty:
+            return (0.0, biased_trades_pnl, 0.0, total_bias_loss)
+        
+        if isinstance(spy_df.columns, pd.MultiIndex):
+            spy_df.columns = spy_df.columns.get_level_values(0)
+        
+        # 각 편향 거래별로 진입일~청산일 동안 SPY 수익률 계산
+        total_spy_return = 0.0
+        total_invested = 0.0
+        
+        for _, trade in biased_trades_df.iterrows():
+            entry_dt = pd.to_datetime(trade['entry_dt']).normalize()
+            exit_dt = pd.to_datetime(trade['exit_dt']).normalize()
+            
+            # SPY 인덱스 찾기 (주말/휴일 보정)
+            entry_idx = spy_df.index.get_indexer([entry_dt], method='nearest')[0]
+            exit_idx = spy_df.index.get_indexer([exit_dt], method='nearest')[0]
+            
+            if entry_idx == -1 or exit_idx == -1:
+                continue
+            
+            # 거래 금액 (진입 가격 * 수량)
+            invested_amount = abs(trade['entry_price'] * trade['qty'])
+            
+            # SPY 수익률 계산
+            entry_price_spy = spy_df.iloc[entry_idx]['Close']
+            exit_price_spy = spy_df.iloc[exit_idx]['Close']
+            spy_return_pct = (exit_price_spy - entry_price_spy) / entry_price_spy if entry_price_spy > 0 else 0.0
+            
+            # 가중치 적용 (거래 금액 기준)
+            weighted_spy_return = invested_amount * spy_return_pct
+            total_spy_return += weighted_spy_return
+            total_invested += invested_amount
+        
+        # 총 기회비용 계산
+        if total_invested > 0:
+            spy_return_during_biased = total_spy_return / total_invested  # 가중 평균 수익률
+            opportunity_cost = total_spy_return  # 절대 금액
+        else:
+            spy_return_during_biased = 0.0
+            opportunity_cost = 0.0
+        
+        return (opportunity_cost, biased_trades_pnl, spy_return_during_biased, total_bias_loss)
+        
+    except Exception as e:
+        print(f"Error calculating opportunity cost: {e}")
+        return (0.0, 0.0, 0.0, 0.0)
 
 def calculate_regime_weight(
     market_regime: str, 
@@ -235,6 +334,29 @@ async def analyze_trades(file: UploadFile):
     downside_dev = np.sqrt(np.mean([r**2 for r in downside_returns])) if downside_returns else 0.0
     sortino_ratio = avg_return / downside_dev if downside_dev > 0 else 0.0
     
+    # Maximum Drawdown (MDD) 계산
+    max_drawdown = 0.0
+    if len(trades_df) > 0:
+        trades_df_sorted_for_mdd = trades_df.sort_values('entry_dt').copy()
+        trades_df_sorted_for_mdd['cumulative_pnl'] = trades_df_sorted_for_mdd['pnl'].cumsum()
+        
+        cumulative_pnls = trades_df_sorted_for_mdd['cumulative_pnl'].tolist()
+        if len(cumulative_pnls) > 0:
+            peak = cumulative_pnls[0]
+            max_dd = 0.0
+            
+            for pnl in cumulative_pnls:
+                if pnl > peak:
+                    peak = pnl
+                if peak != 0:
+                    drawdown = (peak - pnl) / abs(peak) if peak > 0 else 0.0
+                else:
+                    drawdown = 0.0
+                if drawdown > max_dd:
+                    max_dd = drawdown
+            
+            max_drawdown = max_dd * 100  # 퍼센트로 변환
+    
     alpha = 0.0
     try:
         if len(trades_df) > 0:
@@ -375,6 +497,32 @@ async def analyze_trades(file: UploadFile):
             panic_loss=float(panic_loss),
             revenge_loss=float(revenge_loss),
             disposition_loss=float(disposition_loss)
+        )
+    
+    # Bias-Free Metrics 계산 (기회비용 반영)
+    bias_free_metrics = None
+    if total_trades > 0:
+        current_total_pnl = trades_df['pnl'].sum()
+        total_bias_loss_from_mapping = (
+            bias_loss_mapping.fomo_loss + 
+            bias_loss_mapping.panic_loss + 
+            bias_loss_mapping.revenge_loss + 
+            bias_loss_mapping.disposition_loss
+        ) if bias_loss_mapping else 0.0
+        
+        # 기회비용 계산 (편향 거래 기간 동안 SPY 수익률)
+        opportunity_cost, biased_trades_pnl, spy_return_rate, total_bias_loss = calculate_opportunity_cost(trades_df)
+        
+        # Reflex Adjusted PnL = Actual PnL - (Biased Trades PnL) + (SPY Return during Biased Trade Duration)
+        adjusted_pnl = current_total_pnl - biased_trades_pnl + opportunity_cost
+        adjusted_improvement = adjusted_pnl - current_total_pnl
+        
+        bias_free_metrics = BiasFreeMetrics(
+            current_pnl=float(current_total_pnl),
+            potential_pnl=float(adjusted_pnl),
+            bias_loss=float(total_bias_loss_from_mapping),
+            opportunity_cost=float(opportunity_cost),
+            adjusted_improvement=float(adjusted_improvement)
         )
     
     bias_priority = None
@@ -529,8 +677,46 @@ async def analyze_trades(file: UploadFile):
     trades_df_sorted = trades_df.sort_values('entry_dt')
     trades_df_sorted['cumulative_pnl'] = trades_df_sorted['pnl'].cumsum()
     
+    # 벤치마크(SPY) 수익률 계산
+    benchmark_data = None
+    try:
+        if len(trades_df_sorted) > 0:
+            min_date = trades_df_sorted['entry_dt'].min()
+            max_date = trades_df_sorted['exit_dt'].max()
+            spy_start = (min_date - timedelta(days=5)).strftime("%Y-%m-%d")
+            spy_end = (max_date + timedelta(days=5)).strftime("%Y-%m-%d")
+            
+            spy_df = yf.download('SPY', start=spy_start, end=spy_end, progress=False)
+            if not spy_df.empty:
+                if isinstance(spy_df.columns, pd.MultiIndex):
+                    spy_df.columns = spy_df.columns.get_level_values(0)
+                
+                # 초기 SPY 가격 및 사용자 초기 투자금 계산
+                initial_spy_price = spy_df.iloc[0]['Close']
+                initial_investment = abs(trades_df_sorted.iloc[0]['entry_price'] * trades_df_sorted.iloc[0]['qty'])
+                
+                # 각 거래 시점에서의 누적 SPY 수익률 계산
+                benchmark_data = {}
+                
+                for idx, (_, row) in enumerate(trades_df_sorted.iterrows()):
+                    entry_dt = pd.to_datetime(row['entry_dt']).normalize()
+                    entry_idx = spy_df.index.get_indexer([entry_dt], method='nearest')[0]
+                    
+                    if entry_idx != -1 and entry_idx < len(spy_df):
+                        current_spy_price = spy_df.iloc[entry_idx]['Close']
+                        spy_return_pct = (current_spy_price - initial_spy_price) / initial_spy_price if initial_spy_price > 0 else 0
+                        # 초기 투자금 기준으로 SPY 수익금 계산 (사용자 수익률과 비교 가능하도록)
+                        benchmark_data[row['id']] = initial_investment * spy_return_pct
+    except Exception as e:
+        print(f"Error calculating benchmark data: {e}")
+        benchmark_data = None
+    
     equity_curve = []
     for _, row in trades_df_sorted.iterrows():
+        benchmark_pnl = None
+        if benchmark_data and row['id'] in benchmark_data:
+            benchmark_pnl = benchmark_data[row['id']]
+        
         equity_curve.append(EquityCurvePoint(
             date=row['entry_date'],
             cumulative_pnl=float(row['cumulative_pnl']),
@@ -544,7 +730,8 @@ async def analyze_trades(file: UploadFile):
             volume_weight=row.get('volume_weight'),
             regime_weight=row.get('regime_weight'),
             contextual_score=row.get('contextual_score'),
-            market_regime=row.get('market_regime', 'UNKNOWN')
+            market_regime=row.get('market_regime', 'UNKNOWN'),
+            benchmark_cumulative_pnl=benchmark_pnl
         ))
     
     metrics_obj = BehavioralMetrics(
@@ -559,7 +746,8 @@ async def analyze_trades(file: UploadFile):
         sharpe_ratio=float(sharpe_ratio),
         sortino_ratio=float(sortino_ratio),
         alpha=float(alpha),
-        luck_percentile=float(luck_percentile)
+        luck_percentile=float(luck_percentile),
+        max_drawdown=float(max_drawdown)
     )
     
     # --- Contextual Score 분해 필드 계산 (조건부 부착) ---
@@ -657,6 +845,7 @@ async def analyze_trades(file: UploadFile):
         is_low_sample=total_trades < 5,
         personal_baseline=personal_baseline,
         bias_loss_mapping=bias_loss_mapping,
+        bias_free_metrics=bias_free_metrics,
         bias_priority=bias_priority,
         behavior_shift=behavior_shift,
         equity_curve=equity_curve,

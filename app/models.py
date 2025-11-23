@@ -25,6 +25,7 @@ class BehavioralMetrics(BaseModel):
     sortino_ratio: float = 0.0
     alpha: float = 0.0
     luck_percentile: float = 50.0
+    max_drawdown: float = 0.0  # Maximum Drawdown (%)
 
 class EnrichedTrade(BaseModel):
     id: str
@@ -79,6 +80,14 @@ class BiasLossMapping(BaseModel):
     revenge_loss: float
     disposition_loss: float
 
+class BiasFreeMetrics(BaseModel):
+    """편향 제거 시뮬레이션 메트릭 (기회비용 반영)"""
+    current_pnl: float  # 현재 총 손익
+    potential_pnl: float  # 편향 제거 후 잠재 손익
+    bias_loss: float  # 편향으로 인한 직접 손실
+    opportunity_cost: float  # 벤치마크 대비 기회비용 (음수면 기회 상실)
+    adjusted_improvement: float  # 실제 개선액 (기회비용 반영)
+
 class BiasPriority(BaseModel):
     bias: str
     priority: int
@@ -107,6 +116,7 @@ class EquityCurvePoint(BaseModel):
     regime_weight: Optional[float] = None
     contextual_score: Optional[float] = None
     market_regime: Optional[str] = None  # 툴팁용
+    benchmark_cumulative_pnl: Optional[float] = None  # SPY 누적 수익률
 
 class DeepPattern(BaseModel):
     type: str
@@ -130,6 +140,7 @@ class AnalysisResponse(BaseModel):
     is_low_sample: bool
     personal_baseline: Optional[PersonalBaseline] = None
     bias_loss_mapping: Optional[BiasLossMapping] = None
+    bias_free_metrics: Optional[BiasFreeMetrics] = None  # 기회비용 반영 시뮬레이션
     bias_priority: Optional[List[BiasPriority]] = None
     behavior_shift: Optional[List[BehaviorShift]] = None
     equity_curve: List[EquityCurvePoint] = []
