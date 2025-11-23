@@ -80,6 +80,32 @@
 - **Equity Curve**: 시간순 누적 손익 곡선
 - **Deep Pattern Analysis**: AI 기반 고급 패턴 추출
 
+### 3-1. MVP 필살기 기능 (핵심 차별화 요소)
+
+#### Causal Chain 추론 (인과 사슬 생성)
+- **"핵폭탄급 차별화"**: 단순 통계를 넘어서 사건의 순서(Sequence)를 통해 인과관계를 설명
+- 4단계 이벤트 시퀀스 감지: High MAE (물림) → Long Hold (비자발적 장기보유) → Market Drop (시장 하락) → Panic Sell (저점 매도)
+- LLM 기반 내러티브 생성: 타임스탬프를 분석하여 "오후 2시 고점에 진입했으나, 3시경 급락이 발생했고..." 형식의 인과관계 설명
+- 시간 정보가 있는 거래만 분석 (샘플링: FOMO 높은 거래 또는 손실 큰 거래)
+
+#### 3중 분석 구조 (Behavior → Regime → Narrative)
+- **시스템의 '깊이'를 보여주는 구조**: 단순 지표 나열이 아닌 입체적 진단
+- **Layer 1 (Behavior)**: FOMO, Panic, Revenge 점수 (팩트)
+- **Layer 2 (Regime)**: Market Regime (BULL/BEAR/SIDEWAYS) 분석 (맥락)
+- **Layer 3 (Narrative)**: AI Judge의 뉴스 분석 결과 또는 메트릭 기반 Fallback Narrative (해석)
+- 시각적으로 3단계를 분리하여 표시: 1단계 팩트 → 2단계 맥락 → 3단계 해석
+
+#### 편향 프로필 (Bias DNA) 시각화
+- **시각적 임팩트가 가장 큰 기능**: 프레젠테이션 화면에 띄워놓기 가장 좋은 자료
+- 기존 BehavioralRadar를 "Bias DNA Signature"로 리브랜딩
+- 새로운 축 매핑:
+  - **Impulse (충동)**: (1 - FOMO Index) × 100
+  - **Fear (공포)**: Panic Index × 100
+  - **Greed (탐욕)**: FOMO Index × 100
+  - **Resilience (회복력)**: 100 - (Revenge Trading Count × 25)
+  - **Discipline (절제)**: (1 - Disposition Ratio) × 50
+- **투자자 유형(Persona) 분류**: 메트릭 기반으로 "유리멘탈 스캘퍼", "FOMO 중독자", "과도한 신중파", "균형잡힌 트레이더" 등 자동 분류
+
 ### 4. AI 코칭 (`/coach` 엔드포인트)
 - 사용자의 거래 패턴을 분석하여 맞춤형 피드백 제공
 - RAG 기반 지식 베이스 활용 (`rag_cards.json`)
@@ -95,12 +121,13 @@
 - **GenAI 프로젝트의 핵심 차별화 기능**
 - FOMO 점수가 높은 거래에 대해 뉴스를 검색하고 AI가 판단
 - 수식 기반 점수만으로는 놓칠 수 있는 시장 맥락을 AI가 분석
-- **캐시 우선 전략**: 시연용 고품질 데이터 우선 사용, 없으면 실시간 검색
+- **캐시 우선 전략**: 시연용 고품질 데이터 우선 사용 (`force_cache=True`), 없으면 Fallback Narrative 생성
 - **2단계 판단 프로세스**:
   1. 뉴스 적합성 판단 (Relevance Filter): 주가 변동과 관련된 뉴스인지 확인
   2. FOMO 판단 (Main Judge): 뉴스 내용을 바탕으로 "유죄(뇌동매매)" / "무죄(전략적 진입)" / "보류(증거 불충분)" 판결
 - **AI Judge Modal**: 법정 판결문 스타일의 UI로 판결 결과 표시
 - 판결 근거, 확신도, 참조한 뉴스 헤드라인 제공
+- **Fallback Narrative**: 뉴스 데이터가 없을 때 메트릭 기반 대체 Narrative 자동 생성 (FOMO/Panic 점수와 Market Regime 조합)
 
 ### 6. 스마트 컷 소명 기능
 - Panic Score가 낮은 거래에 대해 "계획된 손절(Planned Cut)" 소명 가능
@@ -234,7 +261,10 @@ python generate_embeddings.py
 }
 ```
 
-**참고**: 캐시 파일이 없어도 서버는 정상 작동하며, 실시간 검색을 시도합니다. 시연 시 안정성을 위해 캐시 파일을 준비하는 것을 권장합니다.
+**참고**: 
+- 시연 모드에서는 `force_cache=True`로 설정되어 캐시만 사용하며, 실시간 검색은 스킵됩니다
+- 캐시가 없으면 "뉴스 데이터 없음 (캐시 미등록)" 메시지와 함께 Fallback Narrative가 자동 생성됩니다
+- 프로덕션 환경에서는 환경 변수 `DEMO_MODE=false`로 설정하여 실시간 검색을 활성화할 수 있습니다
 
 ### 5단계: 서버 실행
 
@@ -345,6 +375,16 @@ REFLEX_1122/
 ```
 
 ## 🎓 주요 개념 설명
+
+### Behavior Ontology (계층적 구조화)
+- **LLM을 왜 썼는지 설명하는 '치트키'**: 막연하게 텍스트를 생성하는 게 아니라, 행동 경제학적 분류 체계(Ontology)에 따라 데이터를 구조화
+- **계층적 구조**:
+  - Level 1: Cognitive Bias (인지 편향)
+  - Level 2: Emotional Bias (감정 편향)
+  - Level 3: FOMO, Panic Sell, Revenge Trading, Disposition Effect
+  - Level 4: Chasing Behavior, Loss Aversion, Tilt 등 구체적 행동 패턴
+- `rag_cards.json`의 태그 구조가 이 Ontology에 맞춰 재정비됨
+- 백서의 'AI Architecture' 파트에 다이어그램으로 설명
 
 ### FOMO Score
 진입 가격이 당일 고가-저가 범위에서 어느 위치인지를 나타냅니다.

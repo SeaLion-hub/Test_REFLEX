@@ -53,6 +53,64 @@ export const BehavioralRadar: React.FC<{ metrics: AnalysisResult['metrics'] }> =
   );
 };
 
+const classifyPersona = (data: Array<{ subject: string; value: number }>) => {
+  const impulse = data.find(d => d.subject.includes('Impulse'))?.value || 0;
+  const fear = data.find(d => d.subject.includes('Fear'))?.value || 0;
+  const greed = data.find(d => d.subject.includes('Greed'))?.value || 0;
+  const resilience = data.find(d => d.subject.includes('Resilience'))?.value || 0;
+  
+  if (impulse > 70 && fear > 60) return "유리멘탈 스캘퍼";
+  if (greed > 70 && resilience < 40) return "FOMO 중독자";
+  if (fear > 70 && resilience > 60) return "과도한 신중파";
+  if (impulse < 30 && fear < 30 && greed < 50) return "균형잡힌 트레이더";
+  if (greed > 60 && impulse > 50) return "추격 매수형";
+  if (fear > 60 && resilience < 50) return "공포 주도형";
+  
+  return "일반 트레이더";
+};
+
+export const BiasDNARadar: React.FC<{ metrics: AnalysisResult['metrics'] }> = ({ metrics }) => {
+  const data = [
+    { subject: 'Impulse (충동)', value: Math.max(0, (1 - metrics.fomoIndex) * 100) },
+    { subject: 'Fear (공포)', value: metrics.panicIndex * 100 },
+    { subject: 'Greed (탐욕)', value: metrics.fomoIndex * 100 },
+    { subject: 'Resilience (회복력)', value: Math.max(0, 100 - (metrics.revengeTradingCount * 25)) },
+    { subject: 'Discipline (절제)', value: Math.min(100, Math.max(0, (1 - metrics.dispositionRatio) * 50)) },
+  ];
+
+  const persona = classifyPersona(data);
+
+  return (
+    <div className="w-full">
+      <div className="mb-4">
+        <h3 className="text-lg font-bold mb-2 text-zinc-200">Bias DNA Signature</h3>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+          <p className="text-emerald-400 font-semibold text-center">
+            당신은 <span className="text-2xl">{persona}</span> 유형입니다
+          </p>
+        </div>
+      </div>
+      <div className="h-[250px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <RadarChart cx="50%" cy="50%" outerRadius="75%" data={data.map(d => ({ ...d, A: d.value, fullMark: 100 }))}>
+            <PolarGrid stroke="#27272a" />
+            <PolarAngleAxis dataKey="subject" tick={{ fill: '#71717a', fontSize: 11 }} />
+            <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+            <Radar
+              name="Bias DNA"
+              dataKey="A"
+              stroke="#10b981"
+              strokeWidth={2}
+              fill="#10b981"
+              fillOpacity={0.2}
+            />
+          </RadarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
+
 export const RegretChart: React.FC<{ trades: EnrichedTrade[] }> = ({ trades }) => {
   const data = trades
     .map(t => ({

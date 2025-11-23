@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { AnalysisResult, AIAnalysis, EnrichedTrade } from '../types';
 import { getAIInterpretation } from '../services/openaiService';
-import { BehavioralRadar, RegretChart, EquityCurveChart } from './Charts';
+import { BiasDNARadar, RegretChart, EquityCurveChart } from './Charts';
 import { AICoach } from './AICoach';
 import { StrategyTagModal } from './StrategyTagModal';
 import { AIJudgeModal } from './AIJudgeModal';
@@ -29,6 +29,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   // AI Judge Modal State
   const [selectedTradeForJudge, setSelectedTradeForJudge] = useState<EnrichedTrade | null>(null);
   const [showAIJudgeModal, setShowAIJudgeModal] = useState(false);
+  
+  // 3중 분석 구조 State
+  const [narrativeData, setNarrativeData] = useState<Array<{ ticker: string; narrative: string; source: string }>>([]);
+  const [narrativeLoading, setNarrativeLoading] = useState(false);
   
   // Chart Interaction State (2A: 거래 차트 매핑 시각화)
   const [selectedTradeFromChart, setSelectedTradeFromChart] = useState<EnrichedTrade | null>(null);
@@ -98,6 +102,103 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
       );
     }
   }, [data.benchmarkLoadFailed]);
+
+  // 3중 분석 구조: 샘플 거래 선택 및 Narrative 수집
+  const getSampleTradesForNarrative = (trades: EnrichedTrade[]) => {
+    // FOMO 높은 거래 3개
+    const highFomo = [...trades]
+      .filter(t => t.fomoScore > 0.7 && t.fomoScore !== -1)
+      .sort((a, b) => b.fomoScore - a.fomoScore)
+      .slice(0, 3);
+    
+    // 손실 큰 거래 2개
+    const bigLosses = [...trades]
+      .filter(t => t.pnl < 0)
+      .sort((a, b) => a.pnl - b.pnl)
+      .slice(0, 2);
+    
+    // 중복 제거 후 최대 5개
+    const unique = [...new Map([...highFomo, ...bigLosses].map(t => [t.id, t])).values()];
+    return unique.slice(0, 5);
+  };
+
+  const generateFallbackNarrative = (trade: EnrichedTrade, metrics: BehavioralMetrics) => {
+    const fomo = trade.fomoScore;
+    const panic = trade.panicScore;
+    const regime = trade.marketRegime || 'UNKNOWN';
+    
+    const narratives = [];
+    
+    if (fomo > 0.7) {
+      if (regime === 'BEAR') {
+        narratives.push("하락장 반등 추격 매수로 판단됩니다");
+      } else {
+        narratives.push("상승 추세 후반부 고점 진입으로 보입니다");
+      }
+    }
+    
+    if (panic < 0.3 && panic !== -1) {
+      if (regime === 'BULL') {
+        narratives.push("상승장에서 공포 매도는 기회 비용이 큽니다");
+      } else {
+        narratives.push("급락 구간에서의 저점 매도 패턴입니다");
+      }
+    }
+    
+    if (narratives.length === 0) {
+      return "수식 기반 분석: 행동 편향이 감지되었으나 뉴스 맥락은 확인되지 않았습니다";
+    }
+    
+    return narratives.join(" | ");
+  };
+
+  useEffect(() => {
+    const sampleTrades = getSampleTradesForNarrative(data.trades);
+    if (sampleTrades.length === 0) return;
+
+    setNarrativeLoading(true);
+    
+    // 배치로 뉴스 검증 (캐시 우선)
+    Promise.all(
+      sampleTrades.map(async (trade) => {
+        try {
+          const response = await fetch('http://localhost:8000/verify-news', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ticker: trade.ticker,
+              date: trade.entryDate,
+              fomo_score: trade.fomoScore
+            })
+          });
+
+          if (response.ok) {
+            const verification = await response.json();
+            return {
+              ticker: trade.ticker,
+              narrative: verification.reasoning || generateFallbackNarrative(trade, data.metrics),
+              source: verification.source || 'none'
+            };
+          } else {
+            return {
+              ticker: trade.ticker,
+              narrative: generateFallbackNarrative(trade, data.metrics),
+              source: 'none'
+            };
+          }
+        } catch (error) {
+          return {
+            ticker: trade.ticker,
+            narrative: generateFallbackNarrative(trade, data.metrics),
+            source: 'none'
+          };
+        }
+      })
+    ).then(results => {
+      setNarrativeData(results);
+      setNarrativeLoading(false);
+    });
+  }, [data.trades, data.metrics]);
   
   // Recalculate FOMO metrics excluding strategic trades
   const recalculateFOMO = (tradesList: EnrichedTrade[]) => {
@@ -594,6 +695,182 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
             </div>
         </div>
 
+        {/* 3중 분석 구조 (Behavior → Regime → Narrative) */}
+        <div className={`rounded-xl p-6 border ${
+          isDarkMode
+            ? 'bg-zinc-900 border-zinc-800'
+            : 'bg-zinc-50 border-zinc-200'
+        }`}>
+          <div className="flex items-center gap-2 mb-4">
+            <Brain className={`w-5 h-5 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+            <h3 className={`text-lg font-bold ${
+              isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+            }`}>3중 분석 구조</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Layer 1: Behavior (팩트) */}
+            <div className={`rounded-lg p-4 border ${
+              isDarkMode
+                ? 'bg-zinc-950 border-zinc-800'
+                : 'bg-white border-zinc-200'
+            }`}>
+              <div className="flex items-center gap-2 mb-3">
+                <BarChart2 className={`w-4 h-4 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+                <h4 className={`text-sm font-semibold ${
+                  isDarkMode ? 'text-zinc-300' : 'text-zinc-900'
+                }`}>1단계: 팩트</h4>
+              </div>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}>FOMO</span>
+                  <span className={`font-mono font-semibold ${
+                    data.metrics.fomoIndex > 0.7 ? 'text-red-400' : 'text-zinc-300'
+                  }`}>{(data.metrics.fomoIndex * 100).toFixed(0)}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}>Panic</span>
+                  <span className={`font-mono font-semibold ${
+                    data.metrics.panicIndex < 0.3 ? 'text-red-400' : 'text-zinc-300'
+                  }`}>{(data.metrics.panicIndex * 100).toFixed(0)}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}>Revenge</span>
+                  <span className={`font-mono font-semibold ${
+                    data.metrics.revengeTradingCount > 0 ? 'text-red-400' : 'text-zinc-300'
+                  }`}>{data.metrics.revengeTradingCount}회</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Layer 2: Regime (맥락) */}
+            <div className={`rounded-lg p-4 border ${
+              isDarkMode
+                ? 'bg-zinc-950 border-zinc-800'
+                : 'bg-white border-zinc-200'
+            }`}>
+              <div className="flex items-center gap-2 mb-3">
+                <TrendingUp className={`w-4 h-4 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`} />
+                <h4 className={`text-sm font-semibold ${
+                  isDarkMode ? 'text-zinc-300' : 'text-zinc-900'
+                }`}>2단계: 맥락</h4>
+              </div>
+              <div className="text-xs">
+                {data.trades.length > 0 ? (
+                  <div>
+                    <div className={`text-sm font-semibold mb-2 ${
+                      data.trades[0].marketRegime === 'BULL' ? 'text-emerald-400' :
+                      data.trades[0].marketRegime === 'BEAR' ? 'text-red-400' :
+                      'text-zinc-400'
+                    }`}>
+                      {data.trades[0].marketRegime === 'BULL' ? '상승장 (BULL)' :
+                       data.trades[0].marketRegime === 'BEAR' ? '하락장 (BEAR)' :
+                       data.trades[0].marketRegime === 'SIDEWAYS' ? '횡보장 (SIDEWAYS)' :
+                       '알 수 없음 (UNKNOWN)'}
+                    </div>
+                    <p className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}>
+                      시장 국면에 따른 편향 심각도 가중치 적용
+                    </p>
+                  </div>
+                ) : (
+                  <p className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}>데이터 없음</p>
+                )}
+              </div>
+            </div>
+
+            {/* Layer 3: Narrative (해석) */}
+            <div className={`rounded-lg p-4 border ${
+              isDarkMode
+                ? 'bg-zinc-950 border-zinc-800'
+                : 'bg-white border-zinc-200'
+            }`}>
+              <div className="flex items-center gap-2 mb-3">
+                <MessageSquare className={`w-4 h-4 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+                <h4 className={`text-sm font-semibold ${
+                  isDarkMode ? 'text-zinc-300' : 'text-zinc-900'
+                }`}>3단계: 해석</h4>
+              </div>
+              <div className="text-xs space-y-2 max-h-32 overflow-y-auto">
+                {narrativeLoading ? (
+                  <p className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}>분석 중...</p>
+                ) : narrativeData.length > 0 ? (
+                  narrativeData.map((item, idx) => (
+                    <div key={idx} className={`p-2 rounded border ${
+                      isDarkMode
+                        ? 'bg-zinc-900/50 border-zinc-800'
+                        : 'bg-zinc-50 border-zinc-200'
+                    }`}>
+                      <div className="font-semibold text-zinc-300 mb-1">{item.ticker}</div>
+                      <p className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}>
+                        {item.narrative}
+                      </p>
+                      {item.source === 'cache' && (
+                        <span className="text-xs text-zinc-500 mt-1 block">(캐시 데이터)</span>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}>
+                    Narrative 데이터 없음
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Causal Chain 추론 (인과 사슬) */}
+        {data.deepPatterns && data.deepPatterns.some(p => p.type === 'CAUSAL_CHAIN') && (
+          <div className={`rounded-xl p-6 border ${
+            isDarkMode
+              ? 'bg-purple-950/20 border-purple-900/30'
+              : 'bg-purple-50 border-purple-200'
+          }`}>
+            <div className="flex items-center gap-2 mb-4">
+              <Brain className={`w-5 h-5 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+              <h3 className={`text-lg font-bold ${
+                isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+              }`}>인과 사슬 분석 (Causal Chain)</h3>
+            </div>
+            {data.deepPatterns
+              .filter(p => p.type === 'CAUSAL_CHAIN')
+              .map((pattern, idx) => (
+                <div key={idx} className={`p-4 rounded-lg border mb-3 ${
+                  isDarkMode
+                    ? 'bg-zinc-900/50 border-purple-800/50'
+                    : 'bg-white border-purple-200'
+                }`}>
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-lg ${
+                      isDarkMode ? 'bg-purple-900/30' : 'bg-purple-100'
+                    }`}>
+                      <TrendingDown className={`w-5 h-5 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+                    </div>
+                    <div className="flex-1">
+                      <div className={`text-sm font-semibold mb-2 ${
+                        isDarkMode ? 'text-purple-300' : 'text-purple-900'
+                      }`}>
+                        {pattern.metadata?.ticker || 'Unknown'} 거래의 인과관계
+                      </div>
+                      <p className={`text-sm leading-relaxed ${
+                        isDarkMode ? 'text-zinc-300' : 'text-zinc-800'
+                      }`}>
+                        {pattern.description}
+                      </p>
+                      {pattern.metadata?.events && (
+                        <div className={`mt-2 text-xs ${
+                          isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+                        }`}>
+                          감지된 이벤트: {pattern.metadata.events}개
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
+
         {/* FOMO 의심 거래 알림 배너 */}
         {(() => {
           const fomoSuspiciousTrades = trades.filter(t => 
@@ -711,7 +988,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                     }`}>Psychology Map</h3>
                 </div>
                 <div className="flex-grow flex items-center justify-center">
-                    <BehavioralRadar metrics={metrics} />
+                    <BiasDNARadar metrics={metrics} />
                 </div>
              </div>
 

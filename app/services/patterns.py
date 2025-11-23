@@ -1,7 +1,10 @@
 import pandas as pd
 import numpy as np
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime
+import os
+import json
+from openai import OpenAI
 from app.models import DeepPattern, BiasPriority, PersonalBaseline, PersonalPlaybook
 
 def extract_deep_patterns(trades_df: pd.DataFrame) -> List[DeepPattern]:
@@ -192,7 +195,152 @@ def extract_deep_patterns(trades_df: pd.DataFrame) -> List[DeepPattern]:
                     metadata={'long_loss_count': len(long_loss_trades), 'long_loss_rate': float(long_loss_rate), 'avg_days': float(avg_long_loss_days)}
                 ))
     
+    # 8. Causal Chain 추론 (인과 사슬 생성)
+    if has_time_info and len(trades_df) >= 4:
+        causal_chain = generate_causal_chain(trades_df)
+        if causal_chain:
+            patterns.append(causal_chain)
+    
     return patterns
+
+def generate_causal_chain(trades_df: pd.DataFrame) -> Optional[DeepPattern]:
+    """
+    4단계 인과 사슬 감지 및 LLM 내러티브 생성
+    
+    이벤트 시퀀스:
+    1. High MAE (물림) - mae < -0.02
+    2. Long Hold (비자발적 장기보유) - duration_days > 30
+    3. Market Drop (시장 하락) - market_regime == 'BEAR'
+    4. Panic Sell (저점 매도) - panic_score < 0.3
+    """
+    # 샘플링: FOMO 높은 거래 또는 손실 큰 거래만 선택
+    candidates = trades_df[
+        ((trades_df['fomo_score'] > 0.7) | (trades_df['pnl'] < trades_df['pnl'].quantile(0.2)))
+        & (trades_df['fomo_score'] != -1)
+    ].copy()
+    
+    if len(candidates) == 0:
+        return None
+    
+    # 가장 심각한 거래 1개 선택
+    candidate = candidates.sort_values('pnl').iloc[0] if len(candidates) > 0 else None
+    if candidate is None:
+        return None
+    
+    # 4단계 이벤트 감지
+    events = []
+    
+    # 1. High MAE
+    if candidate['mae'] < -0.02:
+        events.append({
+            'type': 'HIGH_MAE',
+            'timestamp': candidate['entry_dt'],
+            'value': candidate['mae'],
+            'description': f"물림 발생 (MAE: {candidate['mae']*100:.1f}%)"
+        })
+    
+    # 2. Long Hold
+    if candidate['duration_days'] > 30 and candidate['pnl'] < 0:
+        events.append({
+            'type': 'LONG_HOLD',
+            'timestamp': candidate['exit_dt'],
+            'value': candidate['duration_days'],
+            'description': f"비자발적 장기보유 ({candidate['duration_days']:.0f}일)"
+        })
+    
+    # 3. Market Drop
+    if candidate.get('market_regime') == 'BEAR':
+        events.append({
+            'type': 'MARKET_DROP',
+            'timestamp': candidate['entry_dt'],
+            'value': 0,
+            'description': "시장 하락 국면"
+        })
+    
+    # 4. Panic Sell
+    if candidate['panic_score'] < 0.3 and candidate['panic_score'] != -1:
+        events.append({
+            'type': 'PANIC_SELL',
+            'timestamp': candidate['exit_dt'],
+            'value': candidate['panic_score'],
+            'description': f"저점 매도 (Panic Score: {candidate['panic_score']*100:.0f}%)"
+        })
+    
+    # 최소 3개 이벤트가 있어야 인과 사슬로 인정
+    if len(events) < 3:
+        return None
+    
+    # 이벤트를 시간순으로 정렬
+    events_sorted = sorted(events, key=lambda x: x['timestamp'])
+    
+    # LLM에게 내러티브 생성 요청
+    api_key = os.getenv("OPENAI_API_KEY") or os.getenv("VITE_OPENAI_API_KEY")
+    if not api_key:
+        # API 키가 없으면 기본 내러티브 생성
+        narrative = " → ".join([e['description'] for e in events_sorted])
+        return DeepPattern(
+            type='CAUSAL_CHAIN',
+            description=narrative,
+            significance='MEDIUM',
+            metadata={'events': len(events_sorted), 'ticker': candidate['ticker']}
+        )
+    
+    try:
+        openai = OpenAI(api_key=api_key)
+        
+        # 프롬프트 생성
+        events_text = "\n".join([
+            f"- {i+1}. {e['type']}: {e['description']} (시간: {e['timestamp']})"
+            for i, e in enumerate(events_sorted)
+        ])
+        
+        prompt = f"""
+다음 4개 이벤트의 타임스탬프를 분석하여 하나의 인과관계 내러티브로 연결하세요.
+객관적 사실만 기반으로 작성하세요.
+
+[이벤트 시퀀스]
+{events_text}
+
+[출력 형식]
+다음 형식으로 한국어로 작성하세요:
+"오후 X시 [이벤트1]했으나, Y시경 [이벤트2]가 발생했고, [이벤트3]하며 [이벤트4]하여 손실을 키웠습니다."
+
+출력만 반환하세요 (JSON 없이 순수 텍스트).
+"""
+        
+        completion = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a behavioral finance analyst. Respond in Korean only."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,
+            max_tokens=200
+        )
+        
+        narrative = completion.choices[0].message.content.strip()
+        
+        return DeepPattern(
+            type='CAUSAL_CHAIN',
+            description=narrative,
+            significance='HIGH' if len(events_sorted) >= 4 else 'MEDIUM',
+            metadata={
+                'events': len(events_sorted),
+                'ticker': candidate['ticker'],
+                'event_types': [e['type'] for e in events_sorted]
+            }
+        )
+        
+    except Exception as e:
+        print(f"Causal Chain LLM error: {e}")
+        # Fallback: 기본 내러티브
+        narrative = " → ".join([e['description'] for e in events_sorted])
+        return DeepPattern(
+            type='CAUSAL_CHAIN',
+            description=narrative,
+            significance='MEDIUM',
+            metadata={'events': len(events_sorted), 'ticker': candidate['ticker']}
+        )
 
 def generate_personal_playbook(
     patterns: List[DeepPattern],

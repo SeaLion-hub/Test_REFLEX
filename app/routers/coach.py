@@ -438,6 +438,40 @@ async def get_ai_coach(request: CoachRequest):
             "fix": "API 키나 네트워크 상태를 확인하세요."
         }
 
+def generate_fallback_narrative(trade: dict, metrics: dict) -> str:
+    """
+    뉴스가 없을 때 메트릭 기반 대체 Narrative 생성
+    
+    Args:
+        trade: 거래 정보 (ticker, entry_date, market_regime 등)
+        metrics: 메트릭 정보 (fomo_score, panic_score 등)
+    
+    Returns:
+        Fallback Narrative 문자열
+    """
+    fomo = metrics.get('fomo_score', 0) if isinstance(metrics, dict) else getattr(metrics, 'fomo_score', 0)
+    panic = metrics.get('panic_score', 0) if isinstance(metrics, dict) else getattr(metrics, 'panic_score', 0)
+    regime = trade.get('market_regime', 'UNKNOWN') if isinstance(trade, dict) else getattr(trade, 'market_regime', 'UNKNOWN')
+    
+    narratives = []
+    
+    if fomo > 0.7:
+        if regime == 'BEAR':
+            narratives.append("하락장 반등 추격 매수로 판단됩니다")
+        else:
+            narratives.append("상승 추세 후반부 고점 진입으로 보입니다")
+    
+    if panic < 0.3:
+        if regime == 'BULL':
+            narratives.append("상승장에서 공포 매도는 기회 비용이 큽니다")
+        else:
+            narratives.append("급락 구간에서의 저점 매도 패턴입니다")
+    
+    if not narratives:
+        return "수식 기반 분석: 행동 편향이 감지되었으나 뉴스 맥락은 확인되지 않았습니다"
+    
+    return " | ".join(narratives)
+
 def build_news_verification_prompt(news_titles: List[str], ticker: str, date: str, fomo_score: float) -> str:
     """
     뉴스 검증 + FOMO 판단 통합 프롬프트
@@ -501,14 +535,18 @@ async def verify_news(request: NewsVerificationRequest):
     
     openai = OpenAI(api_key=api_key)
     
-    # 1. 뉴스 검색
-    news_titles, source = fetch_news_context(request.ticker, request.date)
+    # 1. 뉴스 검색 (시연용: force_cache=True)
+    news_titles, source = fetch_news_context(request.ticker, request.date, force_cache=True)
     
-    # 뉴스가 없으면 즉시 반환
-    if not news_titles or (len(news_titles) == 1 and "없음" in news_titles[0] or "실패" in news_titles[0]):
+    # 뉴스가 없으면 Fallback Narrative 생성
+    if not news_titles or (len(news_titles) == 1 and ("없음" in news_titles[0] or "실패" in news_titles[0] or "캐시 미등록" in news_titles[0])):
+        fallback_narrative = generate_fallback_narrative(
+            {"market_regime": "UNKNOWN"},  # trade 정보가 없으므로 기본값
+            {"fomo_score": request.fomo_score, "panic_score": 0.5}  # panic_score는 기본값
+        )
         return NewsVerification(
             verdict="UNKNOWN",
-            reasoning="뉴스 데이터를 찾을 수 없어 판단을 보류합니다. 수식 기반 점수만 참고하세요.",
+            reasoning=fallback_narrative,
             confidence="LOW",
             news_titles=news_titles if news_titles else [],
             source=source

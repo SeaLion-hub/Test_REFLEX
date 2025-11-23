@@ -69,13 +69,14 @@ def validate_news_relevance(news_titles: List[str], ticker: str, date: str) -> T
     else:
         return False, "주가 변동과 무관한 뉴스만 발견됨"
 
-def fetch_news_context(ticker: str, date: str) -> Tuple[List[str], str]:
+def fetch_news_context(ticker: str, date: str, force_cache: bool = True) -> Tuple[List[str], str]:
     """
     뉴스 검색 (캐시 우선, 없으면 실시간 검색)
     
     Args:
         ticker: 종목 코드
         date: 거래 날짜 (YYYY-MM-DD 또는 YYYY-MM-DD HH:MM:SS)
+        force_cache: True일 때 캐시만 사용, 실시간 검색 스킵 (시연용)
     
     Returns:
         (news_titles, source): 뉴스 헤드라인 리스트와 출처 (cache/search/none)
@@ -91,7 +92,11 @@ def fetch_news_context(ticker: str, date: str) -> Tuple[List[str], str]:
         elif isinstance(cached, list):
             return cached, "cache"
     
-    # 2. 실제 검색 (확장성 증명)
+    # 2. 시연 모드: 캐시가 없으면 빈 배열 반환 (실시간 검색 스킵)
+    if force_cache:
+        return ["뉴스 데이터 없음 (캐시 미등록)"], "none"
+    
+    # 3. 실제 검색 (프로덕션용, 시연에서는 호출 안 됨)
     try:
         queries = build_search_queries(ticker, date_only)
         all_results = []
