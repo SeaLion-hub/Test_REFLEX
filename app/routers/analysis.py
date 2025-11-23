@@ -141,6 +141,110 @@ def calculate_opportunity_cost(trades_df: pd.DataFrame) -> tuple[float, float, f
         print(f"Error calculating opportunity cost: {e}")
         return (0.0, 0.0, 0.0, 0.0, True)  # 예외 발생 시 로드 실패로 간주
 
+def calculate_beta_and_jensens_alpha(
+    trades_df: pd.DataFrame, 
+    risk_free_rate: float = 0.02 / 252  # 일일 무위험 수익률 (연 2%)
+) -> tuple[float, float, bool]:
+    """
+    CAPM 기반 Beta 및 Jensen's Alpha 계산
+    
+    Args:
+        trades_df: 거래 데이터프레임 (entry_dt, exit_dt, return_pct 포함)
+        risk_free_rate: 일일 무위험 수익률
+    
+    Returns:
+        tuple: (beta, jensens_alpha, is_valid)
+        - beta: 포트폴리오의 시장 민감도
+        - jensens_alpha: 시장 위험 제거 후 순수 초과 수익 (연환산)
+        - is_valid: 계산이 유효한지 여부 (최소 20개 거래 또는 60일 이상 필요)
+    """
+    try:
+        if len(trades_df) < 20:  # 최소 거래 수 체크
+            return (1.0, 0.0, False)
+        
+        min_date = trades_df['entry_dt'].min()
+        max_date = trades_df['exit_dt'].max()
+        duration_days = (max_date - min_date).days
+        
+        if duration_days < 60:  # 최소 기간 체크
+            return (1.0, 0.0, False)
+        
+        # SPY 데이터 다운로드 (버퍼 포함)
+        spy_start = (min_date - timedelta(days=10)).strftime("%Y-%m-%d")
+        spy_end = (max_date + timedelta(days=10)).strftime("%Y-%m-%d")
+        
+        spy_df = yf.download('SPY', start=spy_start, end=spy_end, progress=False)
+        if spy_df.empty:
+            return (1.0, 0.0, False)
+        
+        if isinstance(spy_df.columns, pd.MultiIndex):
+            spy_df.columns = spy_df.columns.get_level_values(0)
+        
+        # 포트폴리오 일일 수익률 계산
+        portfolio_returns = []
+        market_returns = []
+        
+        # 각 거래의 수익률을 해당 기간의 일일 수익률로 분해
+        for _, trade in trades_df.iterrows():
+            entry_dt = pd.to_datetime(trade['entry_dt']).normalize()
+            exit_dt = pd.to_datetime(trade['exit_dt']).normalize()
+            
+            # 거래 기간 동안의 일일 수익률 계산
+            trade_days = pd.bdate_range(entry_dt, exit_dt)  # 영업일만
+            if len(trade_days) == 0:
+                continue
+            
+            # 거래 수익률을 일일 수익률로 균등 분배 (간단한 근사)
+            trade_return = trade['return_pct']
+            if len(trade_days) > 0:
+                daily_return = (1 + trade_return) ** (1 / len(trade_days)) - 1
+            else:
+                daily_return = 0
+            
+            # 해당 기간의 SPY 일일 수익률
+            for day in trade_days:
+                if day in spy_df.index:
+                    spy_idx = spy_df.index.get_loc(day)
+                    if spy_idx > 0:
+                        spy_prev = spy_df.iloc[spy_idx - 1]['Close']
+                        spy_curr = spy_df.iloc[spy_idx]['Close']
+                        market_return = (spy_curr - spy_prev) / spy_prev if spy_prev > 0 else 0
+                        
+                        portfolio_returns.append(daily_return)
+                        market_returns.append(market_return)
+        
+        if len(portfolio_returns) < 20:  # 충분한 데이터 포인트 체크
+            return (1.0, 0.0, False)
+        
+        portfolio_returns = np.array(portfolio_returns)
+        market_returns = np.array(market_returns)
+        
+        # Beta 계산: Cov(Portfolio, Market) / Var(Market)
+        covariance = np.cov(portfolio_returns, market_returns)[0][1]
+        market_variance = np.var(market_returns)
+        
+        if market_variance == 0:
+            return (1.0, 0.0, False)
+        
+        beta = covariance / market_variance
+        
+        # 포트폴리오 평균 수익률
+        portfolio_avg_return = np.mean(portfolio_returns)
+        market_avg_return = np.mean(market_returns)
+        
+        # Jensen's Alpha = Portfolio Return - (Rf + Beta * (Market Return - Rf))
+        expected_return = risk_free_rate + beta * (market_avg_return - risk_free_rate)
+        jensens_alpha = portfolio_avg_return - expected_return
+        
+        # 연환산 (선택사항)
+        jensens_alpha_annualized = jensens_alpha * 252
+        
+        return (beta, jensens_alpha_annualized, True)
+        
+    except Exception as e:
+        print(f"Error calculating Beta and Jensen's Alpha: {e}")
+        return (1.0, 0.0, False)
+
 def calculate_regime_weight(
     market_regime: str, 
     fomo_score: float, 
@@ -394,27 +498,41 @@ async def analyze_trades(file: UploadFile):
             
             max_drawdown = max_dd * 100  # 퍼센트로 변환
     
+    # --- Alpha 계산 (CAPM 기반 개선) ---
     alpha = 0.0
+    beta = 1.0
+    alpha_is_jensens = False
+    
     try:
         if len(trades_df) > 0:
-            min_date = trades_df['entry_dt'].min()
-            max_date = trades_df['exit_dt'].max()
-            spy_start = (min_date - timedelta(days=10)).strftime("%Y-%m-%d")
-            spy_end = (max_date + timedelta(days=10)).strftime("%Y-%m-%d")
+            # CAPM 기반 Beta 및 Jensen's Alpha 계산 시도
+            beta, jensens_alpha, is_valid = calculate_beta_and_jensens_alpha(trades_df)
             
-            spy_df = yf.download('SPY', start=spy_start, end=spy_end, progress=False)
-            if not spy_df.empty:
-                if isinstance(spy_df.columns, pd.MultiIndex):
-                    spy_df.columns = spy_df.columns.get_level_values(0)
+            if is_valid:
+                alpha = jensens_alpha
+                alpha_is_jensens = True
+            else:
+                # Fallback: 기존 단순 Alpha 계산
+                min_date = trades_df['entry_dt'].min()
+                max_date = trades_df['exit_dt'].max()
+                spy_start = (min_date - timedelta(days=10)).strftime("%Y-%m-%d")
+                spy_end = (max_date + timedelta(days=10)).strftime("%Y-%m-%d")
                 
-                spy_start_price = spy_df.iloc[0]['Close']
-                spy_end_price = spy_df.iloc[-1]['Close']
-                spy_return = (spy_end_price - spy_start_price) / spy_start_price
-                
-                portfolio_return = avg_return * len(trades_df)
-                alpha = portfolio_return - spy_return
+                spy_df = yf.download('SPY', start=spy_start, end=spy_end, progress=False)
+                if not spy_df.empty:
+                    if isinstance(spy_df.columns, pd.MultiIndex):
+                        spy_df.columns = spy_df.columns.get_level_values(0)
+                    
+                    spy_start_price = spy_df.iloc[0]['Close']
+                    spy_end_price = spy_df.iloc[-1]['Close']
+                    spy_return = (spy_end_price - spy_start_price) / spy_start_price
+                    
+                    portfolio_return = avg_return * len(trades_df)
+                    alpha = portfolio_return - spy_return
+                    alpha_is_jensens = False
     except Exception as e:
         alpha = avg_return
+        alpha_is_jensens = False
     
     luck_percentile = 50.0
     is_low_sample = total_trades < 5

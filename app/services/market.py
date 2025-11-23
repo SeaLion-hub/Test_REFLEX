@@ -9,6 +9,206 @@ from typing import Optional
 def fetch_market_data_cached(ticker: str, start_date: str, end_date: str):
     return fetch_market_data(ticker, start_date, end_date)
 
+@lru_cache(maxsize=500)
+def fetch_intraday_data_cached(ticker: str, date: str, interval: str = "5m"):
+    """
+    분봉 데이터 캐싱 (5분봉: 최근 60일, 1분봉: 최근 7일)
+    
+    Args:
+        ticker: 종목 코드
+        date: 날짜 (YYYY-MM-DD)
+        interval: "1m" 또는 "5m"
+    
+    Returns:
+        DataFrame 또는 None
+    """
+    try:
+        trade_date = pd.to_datetime(date)
+        
+        # yfinance 제한: 1분봉은 최근 7일, 5분봉은 최근 60일
+        if interval == "1m":
+            max_lookback = 7
+        elif interval == "5m":
+            max_lookback = 60
+        else:
+            return None
+        
+        # 최근 데이터인지 확인
+        days_ago = (pd.Timestamp.now() - trade_date).days
+        if days_ago > max_lookback:
+            return None  # 너무 오래된 데이터는 분봉 불가
+        
+        # 분봉 데이터 다운로드
+        start_date = trade_date.strftime("%Y-%m-%d")
+        end_date = (trade_date + timedelta(days=1)).strftime("%Y-%m-%d")
+        
+        df = yf.download(
+            ticker, 
+            start=start_date, 
+            end=end_date, 
+            interval=interval,
+            progress=False
+        )
+        
+        if df.empty:
+            # 한국 주식 시도
+            if ticker.isdigit():
+                df = yf.download(
+                    f"{ticker}.KS", 
+                    start=start_date, 
+                    end=end_date, 
+                    interval=interval,
+                    progress=False
+                )
+                if df.empty:
+                    df = yf.download(
+                        f"{ticker}.KQ", 
+                        start=start_date, 
+                        end=end_date, 
+                        interval=interval,
+                        progress=False
+                    )
+        
+        if df.empty:
+            return None
+        
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        
+        return df
+        
+    except Exception as e:
+        print(f"Error fetching intraday data for {ticker} on {date}: {e}")
+        return None
+
+def calculate_mae_mfe_daily(
+    entry_dt_full: pd.Timestamp,
+    exit_dt_full: pd.Timestamp,
+    entry_price: float,
+    day_df: pd.DataFrame,
+    adjust_func
+) -> tuple[float, float]:
+    """
+    일봉 데이터 기반 MAE/MFE 계산 (기존 로직, fallback용)
+    """
+    try:
+        entry_date = entry_dt_full.normalize()
+        exit_date = exit_dt_full.normalize()
+        
+        if entry_date not in day_df.index:
+            indexer = day_df.index.get_indexer([entry_date], method='nearest')
+            if len(indexer) > 0 and indexer[0] != -1:
+                entry_date = day_df.index[indexer[0]]
+        
+        if exit_date not in day_df.index:
+            indexer = day_df.index.get_indexer([exit_date], method='nearest')
+            if len(indexer) > 0 and indexer[0] != -1:
+                exit_date = day_df.index[indexer[0]]
+        
+        holding_data = day_df.loc[entry_date:exit_date]
+        
+        min_low_raw = holding_data['Low'].min() if not holding_data.empty else day_df.loc[entry_date]['Low']
+        min_low_adj = adjust_func(min_low_raw)
+        mae = (min_low_adj - entry_price) / entry_price
+        
+        max_high_raw = holding_data['High'].max() if not holding_data.empty else day_df.loc[entry_date]['High']
+        max_high_adj = adjust_func(max_high_raw)
+        mfe = (max_high_adj - entry_price) / entry_price
+        
+        return (mae, mfe)
+    except:
+        return (0.0, 0.0)
+
+def calculate_mae_mfe_intraday(
+    entry_dt_full: pd.Timestamp,
+    exit_dt_full: pd.Timestamp,
+    entry_price: float,
+    exit_price: float,
+    ticker: str,
+    day_df: pd.DataFrame,
+    adjust_func
+) -> tuple[float, float]:
+    """
+    분봉 데이터를 사용한 정밀 MAE/MFE 계산
+    
+    Args:
+        entry_dt_full: 진입 시간 (시간 포함)
+        exit_dt_full: 청산 시간 (시간 포함)
+        entry_price: 진입 가격
+        exit_price: 청산 가격
+        ticker: 종목 코드
+        day_df: 일봉 데이터 (fallback용)
+        adjust_func: 액면분할 보정 함수
+    
+    Returns:
+        tuple: (mae, mfe) - 실패 시 일봉 기반 값 반환
+    """
+    try:
+        entry_date_str = entry_dt_full.strftime("%Y-%m-%d")
+        exit_date_str = exit_dt_full.strftime("%Y-%m-%d")
+        
+        # 5분봉 데이터 시도 (더 긴 기간 지원)
+        intraday_df = fetch_intraday_data_cached(ticker, entry_date_str, "5m")
+        
+        if intraday_df is None or intraday_df.empty:
+            # Fallback: 일봉 데이터 사용
+            return calculate_mae_mfe_daily(entry_dt_full, exit_dt_full, entry_price, day_df, adjust_func)
+        
+        # 진입 시간과 청산 시간 사이의 분봉 데이터 필터링
+        entry_time = entry_dt_full
+        exit_time = exit_dt_full
+        
+        # 같은 날짜인 경우
+        if entry_date_str == exit_date_str:
+            mask = (intraday_df.index >= entry_time) & (intraday_df.index <= exit_time)
+            holding_data = intraday_df[mask]
+        else:
+            # 다른 날짜: 진입일 이후 + 청산일 이전 데이터
+            # 진입일 데이터
+            entry_day_data = intraday_df[intraday_df.index.date == entry_dt_full.date()]
+            entry_mask = entry_day_data.index >= entry_time
+            
+            # 청산일 데이터
+            exit_intraday_df = fetch_intraday_data_cached(ticker, exit_date_str, "5m")
+            if exit_intraday_df is not None and not exit_intraday_df.empty:
+                exit_day_data = exit_intraday_df[exit_intraday_df.index.date == exit_dt_full.date()]
+                exit_mask = exit_day_data.index <= exit_time
+                
+                holding_data_list = []
+                if not entry_day_data[entry_mask].empty:
+                    holding_data_list.append(entry_day_data[entry_mask])
+                if not exit_day_data[exit_mask].empty:
+                    holding_data_list.append(exit_day_data[exit_mask])
+                
+                if holding_data_list:
+                    holding_data = pd.concat(holding_data_list)
+                else:
+                    holding_data = pd.DataFrame()
+            else:
+                # 청산일 분봉 데이터가 없으면 진입일만 사용
+                holding_data = entry_day_data[entry_mask] if not entry_day_data[entry_mask].empty else pd.DataFrame()
+        
+        if holding_data.empty:
+            # Fallback: 일봉 데이터 사용
+            return calculate_mae_mfe_daily(entry_dt_full, exit_dt_full, entry_price, day_df, adjust_func)
+        
+        # MAE/MFE 계산
+        min_low = holding_data['Low'].min()
+        max_high = holding_data['High'].max()
+        
+        min_low_adj = adjust_func(min_low)
+        max_high_adj = adjust_func(max_high)
+        
+        mae = (min_low_adj - entry_price) / entry_price
+        mfe = (max_high_adj - entry_price) / entry_price
+        
+        return (mae, mfe)
+        
+    except Exception as e:
+        print(f"Error calculating intraday MAE/MFE: {e}")
+        # Fallback: 일봉 데이터 사용
+        return calculate_mae_mfe_daily(entry_dt_full, exit_dt_full, entry_price, day_df, adjust_func)
+
 def calculate_volume_weight(current_volume: float, avg_volume: float) -> float:
     """
     Volume Weight 계산 공식 (MVP 안전성 우선)
@@ -113,14 +313,42 @@ def calculate_metrics(row, df):
         exit_day = df.loc[exit_date]
         holding_data = df.loc[entry_date:exit_date]
         
-        # 1. FOMO Score BASE (가중치 적용 전 순수 점수)
+        # 1. FOMO Score BASE (개선: 매수 시간까지의 범위 사용)
+        ticker = str(row['ticker'])
+        entry_date_str = entry_dt_full.strftime("%Y-%m-%d")
+        
+        # 일봉 데이터 기본값 (항상 정의)
         entry_high_adj = adjust(entry_day['High'])
         entry_low_adj = adjust(entry_day['Low'])
         
-        day_range = entry_high_adj - entry_low_adj
+        # 분봉 데이터로 매수 시간까지의 고가/저가 확인
+        intraday_df = fetch_intraday_data_cached(ticker, entry_date_str, "5m")
+        
+        if intraday_df is not None and not intraday_df.empty:
+            # 매수 시간까지의 분봉 데이터
+            entry_time_mask = intraday_df.index <= entry_dt_full
+            pre_entry_data = intraday_df[entry_time_mask]
+            
+            if not pre_entry_data.empty:
+                # 매수 시간까지의 실제 고가/저가
+                range_high = pre_entry_data['High'].max()
+                range_low = pre_entry_data['Low'].min()
+                
+                range_high_adj = adjust(range_high)
+                range_low_adj = adjust(range_low)
+                day_range = range_high_adj - range_low_adj
+            else:
+                # 분봉 데이터가 없으면 일봉 사용
+                day_range = entry_high_adj - entry_low_adj
+                range_low_adj = entry_low_adj
+        else:
+            # 분봉 데이터 없으면 일봉 사용
+            day_range = entry_high_adj - entry_low_adj
+            range_low_adj = entry_low_adj
+        
         fomo_score_base = 0.5
         if day_range > 0:
-            fomo_score_base = (user_price - entry_low_adj) / day_range
+            fomo_score_base = (user_price - range_low_adj) / day_range
         
         fomo_score_base = max(0.0, min(1.0, fomo_score_base))
 
@@ -171,17 +399,20 @@ def calculate_metrics(row, df):
             # 0.8 = 2.0 - 1.2 (volume_weight 1.2일 때 panic_score를 0.8배로 감소)
             panic_score = max(0.0, panic_score_base * (2.0 - volume_weight_exit))
             
-        # 3. MAE / MFE
-        min_low_raw = holding_data['Low'].min() if not holding_data.empty else entry_day['Low']
-        min_low_adj = adjust(min_low_raw)
-        mae = (min_low_adj - user_price) / user_price
+        # 3. MAE / MFE (개선: 분봉 데이터 사용)
+        mae, mfe = calculate_mae_mfe_intraday(
+            entry_dt_full,
+            exit_dt_full,
+            user_price,
+            user_exit_price,
+            ticker,
+            df,
+            adjust
+        )
         
-        max_high_raw = holding_data['High'].max() if not holding_data.empty else entry_day['High']
-        max_high_adj = adjust(max_high_raw)
-        mfe = (max_high_adj - user_price) / user_price
-        
-        # 4. Efficiency
-        max_potential = max_high_adj - user_price
+        # 4. Efficiency (분봉 기반 MFE 사용)
+        # mfe는 이미 분봉 데이터로 계산됨
+        max_potential = user_price * mfe  # mfe는 (max_high - entry_price) / entry_price
         realized = user_exit_price - user_price
         efficiency = 0.0
         if max_potential > 0:
