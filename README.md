@@ -36,7 +36,7 @@
 - **React 19** + **TypeScript**
 - **Vite** (빌드 도구)
 - **Recharts** (차트 시각화)
-- **Tailwind CSS** (스타일링)
+- **Tailwind CSS** (CDN, 스타일링)
 - **Lucide React** (아이콘)
 
 ### 백엔드
@@ -46,6 +46,8 @@
 - **yfinance** (시장 데이터 수집)
 - **OpenAI API** (GPT-4o-mini 기반 AI 코칭)
 - **OpenAI Embeddings** (RAG 임베딩)
+- **SQLAlchemy** + **Alembic** (데이터베이스 ORM 및 마이그레이션)
+- **PostgreSQL** (데이터베이스)
 
 ## 📋 주요 기능
 
@@ -86,7 +88,11 @@
   3. **Rule**: 기억하기 쉬운 거래 원칙
   4. **Bias**: 주요 심리적 편향 명명
   5. **Fix**: 즉시 실행 가능한 개선 방안
-- **Personal Playbook**: 개인화된 투자 원칙 생성
+- **Personal Playbook**: 개인화된 투자 원칙 생성 (3단계 액션 플랜)
+
+### 5. 전략 태그 관리 (`/strategy-tag` 엔드포인트)
+- 각 거래에 전략 태그를 저장하고 관리
+- 데이터베이스에 영구 저장
 
 ## 🚀 실행 방법
 
@@ -94,7 +100,8 @@
 
 1. **Node.js** (v18 이상 권장)
 2. **Python** (v3.8 이상)
-3. **OpenAI API Key** (AI 코칭 기능 사용 시)
+3. **PostgreSQL** (데이터베이스)
+4. **OpenAI API Key** (AI 코칭 기능 사용 시)
 
 ### 1단계: 저장소 클론 및 의존성 설치
 
@@ -113,24 +120,43 @@ pip install -r requirements.txt
 ### 2단계: 환경 변수 설정
 
 #### 백엔드 환경 변수
+
+`.env` 파일을 생성하거나 환경 변수로 설정:
+
 ```bash
 # Windows (PowerShell)
 $env:OPENAI_API_KEY="your-openai-api-key-here"
+$env:DATABASE_URL="postgresql://user:password@localhost:5432/dbname"
 
 # Windows (CMD)
 set OPENAI_API_KEY=your-openai-api-key-here
+set DATABASE_URL=postgresql://user:password@localhost:5432/dbname
 
 # Linux/Mac
 export OPENAI_API_KEY="your-openai-api-key-here"
+export DATABASE_URL="postgresql://user:password@localhost:5432/dbname"
 ```
+
+**필수 환경 변수**:
+- `OPENAI_API_KEY`: OpenAI API 키 (AI 코칭 기능 사용 시)
+- `DATABASE_URL`: PostgreSQL 데이터베이스 연결 URL
 
 #### 프론트엔드 환경 변수 (선택사항)
-`.env.local` 파일 생성 (Gemini API 사용 시):
+
+프론트엔드에서 직접 OpenAI API를 사용하는 경우 `.env.local` 파일 생성:
+
 ```
-GEMINI_API_KEY=your-gemini-api-key-here
+VITE_OPENAI_API_KEY=your-openai-api-key-here
 ```
 
-### 3단계: RAG 임베딩 생성 (선택사항)
+### 3단계: 데이터베이스 설정
+
+```bash
+# Alembic 마이그레이션 실행
+alembic upgrade head
+```
+
+### 4단계: RAG 임베딩 생성 (선택사항)
 
 RAG 기능을 사용하려면 임베딩 파일을 먼저 생성해야 합니다:
 
@@ -145,9 +171,9 @@ python generate_embeddings.py
 - OpenAI Embeddings API로 벡터화하고
 - `rag_embeddings.npy` 파일로 저장합니다
 
-**참고**: `rag_embeddings.npy` 파일이 없어도 서버는 정상 작동하지만, RAG 기능은 비활성화됩니다.
+**참고**: `rag_embeddings.npy` 파일이 없어도 서버는 정상 작동하지만, RAG 기능은 비활성화됩니다. 이 파일은 대용량이므로 Git에 커밋하지 않습니다 (`.gitignore`에 포함됨).
 
-### 4단계: 서버 실행
+### 5단계: 서버 실행
 
 #### 백엔드 서버 실행
 ```bash
@@ -165,9 +191,9 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 npm run dev
 ```
 
-프론트엔드가 `http://localhost:5173` (또는 다른 포트)에서 실행됩니다.
+프론트엔드가 `http://localhost:3000` (또는 다른 포트)에서 실행됩니다.
 
-### 5단계: 사용 방법
+### 6단계: 사용 방법
 
 1. 브라우저에서 프론트엔드 URL 접속
 2. CSV 파일 준비 (형식 참고 아래)
@@ -210,8 +236,25 @@ REFLEX_1122/
 ├── main.py                 # FastAPI 백엔드 서버
 ├── generate_embeddings.py  # RAG 임베딩 생성 스크립트
 ├── rag_cards.json          # RAG 지식 베이스 (행동 금융학 원칙)
-├── rag_embeddings.npy      # 생성된 임베딩 파일 (Git에 커밋 권장)
 ├── requirements.txt        # Python 의존성
+├── alembic.ini             # Alembic 설정
+│
+├── alembic/                # 데이터베이스 마이그레이션
+│   ├── env.py
+│   └── versions/           # 마이그레이션 파일들
+│
+├── app/                     # 백엔드 애플리케이션
+│   ├── core/
+│   │   └── database.py      # 데이터베이스 연결 설정
+│   ├── routers/             # API 라우터
+│   │   ├── analysis.py     # 거래 분석 엔드포인트
+│   │   └── coach.py        # AI 코칭 엔드포인트
+│   ├── services/            # 비즈니스 로직
+│   │   ├── market.py       # 시장 데이터 수집
+│   │   ├── patterns.py     # 패턴 분석
+│   │   └── rag.py          # RAG 서비스
+│   ├── models.py           # Pydantic 모델
+│   └── orm.py              # SQLAlchemy ORM 모델
 │
 ├── index.html              # HTML 진입점
 ├── index.tsx               # React 진입점
@@ -220,12 +263,14 @@ REFLEX_1122/
 │
 ├── components/             # React 컴포넌트
 │   ├── UploadView.tsx      # CSV 업로드 UI
-│   ├── Dashboard.tsx       # 대시보드 (메트릭 표시)
+│   ├── Dashboard.tsx      # 대시보드 (메트릭 표시)
 │   ├── Charts.tsx          # 차트 시각화
 │   ├── AICoach.tsx         # AI 코치 UI
-│   └── StrategyTagModal.tsx # 전략 태그 모달
+│   ├── StrategyTagModal.tsx # 전략 태그 모달
+│   ├── Threads.tsx         # 스레드 UI
+│   └── Toast.tsx           # 토스트 알림
 │
-├── services/               # 비즈니스 로직
+├── services/               # 프론트엔드 비즈니스 로직
 │   ├── analysisEngine.ts  # 프론트엔드 분석 엔진
 │   └── openaiService.ts    # OpenAI API 래퍼
 │
@@ -270,11 +315,18 @@ REFLEX_1122/
 - Python 버전 확인: `python --version` (3.8 이상 필요)
 - 의존성 설치 확인: `pip install -r requirements.txt`
 - 포트 8000이 이미 사용 중인지 확인
+- `DATABASE_URL` 환경 변수가 설정되어 있는지 확인
+
+### 데이터베이스 연결 오류
+- PostgreSQL이 실행 중인지 확인
+- `DATABASE_URL` 환경 변수가 올바른지 확인
+- Alembic 마이그레이션이 실행되었는지 확인: `alembic upgrade head`
 
 ### RAG 기능이 작동하지 않음
 - `rag_embeddings.npy` 파일이 존재하는지 확인
 - `python generate_embeddings.py` 실행하여 임베딩 생성
 - `rag_cards.json` 파일이 올바른 형식인지 확인
+- `OPENAI_API_KEY` 환경 변수가 설정되어 있는지 확인
 
 ### 시장 데이터를 가져오지 못함
 - 인터넷 연결 확인
