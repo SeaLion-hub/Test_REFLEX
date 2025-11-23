@@ -569,6 +569,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                         </div>
                     </div>
                  </div>
+                 
+                 {/* 선견 편향 인정 문구 */}
+                 <div className={`mt-4 text-xs p-2 rounded-lg border ${
+                   isDarkMode 
+                     ? 'bg-yellow-950/20 border-yellow-900/30 text-yellow-200/80' 
+                     : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                 }`}>
+                   <AlertCircle className="w-3 h-3 inline mr-1" />
+                   <span className="italic">
+                     ⚠️ 이 점수는 장 마감 후의 고가/저가를 기준으로 한 사후적(Post-Analysis) 평가입니다.
+                     실제 거래 시점에는 이 정보를 알 수 없었습니다. 교육용 도구로 활용하세요.
+                   </span>
+                 </div>
             </div>
 
             {/* AI Coach */}
@@ -1323,26 +1336,61 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                 </div>
                             </div>
                             
-                            <div className="p-4 bg-red-950/20 rounded-lg border border-red-900/30">
-                                <div className="text-sm text-red-300 mb-2 font-semibold">
-                                    ⚠️ 이 편향 때문에 당신은 매달 손실을 보고 있습니다:
-                                </div>
-                                <div className="text-xl text-red-400 font-bold mb-2">
-                                    -${(biasFreeMetrics.biasLoss + (biasFreeMetrics.opportunityCost < 0 ? Math.abs(biasFreeMetrics.opportunityCost) : 0)).toFixed(0)}
-                                </div>
-                                <div className="text-xs text-red-200/80 mb-2 space-y-1">
-                                    {biasFreeMetrics.biasLoss > 0 && (
+                            <div className={`p-4 rounded-lg border ${
+                              showBiasFreeSimulation 
+                                ? 'bg-emerald-950/20 border-emerald-900/30' 
+                                : 'bg-red-950/20 border-red-900/30'
+                            }`}>
+                                {showBiasFreeSimulation ? (
+                                  <>
+                                    <div className="text-sm text-emerald-300 mb-2 font-semibold">
+                                      💡 이 패턴만 교정했다면, 시장 지수(SPY) 대비{' '}
+                                      <span className="text-emerald-400 font-bold">
+                                        +${Math.abs(biasFreeMetrics.improvement).toFixed(0)}의 초과 수익(Alpha)
+                                      </span>
+                                      을 낼 수 있었습니다.
+                                    </div>
+                                    <div className="text-emerald-200/80 italic mt-2 mb-3">
+                                      아깝지 않으신가요?
+                                    </div>
+                                    <div className="text-xs text-emerald-200/80 mb-2 space-y-1">
+                                      {biasFreeMetrics.biasLoss > 0 && (
                                         <div>• 직접 손실: <span className="font-semibold">-${biasFreeMetrics.biasLoss.toFixed(0)}</span></div>
-                                    )}
-                                    {biasFreeMetrics.opportunityCost !== undefined && biasFreeMetrics.opportunityCost < 0 && (
-                                        <div>• 기회비용 (시장 지수 대비): <span className="font-semibold">-${Math.abs(biasFreeMetrics.opportunityCost).toFixed(0)}</span></div>
-                                    )}
-                                </div>
-                                <div className="text-xs text-red-200/60 mt-2 pt-2 border-t border-red-900/30">
-                                    이는 약 <span className="font-semibold">{biasFreeMetrics.equivalentItems.toFixed(1)}대의 {biasFreeMetrics.itemName}</span> 가격과 같습니다.
-                                    <br />
-                                    <span className="italic">손실에 대한 심리적 영향은 이익보다 2.5배 강합니다.</span>
-                                </div>
+                                      )}
+                                      {biasFreeMetrics.opportunityCost !== undefined && biasFreeMetrics.opportunityCost < 0 && (
+                                        <div>• 기회비용 (SPY 대비): <span className="font-semibold">-${Math.abs(biasFreeMetrics.opportunityCost).toFixed(0)}</span></div>
+                                      )}
+                                      {biasFreeMetrics.opportunityCost !== undefined && biasFreeMetrics.opportunityCost > 0 && (
+                                        <div>• SPY 대비 초과 수익 가능: <span className="font-semibold text-emerald-400">+${biasFreeMetrics.opportunityCost.toFixed(0)}</span></div>
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-emerald-200/60 mt-2 pt-2 border-t border-emerald-900/30">
+                                      <span className="italic">손실 회피 심리: 손실에 대한 심리적 영향은 이익보다 2.5배 강합니다.</span>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="text-sm text-red-300 mb-2 font-semibold">
+                                      ⚠️ 이 편향 때문에 기회비용이 발생했습니다:
+                                    </div>
+                                    <div className="text-xl text-red-400 font-bold mb-2">
+                                      -${(biasFreeMetrics.biasLoss + (biasFreeMetrics.opportunityCost < 0 ? Math.abs(biasFreeMetrics.opportunityCost) : 0)).toFixed(0)}
+                                    </div>
+                                    <div className="text-xs text-red-200/80 mb-2 space-y-1">
+                                      {biasFreeMetrics.biasLoss > 0 && (
+                                        <div>• 직접 손실: <span className="font-semibold">-${biasFreeMetrics.biasLoss.toFixed(0)}</span></div>
+                                      )}
+                                      {biasFreeMetrics.opportunityCost !== undefined && biasFreeMetrics.opportunityCost < 0 && (
+                                        <div>• 기회비용 (SPY 대비): <span className="font-semibold">-${Math.abs(biasFreeMetrics.opportunityCost).toFixed(0)}</span></div>
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-red-200/60 mt-2 pt-2 border-t border-red-900/30">
+                                      이는 약 <span className="font-semibold">{biasFreeMetrics.equivalentItems.toFixed(1)}대의 {biasFreeMetrics.itemName}</span> 가격과 같습니다.
+                                      <br />
+                                      <span className="italic">손실에 대한 심리적 영향은 이익보다 2.5배 강합니다.</span>
+                                    </div>
+                                  </>
+                                )}
                             </div>
                         </div>
                     )}
