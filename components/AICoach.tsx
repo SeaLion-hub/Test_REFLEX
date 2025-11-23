@@ -204,7 +204,7 @@ export const AICoach: React.FC<AICoachProps> = ({ analysis, loading, truthScore 
           )}
         </div>
         <div className="flex-1">
-          <h2 className="text-xl font-bold text-zinc-100">AI Interpretation</h2>
+          <h2 className="text-xl font-bold text-zinc-100">AI 해석</h2>
           {persona && (
             <p className={`text-sm mt-1 ${persona.iconColor}`}>
               {persona.prefix}{persona.message}
@@ -253,14 +253,14 @@ export const AICoach: React.FC<AICoachProps> = ({ analysis, loading, truthScore 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-6">
           <div>
-            <h3 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-2">Diagnosis</h3>
+            <h3 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-2">진단</h3>
             <p className="text-lg text-zinc-200 leading-relaxed border-l-2 border-purple-500/50 pl-4">
               {analysis.diagnosis}
             </p>
           </div>
           
           <div>
-             <h3 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-2">Primary Bias</h3>
+             <h3 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-2">주요 편향</h3>
              <div className="flex items-center gap-2 text-red-400 bg-red-950/10 p-3 rounded-lg border border-red-900/20 w-fit">
                 <AlertTriangle className="w-5 h-5" />
                 <span className="font-semibold">{analysis.bias}</span>
@@ -272,7 +272,7 @@ export const AICoach: React.FC<AICoachProps> = ({ analysis, loading, truthScore 
           <div className="bg-emerald-950/10 border border-emerald-900/20 p-4 rounded-xl">
             <h3 className="text-sm font-medium text-emerald-500 uppercase tracking-wider mb-2 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4" />
-                The Rule
+                원칙
             </h3>
             <p className="text-xl font-serif italic text-emerald-100">
               "{analysis.rule}"
@@ -280,7 +280,7 @@ export const AICoach: React.FC<AICoachProps> = ({ analysis, loading, truthScore 
           </div>
 
           <div>
-            <h3 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-2">Priority Fix</h3>
+            <h3 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-2">우선 수정 사항</h3>
             <div className="flex items-start gap-3">
                 <div className="mt-1 p-1 bg-blue-900/30 rounded text-blue-400">
                     <Zap className="w-4 h-4" />

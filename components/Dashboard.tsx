@@ -2,12 +2,183 @@
 import React, { useEffect, useState } from 'react';
 import { AnalysisResult, AIAnalysis, EnrichedTrade } from '../types';
 import { getAIInterpretation } from '../services/openaiService';
+import { fetchExchangeRate, formatCurrency } from '../services/exchangeRateService';
 import { BiasDNARadar, RegretChart, EquityCurveChart } from './Charts';
 import { AICoach } from './AICoach';
 import { StrategyTagModal } from './StrategyTagModal';
 import { AIJudgeModal } from './AIJudgeModal';
 import { ToastContainer, ToastType } from './Toast';
-import { ShieldAlert, TrendingUp, RefreshCcw, Award, BarChart2, HelpCircle, ArrowLeft, ChevronDown, ChevronUp, Database, ServerCrash, Skull, TrendingDown, DollarSign, AlertCircle, CheckCircle2, XCircle, Moon, Sun, BookOpen, MessageSquare, Brain, Scale } from 'lucide-react';
+import { ShieldAlert, TrendingUp, RefreshCcw, Award, BarChart2, HelpCircle, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Database, ServerCrash, Skull, TrendingDown, DollarSign, AlertCircle, CheckCircle2, XCircle, Moon, Sun, BookOpen, MessageSquare, Brain, Scale, X } from 'lucide-react';
+
+type Currency = 'USD' | 'KRW';
+
+// 지표 설명 타입
+interface MetricExplanation {
+  title: string;
+  description: string;
+  threshold?: string;
+  formula?: string;
+}
+
+// 지표 설명 데이터 (지표명은 영어, 설명은 한국어)
+const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
+  fomo: {
+    title: 'FOMO Score',
+    description: '매수 시점이 당일 고가 대비 얼마나 높은 위치였는지를 나타내는 지표입니다. 70% 이상이면 임상적 FOMO로 판단됩니다.',
+    threshold: '>70% = FOMO',
+    formula: '(매수가 - 당일 저가) / (당일 고가 - 당일 저가) × 100'
+  },
+  panic: {
+    title: 'Panic Sell Score',
+    description: '매도 시점이 당일 저가 대비 얼마나 낮은 위치였는지를 나타내는 지표입니다. 30% 미만이면 비효율적인 매도 타이밍으로 판단됩니다.',
+    threshold: '<30% = Panic Sell',
+    formula: '(매도가 - 당일 저가) / (당일 고가 - 당일 저가) × 100'
+  },
+  disposition: {
+    title: 'Disposition Ratio',
+    description: '손실 거래를 이익 거래보다 얼마나 오래 보유하는지를 나타내는 비율입니다. 1.5배 이상이면 임상적 Disposition Effect로 판단됩니다.',
+    threshold: '>1.5x = Disposition Effect',
+    formula: '손실 거래 평균 보유 기간 / 이익 거래 평균 보유 기간'
+  },
+  revenge: {
+    title: 'Revenge Trading',
+    description: '같은 종목에서 손실 후 24시간 이내에 재진입한 거래 횟수입니다. 감정적 복수 거래를 나타냅니다.',
+    threshold: '>0 = Revenge Trading',
+    formula: '손실 후 24시간 이내 재진입 횟수'
+  },
+  regret: {
+    title: 'Total Regret',
+    description: '조기 매도로 인해 놓친 수익의 총합입니다. 보유했다면 얻을 수 있었던 추가 수익을 나타냅니다.',
+    threshold: '모든 금액',
+    formula: 'Σ(최대 수익 가능 금액 - 실제 수익)'
+  },
+  profitFactor: {
+    title: 'Profit Factor',
+    description: '총 이익을 총 손실로 나눈 비율입니다. 1.0보다 크면 수익성이 있다는 의미입니다.',
+    threshold: '>1.0 = 수익성 있음',
+    formula: '총 이익 / 총 손실'
+  },
+  winRate: {
+    title: 'Win Rate',
+    description: '전체 거래 중 이익 거래의 비율입니다. 50% 이상이면 양호한 편입니다.',
+    threshold: '>50% = 양호',
+    formula: '(이익 거래 수 / 전체 거래 수) × 100'
+  },
+  truthScore: {
+    title: 'Behavioral Integrity Score',
+    description: '거래 행동의 객관적 무결성을 평가하는 종합 점수입니다. FOMO, Panic, Disposition, Revenge 등 여러 편향을 종합적으로 평가합니다.',
+    threshold: '75점 이상 = 우수, 50-75점 = 보통, 50점 미만 = 개선 필요'
+  },
+  maxDrawdown: {
+    title: 'Max Drawdown',
+    description: '고점 대비 최대 하락률입니다. 리스크 관리의 중요한 지표입니다.',
+    threshold: '15% 미만 = 양호, 30% 이상 = 위험'
+  },
+  skillLuck: {
+    title: 'Skill vs Luck',
+    description: 'Monte Carlo 시뮬레이션을 통해 계산된 운의 비율입니다. 낮을수록 실력, 높을수록 운의 영향이 큽니다.',
+    threshold: '낮을수록 실력, 높을수록 운'
+  }
+};
+
+// 지표 설명 모달 컴포넌트
+const MetricExplanationModal: React.FC<{
+  metric: string;
+  isOpen: boolean;
+  onClose: () => void;
+  isDarkMode: boolean;
+}> = ({ metric, isOpen, onClose, isDarkMode }) => {
+  if (!isOpen) return null;
+  
+  const explanation = METRIC_EXPLANATIONS[metric];
+  if (!explanation) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className={`relative z-10 w-full max-w-md rounded-xl shadow-2xl border ${
+        isDarkMode
+          ? 'bg-zinc-900 border-zinc-800'
+          : 'bg-white border-zinc-200'
+      }`}>
+        <div className={`flex items-center justify-between p-6 border-b ${
+          isDarkMode ? 'border-zinc-800' : 'border-zinc-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${
+              isDarkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-600'
+            }`}>
+              <HelpCircle className="w-5 h-5" />
+            </div>
+            <h2 className={`text-lg font-bold ${
+              isDarkMode ? 'text-zinc-100' : 'text-zinc-900'
+            }`}>
+              {explanation.title}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className={`p-2 rounded-lg transition-colors ${
+              isDarkMode
+                ? 'hover:bg-zinc-800 text-zinc-400'
+                : 'hover:bg-zinc-100 text-zinc-600'
+            }`}
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <p className={`text-sm leading-relaxed ${
+            isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
+          }`}>
+            {explanation.description}
+          </p>
+          
+          {explanation.threshold && (
+            <div className={`p-3 rounded-lg border ${
+              isDarkMode
+                ? 'bg-yellow-950/20 border-yellow-900/30'
+                : 'bg-yellow-50 border-yellow-200'
+            }`}>
+              <h4 className={`text-xs font-bold uppercase tracking-wider mb-1 ${
+                isDarkMode ? 'text-yellow-400' : 'text-yellow-700'
+              }`}>
+                임계값
+              </h4>
+              <p className={`text-sm ${
+                isDarkMode ? 'text-yellow-200' : 'text-yellow-800'
+              }`}>
+                {explanation.threshold}
+              </p>
+            </div>
+          )}
+          
+          {explanation.formula && (
+            <div className={`p-3 rounded-lg border ${
+              isDarkMode
+                ? 'bg-blue-950/20 border-blue-900/30'
+                : 'bg-blue-50 border-blue-200'
+            }`}>
+              <h4 className={`text-xs font-bold uppercase tracking-wider mb-1 ${
+                isDarkMode ? 'text-blue-400' : 'text-blue-700'
+              }`}>
+                계산식
+              </h4>
+              <p className={`text-sm font-mono ${
+                isDarkMode ? 'text-blue-200' : 'text-blue-800'
+              }`}>
+                {explanation.formula}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface DashboardProps {
   data: AnalysisResult;
@@ -45,6 +216,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   // Toast State
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type?: ToastType }>>([]);
   
+  // Currency conversion state
+  const [currency, setCurrency] = useState<Currency>('KRW');
+  const [exchangeRate, setExchangeRate] = useState<number>(1300); // 기본값
+  const [exchangeRateLoading, setExchangeRateLoading] = useState(true);
+  const [exchangeRateError, setExchangeRateError] = useState<string | null>(null);
+  
+  // Metric explanation modal state
+  const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
+  
   const showToast = (message: string, type: ToastType = 'info') => {
     const id = Date.now().toString();
     setToasts(prev => [...prev, { id, message, type }]);
@@ -53,6 +233,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   const removeToast = (id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
+
+  // 환율 로드
+  useEffect(() => {
+    const loadExchangeRate = async () => {
+      setExchangeRateLoading(true);
+      setExchangeRateError(null);
+      try {
+        const rate = await fetchExchangeRate();
+        setExchangeRate(rate);
+      } catch (error) {
+        console.error('환율 로드 실패:', error);
+        setExchangeRateError('환율을 불러올 수 없습니다. 기본값을 사용합니다.');
+        showToast('환율 정보를 불러올 수 없습니다. 기본 환율을 사용합니다.', 'warning');
+      } finally {
+        setExchangeRateLoading(false);
+      }
+    };
+
+    loadExchangeRate();
+  }, []);
 
   useEffect(() => {
     // Load theme preference from localStorage
@@ -413,8 +613,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   };
   
   // Color logic (use current metrics)
-  const scoreColor = currentMetrics.truthScore >= 75 ? 'text-emerald-400' : currentMetrics.truthScore >= 50 ? 'text-yellow-400' : 'text-red-400';
-  const scoreRing = currentMetrics.truthScore >= 75 ? 'border-emerald-500' : currentMetrics.truthScore >= 50 ? 'border-yellow-500' : 'border-red-500';
+  const scoreColor = currentMetrics.truthScore >= 75 
+    ? (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')
+    : currentMetrics.truthScore >= 50 
+    ? (isDarkMode ? 'text-yellow-400' : 'text-yellow-600')
+    : (isDarkMode ? 'text-red-400' : 'text-red-600');
+  const scoreRing = currentMetrics.truthScore >= 75 
+    ? (isDarkMode ? 'border-emerald-500' : 'border-emerald-600')
+    : currentMetrics.truthScore >= 50 
+    ? (isDarkMode ? 'border-yellow-500' : 'border-yellow-600')
+    : (isDarkMode ? 'border-red-500' : 'border-red-600');
 
   // Identify Top Issues (use current metrics)
   const issues = [
@@ -442,7 +650,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
       value: (metrics.panicIndex * 100).toFixed(0) + '%',
       threshold: '<30%',
       status: metrics.panicIndex < 0.3 ? 'warning' : 'normal',
-      description: 'Exit vs Daily Low - Low efficiency (<30%) indicates inefficient exit timing',
+      description: 'Exit vs Daily Low - 30% 미만이면 비효율적인 매도 타이밍으로 판단됩니다',
       aiTransmitted: true
     },
     {
@@ -450,7 +658,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
       value: metrics.dispositionRatio.toFixed(1) + 'x',
       threshold: '>1.5x',
       status: metrics.dispositionRatio > 1.5 ? 'warning' : 'normal',
-      description: 'Hold losers vs winners - Clinical threshold: >1.5x',
+      description: '손실 거래를 이익 거래보다 오래 보유하는 비율 - 임상적 임계값: >1.5x',
       aiTransmitted: true
     },
     {
@@ -458,15 +666,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
       value: metrics.revengeTradingCount + ' trades',
       threshold: '>0',
       status: metrics.revengeTradingCount > 0 ? 'warning' : 'normal',
-      description: 'Re-entry <24h after loss',
+      description: '손실 후 24시간 이내 재진입',
       aiTransmitted: true
     },
     {
       label: 'Total Regret',
-      value: '$' + metrics.totalRegret.toFixed(0),
+      value: formatCurrency(metrics.totalRegret, currency, exchangeRate),
       threshold: 'Any amount',
       status: metrics.totalRegret > 0 ? 'info' : 'normal',
-      description: 'Money left on table',
+      description: '놓친 수익 (기회비용)',
       aiTransmitted: true
     },
     {
@@ -474,7 +682,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
       value: metrics.profitFactor.toFixed(2),
       threshold: '>1.0',
       status: metrics.profitFactor > 1.0 ? 'normal' : 'warning',
-      description: 'Win vs Loss ratio',
+      description: '총 이익 대비 총 손실 비율',
       aiTransmitted: true
     },
     {
@@ -482,7 +690,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
       value: (metrics.winRate * 100).toFixed(0) + '%',
       threshold: '>50%',
       status: metrics.winRate > 0.5 ? 'normal' : 'warning',
-      description: 'Percentage of winning trades',
+      description: '전체 거래 중 이익 거래의 비율',
       aiTransmitted: true
     }
   ];
@@ -558,6 +766,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                 </div>
             </div>
             <div className="flex items-center gap-3">
+                {/* Currency Toggle */}
+                <button
+                  onClick={() => setCurrency(currency === 'USD' ? 'KRW' : 'USD')}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors ${
+                    isDarkMode
+                      ? 'bg-zinc-800 border-zinc-700 hover:bg-zinc-700 text-zinc-300'
+                      : 'bg-zinc-100 border-zinc-300 hover:bg-zinc-200 text-zinc-700'
+                  }`}
+                  title={currency === 'USD' ? '원화로 변경' : '달러로 변경'}
+                  disabled={exchangeRateLoading}
+                >
+                  <DollarSign className="w-4 h-4" />
+                  <span className="text-xs font-medium">
+                    {currency === 'USD' ? 'USD' : 'KRW'}
+                    {exchangeRateLoading && <span className="ml-1 text-zinc-500">...</span>}
+                  </span>
+                </button>
+                
                 {/* Theme Toggle */}
                 <button
                   onClick={toggleTheme}
@@ -566,7 +792,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                       ? 'hover:bg-zinc-800 text-zinc-400' 
                       : 'hover:bg-zinc-100 text-zinc-600'
                   }`}
-                  title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                  title={isDarkMode ? '라이트 모드로 전환' : '다크 모드로 전환'}
                 >
                   {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                 </button>
@@ -587,7 +813,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                         : 'bg-orange-50 text-orange-600 border-orange-200'
                     }`}>
                         <ServerCrash className="w-3 h-3" />
-                        <span className="font-medium">Demo Data (Offline)</span>
+                        <span className="font-medium">데모 데이터 (오프라인)</span>
                     </div>
                 )}
             </div>
@@ -596,6 +822,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
 
       <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8">
         
+        {/* PRIMARY TITLE: Biggest Bias & Financial Impact */}
+        {data.biasPriority && data.biasPriority.length > 0 && (
+          <div className={`text-center mb-8 py-8 rounded-2xl border ${
+            isDarkMode
+              ? 'bg-zinc-900/50 border-zinc-800'
+              : 'bg-zinc-50 border-zinc-200'
+          }`}>
+            <h1 className={`text-5xl font-bold mb-3 ${
+              isDarkMode ? 'text-red-400' : 'text-red-600'
+            }`}>
+              Your biggest bias is {data.biasPriority[0].bias}
+            </h1>
+            <p className={`text-2xl ${
+              isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
+            }`}>
+              It has cost you an estimated{' '}
+              <span className={`font-bold ${
+                isDarkMode ? 'text-red-400' : 'text-red-600'
+              }`}>
+                {formatCurrency(data.biasPriority[0].financialLoss, currency, exchangeRate)}
+              </span>
+            </p>
+          </div>
+        )}
+
         {/* LEVEL 2: THE VERDICT (HERO SECTION) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
@@ -607,9 +858,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
             } border`}>
                  <div className={`absolute top-0 w-full h-1.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-70 ${scoreColor}`}></div>
                  
-                 <span className={`text-xs font-bold uppercase tracking-widest mb-8 ${
-                   isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
-                 }`}>Behavioral Integrity Score</span>
+                 <div className="flex items-center gap-2 mb-8">
+                   <span className={`text-xs font-bold uppercase tracking-widest ${
+                     isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                   }`}>행동 무결성 점수</span>
+                   <button
+                     onClick={() => setSelectedMetric('truthScore')}
+                     className={`p-1 rounded-full transition-colors ${
+                       isDarkMode
+                         ? 'hover:bg-zinc-800 text-zinc-500 hover:text-zinc-400'
+                         : 'hover:bg-zinc-200 text-zinc-600 hover:text-zinc-700'
+                     }`}
+                     title="지표 설명 보기"
+                   >
+                     <HelpCircle className="w-3 h-3" />
+                   </button>
+                 </div>
                  
                  <div className={`w-48 h-48 rounded-full border-8 ${scoreRing} flex items-center justify-center mb-8 shadow-[0_0_30px_rgba(0,0,0,0.5)] relative ${
                    isDarkMode ? 'bg-[#0c0c0e]' : 'bg-white'
@@ -632,9 +896,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                  {topIssues.length > 0 && (
                      <div className="flex flex-wrap justify-center gap-2 mb-8 max-w-[80%]">
                          {topIssues.map((issue, idx) => (
-                             <div key={idx} className="flex items-center gap-2 px-3 py-1.5 bg-red-950/30 border border-red-900/40 rounded-full">
+                             <div key={idx} className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${
+                               isDarkMode
+                                 ? 'bg-red-950/30 border-red-900/40'
+                                 : 'bg-red-50 border-red-200'
+                             }`}>
                                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
-                                 <span className="text-xs font-bold text-red-400 uppercase tracking-wide">{issue.label}: {issue.value}</span>
+                                 <span className={`text-xs font-bold uppercase tracking-wide ${
+                                   isDarkMode ? 'text-red-400' : 'text-red-600'
+                                 }`}>{issue.label}: {issue.value}</span>
                              </div>
                          ))}
                      </div>
@@ -646,17 +916,43 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                      : 'bg-zinc-200/50 border-zinc-200'
                  }`}>
                     <div className={`p-3 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>
-                        <div className={`text-xs uppercase ${
-                          isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
-                        }`}>Win Rate</div>
+                        <div className="flex items-center gap-1 justify-center">
+                          <div className={`text-xs uppercase ${
+                            isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                          }`}>Win Rate</div>
+                          <button
+                            onClick={() => setSelectedMetric('winRate')}
+                            className={`p-0.5 rounded-full transition-colors ${
+                              isDarkMode
+                                ? 'hover:bg-zinc-800 text-zinc-500 hover:text-zinc-400'
+                                : 'hover:bg-zinc-200 text-zinc-600 hover:text-zinc-700'
+                            }`}
+                            title="지표 설명 보기"
+                          >
+                            <HelpCircle className="w-2.5 h-2.5" />
+                          </button>
+                        </div>
                         <div className={`font-mono font-semibold ${
                           isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
                         }`}>{(currentMetrics.winRate * 100).toFixed(0)}%</div>
                     </div>
                     <div className={`p-3 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>
-                        <div className={`text-xs uppercase ${
-                          isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
-                        }`}>Profit F.</div>
+                        <div className="flex items-center gap-1 justify-center">
+                          <div className={`text-xs uppercase ${
+                            isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                          }`}>Profit F.</div>
+                          <button
+                            onClick={() => setSelectedMetric('profitFactor')}
+                            className={`p-0.5 rounded-full transition-colors ${
+                              isDarkMode
+                                ? 'hover:bg-zinc-800 text-zinc-500 hover:text-zinc-400'
+                                : 'hover:bg-zinc-200 text-zinc-600 hover:text-zinc-700'
+                            }`}
+                            title="지표 설명 보기"
+                          >
+                            <HelpCircle className="w-2.5 h-2.5" />
+                          </button>
+                        </div>
                         <div className={`font-mono font-semibold ${
                           isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
                         }`}>{currentMetrics.profitFactor.toFixed(2)}</div>
@@ -664,9 +960,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                     <div className={`p-3 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>
                         <div className={`text-xs uppercase ${
                           isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
-                        }`}>Total PnL</div>
-                        <div className={`font-mono font-semibold ${totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                            ${Math.abs(totalPnL) >= 1000 ? (Math.abs(totalPnL)/1000).toFixed(1)+'k' : Math.abs(totalPnL).toFixed(0)}
+                        }`}>총 손익</div>
+                        <div className={`font-mono font-semibold ${
+                          totalPnL >= 0 
+                            ? (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')
+                            : (isDarkMode ? 'text-red-400' : 'text-red-600')
+                        }`}>
+                            {formatCurrency(totalPnL, currency, exchangeRate)}
                         </div>
                     </div>
                  </div>
@@ -686,12 +986,53 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
             </div>
 
             {/* AI Coach */}
-            <div className="lg:col-span-8 h-full">
-                 <AICoach 
-                   analysis={aiAnalysis} 
-                   loading={loadingAI} 
-                   truthScore={currentMetrics.truthScore}
-                 />
+            <div className="lg:col-span-8 h-full space-y-4">
+                 {/* CTA Button */}
+                 <div className={`rounded-xl p-6 border ${
+                   isDarkMode
+                     ? 'bg-gradient-to-r from-purple-900/20 to-blue-900/20 border-purple-800/50'
+                     : 'bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200'
+                 }`}>
+                   <div className="flex items-center justify-between">
+                     <div>
+                       <h3 className={`text-lg font-bold mb-1 ${
+                         isDarkMode ? 'text-zinc-100' : 'text-zinc-900'
+                       }`}>
+                         Chat with My AI Coach
+                       </h3>
+                       <p className={`text-sm ${
+                         isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+                       }`}>
+                         Get personalized insights and a 3-step plan to fix your trading habits
+                       </p>
+                     </div>
+                     <button
+                       onClick={() => {
+                         const aiCoachSection = document.querySelector('[data-section="ai-coach"]');
+                         if (aiCoachSection) {
+                           aiCoachSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                         }
+                       }}
+                       className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105 ${
+                         isDarkMode
+                           ? 'bg-purple-600 hover:bg-purple-500 text-white'
+                           : 'bg-purple-600 hover:bg-purple-700 text-white'
+                       }`}
+                     >
+                       <MessageSquare className="w-5 h-5" />
+                       <span>Get My 3-Step Plan</span>
+                       <ArrowRight className="w-5 h-5" />
+                     </button>
+                   </div>
+                 </div>
+                 
+                 <div data-section="ai-coach">
+                   <AICoach 
+                     analysis={aiAnalysis} 
+                     loading={loadingAI} 
+                     truthScore={currentMetrics.truthScore}
+                   />
+                 </div>
             </div>
         </div>
 
@@ -725,19 +1066,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                 <div className="flex justify-between">
                   <span className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}>FOMO</span>
                   <span className={`font-mono font-semibold ${
-                    data.metrics.fomoIndex > 0.7 ? 'text-red-400' : 'text-zinc-300'
+                    data.metrics.fomoIndex > 0.7 
+                      ? (isDarkMode ? 'text-red-400' : 'text-red-600')
+                      : (isDarkMode ? 'text-zinc-300' : 'text-zinc-600')
                   }`}>{(data.metrics.fomoIndex * 100).toFixed(0)}%</span>
                 </div>
                 <div className="flex justify-between">
                   <span className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}>Panic</span>
                   <span className={`font-mono font-semibold ${
-                    data.metrics.panicIndex < 0.3 ? 'text-red-400' : 'text-zinc-300'
+                    data.metrics.panicIndex < 0.3 
+                      ? (isDarkMode ? 'text-red-400' : 'text-red-600')
+                      : (isDarkMode ? 'text-zinc-300' : 'text-zinc-600')
                   }`}>{(data.metrics.panicIndex * 100).toFixed(0)}%</span>
                 </div>
                 <div className="flex justify-between">
                   <span className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}>Revenge</span>
                   <span className={`font-mono font-semibold ${
-                    data.metrics.revengeTradingCount > 0 ? 'text-red-400' : 'text-zinc-300'
+                    data.metrics.revengeTradingCount > 0 
+                      ? (isDarkMode ? 'text-red-400' : 'text-red-600')
+                      : (isDarkMode ? 'text-zinc-300' : 'text-zinc-600')
                   }`}>{data.metrics.revengeTradingCount}회</span>
                 </div>
               </div>
@@ -759,9 +1106,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                 {data.trades.length > 0 ? (
                   <div>
                     <div className={`text-sm font-semibold mb-2 ${
-                      data.trades[0].marketRegime === 'BULL' ? 'text-emerald-400' :
-                      data.trades[0].marketRegime === 'BEAR' ? 'text-red-400' :
-                      'text-zinc-400'
+                      data.trades[0].marketRegime === 'BULL' 
+                        ? (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')
+                        : data.trades[0].marketRegime === 'BEAR' 
+                        ? (isDarkMode ? 'text-red-400' : 'text-red-600')
+                        : (isDarkMode ? 'text-zinc-400' : 'text-zinc-600')
                     }`}>
                       {data.trades[0].marketRegime === 'BULL' ? '상승장 (BULL)' :
                        data.trades[0].marketRegime === 'BEAR' ? '하락장 (BEAR)' :
@@ -1002,7 +1351,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                   isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
                 }`}>
                     <Award className={`w-4 h-4 ${isDarkMode ? 'text-yellow-500' : 'text-yellow-600'}`} />
-                    Key Performance Indicators
+                    주요 성과 지표
                 </h3>
                 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
@@ -1016,6 +1365,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                         }`}>
                             <TrendingUp className="w-3 h-3" />
                             <span className="text-xs uppercase font-bold">FOMO Index</span>
+                            <button
+                              onClick={() => setSelectedMetric('fomo')}
+                              className={`p-0.5 rounded-full transition-colors ${
+                                isDarkMode
+                                  ? 'hover:bg-zinc-800 text-zinc-500 hover:text-zinc-400'
+                                  : 'hover:bg-zinc-200 text-zinc-600 hover:text-zinc-700'
+                              }`}
+                              title="지표 설명 보기"
+                            >
+                              <HelpCircle className="w-3 h-3" />
+                            </button>
                         </div>
                         <div className={`text-2xl font-mono ${
                           currentMetrics.fomoIndex > 0.7 
@@ -1049,6 +1409,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                         }`}>
                             <Skull className="w-3 h-3" />
                             <span className="text-xs uppercase font-bold">Revenge Trades</span>
+                            <button
+                              onClick={() => setSelectedMetric('revenge')}
+                              className={`p-0.5 rounded-full transition-colors ${
+                                isDarkMode
+                                  ? 'hover:bg-zinc-800 text-zinc-500 hover:text-zinc-400'
+                                  : 'hover:bg-zinc-200 text-zinc-600 hover:text-zinc-700'
+                              }`}
+                              title="지표 설명 보기"
+                            >
+                              <HelpCircle className="w-3 h-3" />
+                            </button>
                         </div>
                         <div className={`text-2xl font-mono ${
                           metrics.revengeTradingCount > 0 
@@ -1072,6 +1443,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                         }`}>
                             <RefreshCcw className="w-3 h-3" />
                             <span className="text-xs uppercase font-bold">Disposition</span>
+                            <button
+                              onClick={() => setSelectedMetric('disposition')}
+                              className={`p-0.5 rounded-full transition-colors ${
+                                isDarkMode
+                                  ? 'hover:bg-zinc-800 text-zinc-500 hover:text-zinc-400'
+                                  : 'hover:bg-zinc-200 text-zinc-600 hover:text-zinc-700'
+                              }`}
+                              title="지표 설명 보기"
+                            >
+                              <HelpCircle className="w-3 h-3" />
+                            </button>
                         </div>
                         <div className={`text-2xl font-mono ${
                           metrics.dispositionRatio > 1.5 
@@ -1095,6 +1477,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                         }`}>
                             <HelpCircle className="w-3 h-3" />
                             <span className="text-xs uppercase font-bold">Skill/Luck</span>
+                            <button
+                              onClick={() => setSelectedMetric('skillLuck')}
+                              className={`p-0.5 rounded-full transition-colors ${
+                                isDarkMode
+                                  ? 'hover:bg-zinc-800 text-zinc-500 hover:text-zinc-400'
+                                  : 'hover:bg-zinc-200 text-zinc-600 hover:text-zinc-700'
+                              }`}
+                              title="지표 설명 보기"
+                            >
+                              <HelpCircle className="w-3 h-3" />
+                            </button>
                         </div>
                         {isLowSample ? (
                             <div className={`text-xs italic mt-1 ${
@@ -1122,6 +1515,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                         }`}>
                             <TrendingDown className="w-3 h-3" />
                             <span className="text-xs uppercase font-bold">Max Drawdown</span>
+                            <button
+                              onClick={() => setSelectedMetric('maxDrawdown')}
+                              className={`p-0.5 rounded-full transition-colors ${
+                                isDarkMode
+                                  ? 'hover:bg-zinc-800 text-zinc-500 hover:text-zinc-400'
+                                  : 'hover:bg-zinc-200 text-zinc-600 hover:text-zinc-700'
+                              }`}
+                              title="지표 설명 보기"
+                            >
+                              <HelpCircle className="w-3 h-3" />
+                            </button>
                         </div>
                         <div className={`text-2xl font-mono ${
                           metrics.maxDrawdown > 30 
@@ -1149,7 +1553,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                         <div className="flex items-center gap-2 text-xs">
                             <span className="w-2 h-2 rounded-full bg-orange-500/50"></span>
                             <span className={isDarkMode ? 'text-zinc-500' : 'text-zinc-600'}>
-                              총 ${data.trades.reduce((sum, t) => sum + (t.regret || 0), 0).toFixed(0)} 놓침 (누적)
+                              총 {formatCurrency(data.trades.reduce((sum, t) => sum + (t.regret || 0), 0), currency, exchangeRate)} 놓침 (누적)
                             </span>
                         </div>
                      </div>
@@ -1172,7 +1576,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                             <TrendingUp className={`w-5 h-5 ${isDarkMode ? 'text-blue-500' : 'text-blue-600'}`} />
                             <h3 className={`text-sm font-bold uppercase tracking-wider ${
                               isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
-                            }`}>Personal Baseline</h3>
+                            }`}>개인 기준선</h3>
                         </div>
                         <div className="space-y-4">
                             <div className={`p-3 rounded-lg border ${
@@ -1185,7 +1589,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                 }`}>FOMO Score</div>
                                 <div className="flex items-center justify-between">
                                     <span className={isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}>Your Average: {(data.personalBaseline.avgFomo * 100).toFixed(0)}%</span>
-                                    <span className={`text-sm font-mono ${metrics.fomoIndex > data.personalBaseline.avgFomo ? 'text-red-400' : 'text-emerald-400'}`}>
+                                    <span className={`text-sm font-mono ${
+                                      metrics.fomoIndex > data.personalBaseline.avgFomo 
+                                        ? (isDarkMode ? 'text-red-400' : 'text-red-600')
+                                        : (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')
+                                    }`}>
                                         Current: {(metrics.fomoIndex * 100).toFixed(0)}%
                                     </span>
                                 </div>
@@ -1200,7 +1608,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                 }`}>Panic Score</div>
                                 <div className="flex items-center justify-between">
                                     <span className={isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}>Your Average: {(data.personalBaseline.avgPanic * 100).toFixed(0)}%</span>
-                                    <span className={`text-sm font-mono ${metrics.panicIndex < data.personalBaseline.avgPanic ? 'text-red-400' : 'text-emerald-400'}`}>
+                                    <span className={`text-sm font-mono ${
+                                      metrics.panicIndex < data.personalBaseline.avgPanic 
+                                        ? (isDarkMode ? 'text-red-400' : 'text-red-600')
+                                        : (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')
+                                    }`}>
                                         Current: {(metrics.panicIndex * 100).toFixed(0)}%
                                     </span>
                                 </div>
@@ -1215,7 +1627,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                 }`}>Disposition Ratio</div>
                                 <div className="flex items-center justify-between">
                                     <span className={isDarkMode ? 'text-zinc-300' : 'text-zinc-700'}>Your Average: {data.personalBaseline.avgDispositionRatio.toFixed(1)}x</span>
-                                    <span className={`text-sm font-mono ${metrics.dispositionRatio > data.personalBaseline.avgDispositionRatio ? 'text-red-400' : 'text-emerald-400'}`}>
+                                    <span className={`text-sm font-mono ${
+                                      metrics.dispositionRatio > data.personalBaseline.avgDispositionRatio 
+                                        ? (isDarkMode ? 'text-red-400' : 'text-red-600')
+                                        : (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')
+                                    }`}>
                                         Current: {metrics.dispositionRatio.toFixed(1)}x
                                     </span>
                                 </div>
@@ -1235,7 +1651,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                             <RefreshCcw className={`w-5 h-5 ${isDarkMode ? 'text-purple-500' : 'text-purple-600'}`} />
                             <h3 className={`text-sm font-bold uppercase tracking-wider ${
                               isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
-                            }`}>Behavior Shift (Recent 3 vs Baseline)</h3>
+                            }`}>행동 변화 (최근 3건 vs 기준선)</h3>
                         </div>
                         <div className="space-y-3">
                             {data.behaviorShift.map((shift, idx) => (
@@ -1248,8 +1664,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                         <span className={`text-sm font-medium ${
                                           isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
                                         }`}>{shift.bias}</span>
-                                        {shift.trend === 'IMPROVING' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
-                                        {shift.trend === 'WORSENING' && <XCircle className="w-4 h-4 text-red-400" />}
+                                        {shift.trend === 'IMPROVING' && <CheckCircle2 className={`w-4 h-4 ${
+                                          isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
+                                        }`} />}
+                                        {shift.trend === 'WORSENING' && <XCircle className={`w-4 h-4 ${
+                                          isDarkMode ? 'text-red-400' : 'text-red-600'
+                                        }`} />}
                                         {shift.trend === 'STABLE' && <AlertCircle className={`w-4 h-4 ${isDarkMode ? 'text-zinc-500' : 'text-zinc-600'}`} />}
                                     </div>
                                     <div className={`text-xs ${
@@ -1420,7 +1840,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                         <span className={`text-sm ${
                                           isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
                                         }`}>FOMO Loss</span>
-                                        <span className="text-red-400 font-mono font-bold">-${data.biasLossMapping.fomoLoss.toFixed(0)}</span>
+                                        <span className="text-red-400 font-mono font-bold">-{formatCurrency(data.biasLossMapping.fomoLoss, currency, exchangeRate)}</span>
                                     </div>
                                 </div>
                             )}
@@ -1434,7 +1854,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                         <span className={`text-sm ${
                                           isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
                                         }`}>Panic Sell Loss</span>
-                                        <span className="text-red-400 font-mono font-bold">-${data.biasLossMapping.panicLoss.toFixed(0)}</span>
+                                        <span className="text-red-400 font-mono font-bold">-{formatCurrency(data.biasLossMapping.panicLoss, currency, exchangeRate)}</span>
                                     </div>
                                 </div>
                             )}
@@ -1448,7 +1868,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                         <span className={`text-sm ${
                                           isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
                                         }`}>Revenge Trading Loss</span>
-                                        <span className="text-red-400 font-mono font-bold">-${data.biasLossMapping.revengeLoss.toFixed(0)}</span>
+                                        <span className="text-red-400 font-mono font-bold">-{formatCurrency(data.biasLossMapping.revengeLoss, currency, exchangeRate)}</span>
                                     </div>
                                 </div>
                             )}
@@ -1462,7 +1882,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                         <span className={`text-sm ${
                                           isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
                                         }`}>Disposition Effect (Missed)</span>
-                                        <span className="text-orange-400 font-mono font-bold">-${data.biasLossMapping.dispositionLoss.toFixed(0)}</span>
+                                        <span className="text-orange-400 font-mono font-bold">-{formatCurrency(data.biasLossMapping.dispositionLoss, currency, exchangeRate)}</span>
                                     </div>
                                 </div>
                             )}
@@ -1527,17 +1947,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Equity Curve Chart */}
             {data.equityCurve && data.equityCurve.length > 0 && (
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                <div className={`rounded-xl p-6 border ${
+                  isDarkMode
+                    ? 'bg-zinc-900 border-zinc-800'
+                    : 'bg-white border-zinc-200'
+                }`}>
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
-                            <TrendingUp className="w-4 h-4 text-emerald-500" />
-                            <h3 className="text-zinc-200 text-sm font-bold uppercase tracking-wider">Equity Curve (누적 수익 곡선)</h3>
+                            <TrendingUp className={`w-4 h-4 ${
+                              isDarkMode ? 'text-emerald-500' : 'text-emerald-600'
+                            }`} />
+                            <h3 className={`text-sm font-bold uppercase tracking-wider ${
+                              isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                            }`}>Equity Curve (누적 수익 곡선)</h3>
                         </div>
-                        <div className="text-xs text-zinc-500">
+                        <div className={`text-xs ${
+                          isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                        }`}>
                             당신은 시장을 이기고 있습니까?
                         </div>
                     </div>
-                    <div className="mb-4 flex flex-wrap gap-3 text-xs text-zinc-400">
+                    <div className={`mb-4 flex flex-wrap gap-3 text-xs ${
+                      isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+                    }`}>
                         <div className="flex items-center gap-1">
                             <span className="w-2 h-2 rounded-full bg-red-500"></span>
                             <span>💀 FOMO (80%+)</span>
@@ -1576,10 +2008,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
 
             {/* What-If Simulator */}
             {data.biasLossMapping && (
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                <div className={`rounded-xl p-6 border ${
+                  isDarkMode
+                    ? 'bg-zinc-900 border-zinc-800'
+                    : 'bg-white border-zinc-200'
+                }`}>
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-zinc-200 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-                            <TrendingUp className="w-4 h-4 text-purple-500" />
+                        <h3 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${
+                          isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                        }`}>
+                            <TrendingUp className={`w-4 h-4 ${
+                              isDarkMode ? 'text-purple-500' : 'text-purple-600'
+                            }`} />
                             What-If Simulator: 편향 제거 시뮬레이션
                         </h3>
                         <label className="flex items-center gap-2 cursor-pointer">
@@ -1587,28 +2027,56 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                 type="checkbox"
                                 checked={showBiasFreeSimulation}
                                 onChange={(e) => setShowBiasFreeSimulation(e.target.checked)}
-                                className="w-4 h-4 rounded bg-zinc-800 border-zinc-700 text-purple-500 focus:ring-purple-500"
+                                className={`w-4 h-4 rounded text-purple-500 focus:ring-purple-500 ${
+                                  isDarkMode
+                                    ? 'bg-zinc-800 border-zinc-700'
+                                    : 'bg-zinc-100 border-zinc-300'
+                                }`}
                             />
-                            <span className="text-xs text-zinc-400">편향 제거 모드</span>
+                            <span className={`text-xs ${
+                              isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+                            }`}>편향 제거 모드</span>
                         </label>
                     </div>
                     
                     {biasFreeMetrics && (
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="p-4 bg-zinc-950 rounded-lg border border-zinc-800">
-                                    <div className="text-xs text-zinc-500 mb-2">현재 총 PnL</div>
-                                    <div className={`text-2xl font-mono font-bold ${biasFreeMetrics.currentPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                        ${biasFreeMetrics.currentPnL.toFixed(0)}
+                                <div className={`p-4 rounded-lg border ${
+                                  isDarkMode
+                                    ? 'bg-zinc-950 border-zinc-800'
+                                    : 'bg-zinc-50 border-zinc-200'
+                                }`}>
+                                    <div className={`text-xs mb-2 ${
+                                      isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                                    }`}>현재 총 PnL</div>
+                                    <div className={`text-2xl font-mono font-bold ${
+                                      biasFreeMetrics.currentPnL >= 0 
+                                        ? (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')
+                                        : (isDarkMode ? 'text-red-400' : 'text-red-600')
+                                    }`}>
+                                        {formatCurrency(biasFreeMetrics.currentPnL, currency, exchangeRate)}
                                     </div>
                                 </div>
                                 
-                                <div className={`p-4 rounded-lg border ${showBiasFreeSimulation ? 'bg-purple-950/30 border-purple-900/30' : 'bg-zinc-950 border-zinc-800'}`}>
-                                    <div className={`text-xs mb-2 ${showBiasFreeSimulation ? 'text-purple-400' : 'text-zinc-500'}`}>
+                                <div className={`p-4 rounded-lg border ${
+                                  showBiasFreeSimulation 
+                                    ? (isDarkMode ? 'bg-purple-950/30 border-purple-900/30' : 'bg-purple-50 border-purple-200')
+                                    : (isDarkMode ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200')
+                                }`}>
+                                    <div className={`text-xs mb-2 ${
+                                      showBiasFreeSimulation 
+                                        ? (isDarkMode ? 'text-purple-400' : 'text-purple-600')
+                                        : (isDarkMode ? 'text-zinc-500' : 'text-zinc-600')
+                                    }`}>
                                         {showBiasFreeSimulation ? '보정된 PnL (편향 제거)' : '잠재적 PnL'}
                                     </div>
-                                    <div className={`text-2xl font-mono font-bold ${biasFreeMetrics.potentialPnL >= 0 ? 'text-purple-400' : 'text-red-400'}`}>
-                                        ${biasFreeMetrics.potentialPnL.toFixed(0)}
+                                    <div className={`text-2xl font-mono font-bold ${
+                                      biasFreeMetrics.potentialPnL >= 0 
+                                        ? (isDarkMode ? 'text-purple-400' : 'text-purple-600')
+                                        : (isDarkMode ? 'text-red-400' : 'text-red-600')
+                                    }`}>
+                                        {formatCurrency(biasFreeMetrics.potentialPnL, currency, exchangeRate)}
                                     </div>
                                 </div>
                             </div>
@@ -1623,7 +2091,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                     <div className="text-sm text-emerald-300 mb-2 font-semibold">
                                       💡 이 패턴만 교정했다면, 시장 지수(SPY) 대비{' '}
                                       <span className="text-emerald-400 font-bold">
-                                        +${Math.abs(biasFreeMetrics.improvement).toFixed(0)}의 초과 수익(Alpha)
+                                        +{formatCurrency(Math.abs(biasFreeMetrics.improvement), currency, exchangeRate)}의 초과 수익(Alpha)
                                       </span>
                                       을 낼 수 있었습니다.
                                     </div>
@@ -1632,13 +2100,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                     </div>
                                     <div className="text-xs text-emerald-200/80 mb-2 space-y-1">
                                       {biasFreeMetrics.biasLoss > 0 && (
-                                        <div>• 직접 손실: <span className="font-semibold">-${biasFreeMetrics.biasLoss.toFixed(0)}</span></div>
+                                        <div>• 직접 손실: <span className="font-semibold">-{formatCurrency(biasFreeMetrics.biasLoss, currency, exchangeRate)}</span></div>
                                       )}
                                       {biasFreeMetrics.opportunityCost !== undefined && biasFreeMetrics.opportunityCost < 0 && (
-                                        <div>• 기회비용 (SPY 대비): <span className="font-semibold">-${Math.abs(biasFreeMetrics.opportunityCost).toFixed(0)}</span></div>
+                                        <div>• 기회비용 (SPY 대비): <span className="font-semibold">-{formatCurrency(Math.abs(biasFreeMetrics.opportunityCost), currency, exchangeRate)}</span></div>
                                       )}
                                       {biasFreeMetrics.opportunityCost !== undefined && biasFreeMetrics.opportunityCost > 0 && (
-                                        <div>• SPY 대비 초과 수익 가능: <span className="font-semibold text-emerald-400">+${biasFreeMetrics.opportunityCost.toFixed(0)}</span></div>
+                                        <div>• SPY 대비 초과 수익 가능: <span className="font-semibold text-emerald-400">+{formatCurrency(biasFreeMetrics.opportunityCost, currency, exchangeRate)}</span></div>
                                       )}
                                     </div>
                                     <div className="text-xs text-emerald-200/60 mt-2 pt-2 border-t border-emerald-900/30">
@@ -1651,14 +2119,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                       ⚠️ 이 편향 때문에 기회비용이 발생했습니다:
                                     </div>
                                     <div className="text-xl text-red-400 font-bold mb-2">
-                                      -${(biasFreeMetrics.biasLoss + (biasFreeMetrics.opportunityCost < 0 ? Math.abs(biasFreeMetrics.opportunityCost) : 0)).toFixed(0)}
+                                      -{formatCurrency(biasFreeMetrics.biasLoss + (biasFreeMetrics.opportunityCost < 0 ? Math.abs(biasFreeMetrics.opportunityCost) : 0), currency, exchangeRate)}
                                     </div>
                                     <div className="text-xs text-red-200/80 mb-2 space-y-1">
                                       {biasFreeMetrics.biasLoss > 0 && (
-                                        <div>• 직접 손실: <span className="font-semibold">-${biasFreeMetrics.biasLoss.toFixed(0)}</span></div>
+                                        <div>• 직접 손실: <span className="font-semibold">-{formatCurrency(biasFreeMetrics.biasLoss, currency, exchangeRate)}</span></div>
                                       )}
                                       {biasFreeMetrics.opportunityCost !== undefined && biasFreeMetrics.opportunityCost < 0 && (
-                                        <div>• 기회비용 (SPY 대비): <span className="font-semibold">-${Math.abs(biasFreeMetrics.opportunityCost).toFixed(0)}</span></div>
+                                        <div>• 기회비용 (SPY 대비): <span className="font-semibold">-{formatCurrency(Math.abs(biasFreeMetrics.opportunityCost), currency, exchangeRate)}</span></div>
                                       )}
                                     </div>
                                     <div className="text-xs text-red-200/60 mt-2 pt-2 border-t border-red-900/30">
@@ -1807,6 +2275,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                             <span className={`font-semibold text-sm ${
                                               isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
                                             }`}>{item.label}</span>
+                                            <button
+                                              onClick={() => {
+                                                const metricKey = item.label.toLowerCase()
+                                                  .replace(/\s+/g, '')
+                                                  .replace('score', '')
+                                                  .replace('index', '')
+                                                  .replace('trades', '')
+                                                  .replace('total', '')
+                                                  .replace('exit', 'panic')
+                                                  .replace('efficiency', 'panic');
+                                                setSelectedMetric(metricKey);
+                                              }}
+                                              className={`p-0.5 rounded-full transition-colors ${
+                                                isDarkMode
+                                                  ? 'hover:bg-zinc-800 text-zinc-500 hover:text-zinc-400'
+                                                  : 'hover:bg-zinc-200 text-zinc-600 hover:text-zinc-700'
+                                              }`}
+                                              title="지표 설명 보기"
+                                            >
+                                              <HelpCircle className="w-3 h-3" />
+                                            </button>
                                             {item.aiTransmitted && (
                                                 <span className={`text-[10px] px-1.5 py-0.5 rounded ${
                                                   isDarkMode 
@@ -1989,7 +2478,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                             </div>
                                         </td>
                                         <td className={`px-6 py-4 text-right font-mono font-medium ${trade.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                            ${trade.pnl.toFixed(0)}
+                                            {formatCurrency(trade.pnl, currency, exchangeRate)}
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             {trade.fomoScore === -1 ? (
@@ -2054,7 +2543,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-right font-mono text-orange-400/80">
-                                            {trade.regret > 0 ? `$${trade.regret.toFixed(0)}` : <span className={isDarkMode ? 'text-zinc-800' : 'text-zinc-300'}>-</span>}
+                                            {trade.regret > 0 ? formatCurrency(trade.regret, currency, exchangeRate) : <span className={isDarkMode ? 'text-zinc-800' : 'text-zinc-300'}>-</span>}
                                         </td>
                                     </tr>
                                     {/* Contextual Score 분해 정보 (조건부 표시) */}
@@ -2120,6 +2609,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
       
       {/* Toast Container */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+      
+      {/* Metric Explanation Modal */}
+      <MetricExplanationModal
+        metric={selectedMetric || ''}
+        isOpen={!!selectedMetric}
+        onClose={() => setSelectedMetric(null)}
+        isDarkMode={isDarkMode}
+      />
       
       {/* Strategy Tag Modal */}
       {selectedTrade && (

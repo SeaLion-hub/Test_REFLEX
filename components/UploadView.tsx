@@ -1,6 +1,6 @@
 
 import React, { useRef, useState } from 'react';
-import { Upload, FileText, AlertCircle, Skull, GitMerge, Database, FileSpreadsheet } from 'lucide-react';
+import { Upload, FileText, AlertCircle, Skull, GitMerge, Database, FileSpreadsheet, FileSearch, TrendingUp, Brain, Shield } from 'lucide-react';
 import { parseCSV, analyzeTrades } from '../services/analysisEngine';
 import { AnalysisResult } from '../types';
 import Threads from './Threads';
@@ -146,9 +146,9 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
               REFLEX
             </h1>
             <p className="text-lg text-zinc-300 max-w-lg mx-auto leading-relaxed">
-              The first objective behavior analysis system.
+              가장 비용이 많이 드는 거래 습관을 찾아 고치세요.
               <br />
-              <span className="text-zinc-400 text-sm">Drop your trade history to reveal your true psychological flaws.</span>
+              <span className="text-zinc-400 text-sm">거래 내역을 업로드하여 심리적 편향을 발견하세요.</span>
             </p>
           </div>
 
@@ -161,7 +161,11 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
           {isProcessing ? (
              <div className="flex flex-col items-center gap-6">
                 <div className="p-6 bg-zinc-900 rounded-full border border-zinc-800">
-                    <Database className="w-10 h-10 text-emerald-500 animate-spin" />
+                    {loadingStage.includes('파싱') && <FileSearch className="w-10 h-10 text-emerald-500 animate-pulse" />}
+                    {loadingStage.includes('시장 데이터') && <Database className="w-10 h-10 text-emerald-500 animate-spin" />}
+                    {loadingStage.includes('패턴') && <TrendingUp className="w-10 h-10 text-emerald-500 animate-pulse" />}
+                    {loadingStage.includes('GPT') && <Brain className="w-10 h-10 text-emerald-500 animate-pulse" />}
+                    {!loadingStage && <Database className="w-10 h-10 text-emerald-500 animate-spin" />}
                 </div>
                 <div className="space-y-2 text-center">
                     <p className="text-zinc-200 font-medium animate-pulse">{loadingStage || '분석 중...'}</p>
@@ -178,12 +182,18 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
                   <Upload className="w-10 h-10 text-zinc-400 group-hover:text-emerald-400" />
                 </div>
                 <div className="space-y-2">
-                  <p className="text-xl font-medium text-zinc-200">Drag & Drop Trade History</p>
+                  <p className="text-xl font-medium text-zinc-200">거래 내역을 드래그하여 업로드하세요</p>
                   <div className="text-sm text-zinc-500">
-                     <p>Required Format: Ticker, Entry Date, Entry Price, Exit Date, Exit Price, Qty</p>
+                     <p>필수 형식: Ticker, Entry Date, Entry Price, Exit Date, Exit Price, Qty</p>
                      <button onClick={(e) => { e.stopPropagation(); downloadSample(); }} className="text-emerald-500 hover:underline mt-2 text-xs">
-                        Download Template CSV
+                        템플릿 CSV 다운로드
                      </button>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-zinc-800/50">
+                    <div className="flex items-center gap-2 text-xs text-zinc-500">
+                      <Shield className="w-4 h-4" />
+                      <span>데이터는 익명화되며 이 분석에만 사용됩니다. 원본 거래 내역은 저장하지 않습니다.</span>
+                    </div>
                   </div>
                 </div>
               </div>
