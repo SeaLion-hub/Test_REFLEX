@@ -1,0 +1,5 @@
+{
+  "name": "Copy of Truth Pipeline",
+  "description": "A static, CSV-based investment behavior analysis system that evaluates past trades using deterministic metrics and AI-generated coaching.",
+  "requestFramePermissions": []
+}
