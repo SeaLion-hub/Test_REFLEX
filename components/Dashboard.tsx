@@ -5,8 +5,9 @@ import { getAIInterpretation } from '../services/openaiService';
 import { BehavioralRadar, RegretChart, EquityCurveChart } from './Charts';
 import { AICoach } from './AICoach';
 import { StrategyTagModal } from './StrategyTagModal';
+import { AIJudgeModal } from './AIJudgeModal';
 import { ToastContainer, ToastType } from './Toast';
-import { ShieldAlert, TrendingUp, RefreshCcw, Award, BarChart2, HelpCircle, ArrowLeft, ChevronDown, ChevronUp, Database, ServerCrash, Skull, TrendingDown, DollarSign, AlertCircle, CheckCircle2, XCircle, Moon, Sun, BookOpen, MessageSquare, Brain } from 'lucide-react';
+import { ShieldAlert, TrendingUp, RefreshCcw, Award, BarChart2, HelpCircle, ArrowLeft, ChevronDown, ChevronUp, Database, ServerCrash, Skull, TrendingDown, DollarSign, AlertCircle, CheckCircle2, XCircle, Moon, Sun, BookOpen, MessageSquare, Brain, Scale } from 'lucide-react';
 
 interface DashboardProps {
   data: AnalysisResult;
@@ -24,6 +25,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   const [selectedTrade, setSelectedTrade] = useState<EnrichedTrade | null>(null);
   const [showStrategyModal, setShowStrategyModal] = useState(false);
   const [trades, setTrades] = useState<EnrichedTrade[]>(data.trades);
+  
+  // AI Judge Modal State
+  const [selectedTradeForJudge, setSelectedTradeForJudge] = useState<EnrichedTrade | null>(null);
+  const [showAIJudgeModal, setShowAIJudgeModal] = useState(false);
   
   // Chart Interaction State (2A: 거래 차트 매핑 시각화)
   const [selectedTradeFromChart, setSelectedTradeFromChart] = useState<EnrichedTrade | null>(null);
@@ -109,16 +114,51 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
     };
   };
   
+  // Recalculate Panic metrics excluding planned cuts
+  const recalculatePanicScore = (tradesList: EnrichedTrade[]) => {
+    // Panic 계산에서 제외할 거래: PLANNED_CUT 태그가 있는 거래
+    const excludedFromPanic = tradesList.filter(t => 
+      t.strategyTag === 'PLANNED_CUT'
+    );
+    
+    // Panic 계산 대상 거래 (유효하고 PLANNED_CUT 태그가 없는 거래)
+    const panicEligibleTrades = tradesList.filter(t => 
+      t.panicScore !== -1 && 
+      t.strategyTag !== 'PLANNED_CUT'
+    );
+    
+    if (panicEligibleTrades.length === 0) {
+      return {
+        adjustedPanicIndex: data.metrics.panicIndex,
+        excludedCount: excludedFromPanic.length,
+        eligibleCount: 0
+      };
+    }
+    
+    // Panic Index 계산: 1 - 평균 Panic Score
+    const avgPanicScore = panicEligibleTrades.reduce((sum, t) => sum + t.panicScore, 0) / panicEligibleTrades.length;
+    const adjustedPanicIndex = 1 - avgPanicScore;
+    
+    return {
+      adjustedPanicIndex,
+      excludedCount: excludedFromPanic.length,
+      eligibleCount: panicEligibleTrades.length
+    };
+  };
+  
   // Truth Score 재계산 함수
   const recalculateTruthScore = (tradesList: EnrichedTrade[], currentMetrics: typeof metrics) => {
     const fomoMetrics = recalculateFOMO(tradesList);
     const adjustedFomoIndex = fomoMetrics.adjustedFomoIndex;
     
+    const panicMetrics = recalculatePanicScore(tradesList);
+    const adjustedPanicIndex = panicMetrics.adjustedPanicIndex;
+    
     // Truth Score 재계산 (main.py 로직과 동일)
     let baseScore = 50;
     baseScore += (currentMetrics.winRate * 20);
     baseScore -= (adjustedFomoIndex * 20);
-    baseScore -= ((1 - currentMetrics.panicIndex) * 20);
+    baseScore -= ((1 - adjustedPanicIndex) * 20); // 재계산된 Panic Index 사용
     baseScore -= Math.max(0, (currentMetrics.dispositionRatio - 1) * 10);
     baseScore -= (currentMetrics.revengeTradingCount * 5);
     if (!isLowSample) {
@@ -141,19 +181,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
           ? fomoMetrics.adjustedFomoIndex 
           : data.metrics.fomoIndex;
         
-        // 2. Truth Score 재계산
+        // 2. Panic 메트릭 재계산
+        const panicMetrics = recalculatePanicScore(trades);
+        const adjustedPanicIndex = panicMetrics.excludedCount > 0
+          ? panicMetrics.adjustedPanicIndex
+          : data.metrics.panicIndex;
+        
+        // 3. Truth Score 재계산
         const newTruthScore = recalculateTruthScore(trades, {
           ...data.metrics,
-          fomoIndex: adjustedFomoIndex
+          fomoIndex: adjustedFomoIndex,
+          panicIndex: adjustedPanicIndex
         });
         
-        // 3. AI에게 보정된 메트릭 전달
+        // 4. AI에게 보정된 메트릭 전달
         const updatedData = { 
           ...data, 
           trades,
           metrics: {
             ...data.metrics,
             fomoIndex: adjustedFomoIndex,
+            panicIndex: adjustedPanicIndex,
             truthScore: newTruthScore
           }
         };
@@ -169,7 +217,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   }, [data, trades]);
 
   // Handle Strategy Tagging
-  const handleStrategyTag = async (trade: EnrichedTrade, tag: 'BREAKOUT' | 'AGGRESSIVE_ENTRY' | 'FOMO') => {
+  const handleStrategyTag = async (trade: EnrichedTrade, tag: 'BREAKOUT' | 'AGGRESSIVE_ENTRY' | 'FOMO' | 'PLANNED_CUT') => {
     // Update trade strategy tag
     const updatedTrades = trades.map(t => 
       t.id === trade.id 
@@ -194,14 +242,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
     }
     
     // Recalculate metrics if strategic tag added
-    if (tag === 'BREAKOUT' || tag === 'AGGRESSIVE_ENTRY') {
+    if (tag === 'BREAKOUT' || tag === 'AGGRESSIVE_ENTRY' || tag === 'PLANNED_CUT') {
       const fomoMetrics = recalculateFOMO(updatedTrades);
-      const newTruthScore = recalculateTruthScore(updatedTrades, metrics);
+      const panicMetrics = recalculatePanicScore(updatedTrades);
+      const newTruthScore = recalculateTruthScore(updatedTrades, {
+        ...metrics,
+        fomoIndex: fomoMetrics.adjustedFomoIndex,
+        panicIndex: panicMetrics.adjustedPanicIndex
+      });
       
       // 즉시 UI 업데이트
       const updatedMetrics = {
         ...metrics,
         fomoIndex: fomoMetrics.adjustedFomoIndex,
+        panicIndex: panicMetrics.adjustedPanicIndex,
         truthScore: newTruthScore
       };
       setDisplayMetrics(updatedMetrics);
@@ -1538,6 +1592,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                                              trade.strategyTag === 'AGGRESSIVE_ENTRY' ? '공격적 진입' : 'FOMO'}
                                                         </span>
                                                     )}
+                                                    {/* AI 검증 버튼 (FOMO > 0.7일 때) */}
+                                                    {trade.fomoScore > 0.7 && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedTradeForJudge(trade);
+                                                                setShowAIJudgeModal(true);
+                                                            }}
+                                                            className={`px-2 py-1 text-[10px] font-medium rounded transition-colors flex items-center gap-1 ${
+                                                                isDarkMode
+                                                                    ? 'bg-red-950/50 text-red-400 border border-red-900/50 hover:bg-red-900/50'
+                                                                    : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
+                                                            }`}
+                                                        >
+                                                            <Scale className="w-3 h-3" />
+                                                            AI 검증
+                                                        </button>
+                                                    )}
                                                     {/* 소명하기 버튼 (FOMO > 0.7이고 아직 소명 안 했을 때) */}
                                                     {trade.fomoScore > 0.7 && !trade.userAcknowledged && (
                                                         <button
@@ -1642,6 +1713,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
             setSelectedTrade(null);
           }}
           onConfirm={(tag) => handleStrategyTag(selectedTrade, tag)}
+          isDarkMode={isDarkMode}
+        />
+      )}
+      
+      {/* AI Judge Modal */}
+      {selectedTradeForJudge && (
+        <AIJudgeModal
+          trade={selectedTradeForJudge}
+          isOpen={showAIJudgeModal}
+          onClose={() => {
+            setShowAIJudgeModal(false);
+            setSelectedTradeForJudge(null);
+          }}
+          onAppeal={() => {
+            setShowAIJudgeModal(false);
+            setSelectedTrade(selectedTradeForJudge);
+            setShowStrategyModal(true);
+            setSelectedTradeForJudge(null);
+          }}
           isDarkMode={isDarkMode}
         />
       )}

@@ -46,7 +46,7 @@ export interface EnrichedTrade {
   isRevenge: boolean;
   
   // Strategy Tagging (사용자 피드백)
-  strategyTag?: 'BREAKOUT' | 'AGGRESSIVE_ENTRY' | 'FOMO' | null; // 전략 태그
+  strategyTag?: 'BREAKOUT' | 'AGGRESSIVE_ENTRY' | 'FOMO' | 'PLANNED_CUT' | null; // 전략 태그
   userAcknowledged?: boolean; // 사용자가 소명했는지 여부
   
   // Computed Trade Metrics
@@ -126,6 +126,16 @@ export interface PersonalPlaybook {
   rules?: string[];
 }
 
+export interface NewsVerification {
+  verdict: 'GUILTY' | 'INNOCENT' | 'UNKNOWN'; // 판결
+  reasoning: string; // 판단 근거 (한국어)
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW'; // 확신도
+  newsTitles: string[]; // 참조한 뉴스 헤드라인
+  source: 'cache' | 'search' | 'none'; // 데이터 출처
+  relevanceCheck?: 'RELEVANT' | 'IRRELEVANT'; // 뉴스 적합성
+  relevantCount?: number; // 적합한 뉴스 개수
+}
+
 export interface AIAnalysis {
   diagnosis: string; // 3 sentences
   rule: string; // 1 sentence behavioral rule
@@ -135,6 +145,7 @@ export interface AIAnalysis {
   strengths?: TradeStrength[]; // 잘한 매매 (이달의 명장면)
   deep_patterns?: DeepPattern[]; // 고급 패턴 분석
   playbook?: PersonalPlaybook; // Personal Playbook
+  newsVerification?: NewsVerification; // 뉴스 검증 결과 (별도 API 호출)
 }
 
 // Perfect Edition: Personal Baseline

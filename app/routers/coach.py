@@ -6,13 +6,15 @@ import json
 import numpy as np
 import pandas as pd
 from datetime import datetime
+from typing import List
 
 # 내부 모듈 임포트
 from app.core.database import get_db
 from app.orm import StrategyTag
-from app.models import CoachRequest, DeepPattern, BiasPriority, PersonalBaseline, PersonalPlaybook
+from app.models import CoachRequest, DeepPattern, BiasPriority, PersonalBaseline, PersonalPlaybook, NewsVerification, NewsVerificationRequest
 from app.services.rag import RAG_CARDS, RAG_EMBEDDINGS, get_embeddings_batch, cosine_similarity_top_k
 from app.services.patterns import generate_personal_playbook
+from app.services.news import fetch_news_context, validate_news_relevance
 
 router = APIRouter()
 
@@ -385,6 +387,122 @@ async def get_ai_coach(request: CoachRequest):
             "bias": "Service Error",
             "fix": "API 키나 네트워크 상태를 확인하세요."
         }
+
+def build_news_verification_prompt(news_titles: List[str], ticker: str, date: str, fomo_score: float) -> str:
+    """
+    뉴스 검증 + FOMO 판단 통합 프롬프트
+    """
+    news_list = chr(10).join([f"{i+1}. {title}" for i, title in enumerate(news_titles)])
+    
+    return f"""
+당신은 행동 재무학 판사입니다. 다음 정보를 바탕으로 이 거래가 'FOMO (뇌동매매)'인지 판단하세요.
+
+[거래 정보]
+- 종목: {ticker}
+- 날짜: {date}
+- FOMO Score (수식 기반): {fomo_score:.2f} (0.7 이상 = 고가 매수)
+
+[발견된 뉴스 헤드라인]
+{news_list}
+
+[판단 프로세스]
+
+Step 1: 뉴스 적합성 판단
+- 위 뉴스 중 '주가 변동의 직접적 원인'을 설명하는 것이 있는가?
+- 적합한 뉴스: "급등", "과열", "경고", "실적", "공시", "투기", "공매도", "숏스퀴즈" 등 키워드 포함
+- 부적합한 뉴스: 제품 발표, 광고, 일반 기업 뉴스, 공장 방문 등 장기적 뉴스
+
+Step 2: FOMO 판단 (적합한 뉴스가 2개 이상일 때만)
+- "과열 경고", "투기", "공매도 숏스퀴즈", "광기", "급등 주의" → GUILTY (FOMO 유죄)
+- "실적 발표", "기술적 돌파", "분석가 추천", "합리적 상승" → INNOCENT (합리적 판단)
+- 중립적 뉴스 또는 뉴스 부족 → UNKNOWN (증거 불충분)
+
+[출력 형식]
+{{
+    "relevance_check": "RELEVANT" | "IRRELEVANT",
+    "relevant_count": 숫자,
+    "verdict": "GUILTY" | "INNOCENT" | "UNKNOWN",
+    "reasoning": "판단 근거 (한국어, 1-2문장)",
+    "confidence": "HIGH" | "MEDIUM" | "LOW"
+}}
+
+중요 규칙:
+1. 적합한 뉴스가 1개 이하이면 verdict는 반드시 "UNKNOWN"이어야 합니다.
+2. 적합한 뉴스가 2개 이상일 때만 GUILTY 또는 INNOCENT 판단을 내리세요.
+3. reasoning은 반드시 한국어로 작성하세요.
+4. confidence는 판단 근거의 명확성에 따라 결정하세요 (뉴스가 명확하면 HIGH, 애매하면 LOW).
+"""
+
+@router.post("/verify-news", response_model=NewsVerification)
+async def verify_news(request: NewsVerificationRequest):
+    """
+    뉴스 검증 API: 특정 거래에 대한 뉴스 기반 FOMO 판단
+    """
+    api_key = os.getenv("OPENAI_API_KEY") or os.getenv("VITE_OPENAI_API_KEY")
+    
+    if not api_key:
+        return NewsVerification(
+            verdict="UNKNOWN",
+            reasoning="API Key가 설정되지 않았습니다.",
+            confidence="LOW",
+            news_titles=[],
+            source="none"
+        )
+    
+    openai = OpenAI(api_key=api_key)
+    
+    # 1. 뉴스 검색
+    news_titles, source = fetch_news_context(request.ticker, request.date)
+    
+    # 뉴스가 없으면 즉시 반환
+    if not news_titles or (len(news_titles) == 1 and "없음" in news_titles[0] or "실패" in news_titles[0]):
+        return NewsVerification(
+            verdict="UNKNOWN",
+            reasoning="뉴스 데이터를 찾을 수 없어 판단을 보류합니다. 수식 기반 점수만 참고하세요.",
+            confidence="LOW",
+            news_titles=news_titles if news_titles else [],
+            source=source
+        )
+    
+    # 2. 키워드 기반 사전 필터링 (선택적)
+    is_relevant, relevance_reason = validate_news_relevance(news_titles, request.ticker, request.date)
+    
+    # 3. LLM 뉴스 검증 프롬프트 호출
+    prompt = build_news_verification_prompt(news_titles, request.ticker, request.date, request.fomo_score)
+    
+    try:
+        completion = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a behavioral finance judge. Always respond with valid JSON only. IMPORTANT: Respond in Korean for reasoning field."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.3,  # 판단이므로 낮은 temperature
+        )
+        
+        content = completion.choices[0].message.content
+        result = json.loads(content)
+        
+        return NewsVerification(
+            verdict=result.get("verdict", "UNKNOWN"),
+            reasoning=result.get("reasoning", "판단 근거를 생성할 수 없습니다."),
+            confidence=result.get("confidence", "LOW"),
+            news_titles=news_titles,
+            source=source,
+            relevance_check=result.get("relevance_check"),
+            relevant_count=result.get("relevant_count")
+        )
+        
+    except Exception as e:
+        print(f"News verification error: {e}")
+        return NewsVerification(
+            verdict="UNKNOWN",
+            reasoning=f"AI 판단 중 오류가 발생했습니다: {str(e)}",
+            confidence="LOW",
+            news_titles=news_titles,
+            source=source
+        )
 
 @router.post("/strategy-tag")
 async def save_strategy_tag(request: dict, db: Session = Depends(get_db)):

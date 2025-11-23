@@ -135,6 +135,22 @@ class AnalysisResponse(BaseModel):
     equity_curve: List[EquityCurvePoint] = []
     deep_patterns: Optional[List[DeepPattern]] = None
 
+class NewsVerification(BaseModel):
+    """뉴스 검증 결과"""
+    verdict: str  # "GUILTY" | "INNOCENT" | "UNKNOWN"
+    reasoning: str  # 판단 근거 (한국어)
+    confidence: str  # "HIGH" | "MEDIUM" | "LOW"
+    news_titles: List[str]  # 참조한 뉴스 헤드라인
+    source: str  # "cache" | "search" | "none"
+    relevance_check: Optional[str] = None  # "RELEVANT" | "IRRELEVANT"
+    relevant_count: Optional[int] = None
+
+class NewsVerificationRequest(BaseModel):
+    """뉴스 검증 요청"""
+    ticker: str
+    date: str
+    fomo_score: float
+
 class CoachRequest(BaseModel):
     top_regrets: List[dict]
     revenge_details: List[dict]

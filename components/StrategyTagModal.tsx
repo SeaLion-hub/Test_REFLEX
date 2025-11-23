@@ -7,7 +7,7 @@ interface StrategyTagModalProps {
   trade: EnrichedTrade;
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (tag: 'BREAKOUT' | 'AGGRESSIVE_ENTRY' | 'FOMO') => void;
+  onConfirm: (tag: 'BREAKOUT' | 'AGGRESSIVE_ENTRY' | 'FOMO' | 'PLANNED_CUT') => void;
   isDarkMode: boolean;
 }
 
@@ -20,9 +20,9 @@ export const StrategyTagModal: React.FC<StrategyTagModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const handleSelect = (tag: 'BREAKOUT' | 'AGGRESSIVE_ENTRY' | 'FOMO') => {
+  const handleSelect = (tag: 'BREAKOUT' | 'AGGRESSIVE_ENTRY' | 'FOMO' | 'PLANNED_CUT') => {
     // 전략적 태그 선택 시에만 폭죽
-    if (tag === 'BREAKOUT' || tag === 'AGGRESSIVE_ENTRY') {
+    if (tag === 'BREAKOUT' || tag === 'AGGRESSIVE_ENTRY' || tag === 'PLANNED_CUT') {
       confetti({
         particleCount: 100,
         spread: 70,
@@ -35,6 +35,10 @@ export const StrategyTagModal: React.FC<StrategyTagModalProps> = ({
     // 약간의 딜레이 후 모달 닫기 (폭죽 보여주기)
     setTimeout(() => onClose(), 500);
   };
+  
+  // FOMO 거래인지 Panic 거래인지 판단
+  const isFomoTrade = trade.fomoScore > 0.7 && trade.fomoScore !== -1;
+  const isPanicTrade = trade.panicScore < 0.3 && trade.panicScore !== -1;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -112,109 +116,157 @@ export const StrategyTagModal: React.FC<StrategyTagModalProps> = ({
             <p className={`text-base mb-4 ${
               isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
             }`}>
-              이 거래는 전략적 진입이었나요?
+              {isFomoTrade 
+                ? '이 거래는 전략적 진입이었나요?'
+                : isPanicTrade
+                ? '이 거래는 계획된 손절이었나요?'
+                : '이 거래에 대한 소명을 해주세요.'}
             </p>
             <p className={`text-sm mb-6 ${
               isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
             }`}>
-              시스템이 FOMO로 오진단했을 수 있습니다. 실제 매매 의도를 알려주세요.
+              {isFomoTrade
+                ? '시스템이 FOMO로 오진단했을 수 있습니다. 실제 매매 의도를 알려주세요.'
+                : isPanicTrade
+                ? '시스템이 Panic Sell로 오진단했을 수 있습니다. 실제 매매 의도를 알려주세요.'
+                : '실제 매매 의도를 알려주세요.'}
             </p>
           </div>
 
           {/* Options */}
           <div className="space-y-3">
-            {/* Option 1: Breakout Strategy */}
-            <button
-              onClick={() => handleSelect('BREAKOUT')}
-              className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
-                isDarkMode
-                  ? 'bg-blue-950/30 border-blue-900/50 hover:border-blue-700 hover:bg-blue-950/50'
-                  : 'bg-blue-50 border-blue-200 hover:border-blue-400 hover:bg-blue-100'
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div className={`p-2 rounded-lg ${
-                  isDarkMode ? 'bg-blue-900/40 text-blue-400' : 'bg-blue-100 text-blue-600'
-                }`}>
-                  <Target className="w-5 h-5" />
-                </div>
-                <div className="flex-1">
-                  <div className={`font-semibold mb-1 ${
-                    isDarkMode ? 'text-blue-300' : 'text-blue-900'
-                  }`}>
-                    네, 돌파 매매(Breakout) 전략입니다
+            {/* FOMO 거래 옵션 */}
+            {isFomoTrade && (
+              <>
+                {/* Option 1: Breakout Strategy */}
+                <button
+                  onClick={() => handleSelect('BREAKOUT')}
+                  className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                    isDarkMode
+                      ? 'bg-blue-950/30 border-blue-900/50 hover:border-blue-700 hover:bg-blue-950/50'
+                      : 'bg-blue-50 border-blue-200 hover:border-blue-400 hover:bg-blue-100'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-lg ${
+                      isDarkMode ? 'bg-blue-900/40 text-blue-400' : 'bg-blue-100 text-blue-600'
+                    }`}>
+                      <Target className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <div className={`font-semibold mb-1 ${
+                        isDarkMode ? 'text-blue-300' : 'text-blue-900'
+                      }`}>
+                        네, 돌파 매매(Breakout) 전략입니다
+                      </div>
+                      <div className={`text-xs ${
+                        isDarkMode ? 'text-blue-200/70' : 'text-blue-700'
+                      }`}>
+                        의도적인 고가 진입으로 돌파를 노린 전략적 매매였습니다.
+                        FOMO 점수에서 제외되며, 'Aggressive Entry' 태그로 평가됩니다.
+                      </div>
+                    </div>
                   </div>
-                  <div className={`text-xs ${
-                    isDarkMode ? 'text-blue-200/70' : 'text-blue-700'
-                  }`}>
-                    의도적인 고가 진입으로 돌파를 노린 전략적 매매였습니다.
-                    FOMO 점수에서 제외되며, 'Aggressive Entry' 태그로 평가됩니다.
-                  </div>
-                </div>
-              </div>
-            </button>
+                </button>
 
-            {/* Option 2: Aggressive Entry */}
-            <button
-              onClick={() => handleSelect('AGGRESSIVE_ENTRY')}
-              className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
-                isDarkMode
-                  ? 'bg-purple-950/30 border-purple-900/50 hover:border-purple-700 hover:bg-purple-950/50'
-                  : 'bg-purple-50 border-purple-200 hover:border-purple-400 hover:bg-purple-100'
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div className={`p-2 rounded-lg ${
-                  isDarkMode ? 'bg-purple-900/40 text-purple-400' : 'bg-purple-100 text-purple-600'
-                }`}>
-                  <Zap className="w-5 h-5" />
-                </div>
-                <div className="flex-1">
-                  <div className={`font-semibold mb-1 ${
-                    isDarkMode ? 'text-purple-300' : 'text-purple-900'
-                  }`}>
-                    네, 공격적 진입(Aggressive Entry) 전략입니다
+                {/* Option 2: Aggressive Entry */}
+                <button
+                  onClick={() => handleSelect('AGGRESSIVE_ENTRY')}
+                  className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                    isDarkMode
+                      ? 'bg-purple-950/30 border-purple-900/50 hover:border-purple-700 hover:bg-purple-950/50'
+                      : 'bg-purple-50 border-purple-200 hover:border-purple-400 hover:bg-purple-100'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-lg ${
+                      isDarkMode ? 'bg-purple-900/40 text-purple-400' : 'bg-purple-100 text-purple-600'
+                    }`}>
+                      <Zap className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <div className={`font-semibold mb-1 ${
+                        isDarkMode ? 'text-purple-300' : 'text-purple-900'
+                      }`}>
+                        네, 공격적 진입(Aggressive Entry) 전략입니다
+                      </div>
+                      <div className={`text-xs ${
+                        isDarkMode ? 'text-purple-200/70' : 'text-purple-700'
+                      }`}>
+                        모멘텀을 따라 고가 진입을 선택한 의도적인 전략입니다.
+                        FOMO 점수에서 제외됩니다.
+                      </div>
+                    </div>
                   </div>
-                  <div className={`text-xs ${
-                    isDarkMode ? 'text-purple-200/70' : 'text-purple-700'
-                  }`}>
-                    모멘텀을 따라 고가 진입을 선택한 의도적인 전략입니다.
-                    FOMO 점수에서 제외됩니다.
-                  </div>
-                </div>
-              </div>
-            </button>
+                </button>
 
-            {/* Option 3: FOMO */}
-            <button
-              onClick={() => handleSelect('FOMO')}
-              className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
-                isDarkMode
-                  ? 'bg-red-950/30 border-red-900/50 hover:border-red-700 hover:bg-red-950/50'
-                  : 'bg-red-50 border-red-200 hover:border-red-400 hover:bg-red-100'
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div className={`p-2 rounded-lg ${
-                  isDarkMode ? 'bg-red-900/40 text-red-400' : 'bg-red-100 text-red-600'
-                }`}>
-                  <AlertCircle className="w-5 h-5" />
-                </div>
-                <div className="flex-1">
-                  <div className={`font-semibold mb-1 ${
-                    isDarkMode ? 'text-red-300' : 'text-red-900'
-                  }`}>
-                    아니요, 뇌동매매였습니다
+                {/* Option 3: FOMO */}
+                <button
+                  onClick={() => handleSelect('FOMO')}
+                  className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                    isDarkMode
+                      ? 'bg-red-950/30 border-red-900/50 hover:border-red-700 hover:bg-red-950/50'
+                      : 'bg-red-50 border-red-200 hover:border-red-400 hover:bg-red-100'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-lg ${
+                      isDarkMode ? 'bg-red-900/40 text-red-400' : 'bg-red-100 text-red-600'
+                    }`}>
+                      <AlertCircle className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <div className={`font-semibold mb-1 ${
+                        isDarkMode ? 'text-red-300' : 'text-red-900'
+                      }`}>
+                        아니요, 뇌동매매였습니다
+                      </div>
+                      <div className={`text-xs ${
+                        isDarkMode ? 'text-red-200/70' : 'text-red-700'
+                      }`}>
+                        고가 매수는 감정적 판단이었습니다. 시스템의 FOMO 진단이 정확합니다.
+                        "솔직한 인정이 발전의 시작입니다."
+                      </div>
+                    </div>
                   </div>
-                  <div className={`text-xs ${
-                    isDarkMode ? 'text-red-200/70' : 'text-red-700'
-                  }`}>
-                    고가 매수는 감정적 판단이었습니다. 시스템의 FOMO 진단이 정확합니다.
-                    "솔직한 인정이 발전의 시작입니다."
+                </button>
+              </>
+            )}
+            
+            {/* Panic 거래 옵션 */}
+            {isPanicTrade && (
+              <>
+                {/* Option: Planned Cut */}
+                <button
+                  onClick={() => handleSelect('PLANNED_CUT')}
+                  className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                    isDarkMode
+                      ? 'bg-emerald-950/30 border-emerald-900/50 hover:border-emerald-700 hover:bg-emerald-950/50'
+                      : 'bg-emerald-50 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-100'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-lg ${
+                      isDarkMode ? 'bg-emerald-900/40 text-emerald-400' : 'bg-emerald-100 text-emerald-600'
+                    }`}>
+                      <Target className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <div className={`font-semibold mb-1 ${
+                        isDarkMode ? 'text-emerald-300' : 'text-emerald-900'
+                      }`}>
+                        네, 계획된 손절(Planned Cut)입니다
+                      </div>
+                      <div className={`text-xs ${
+                        isDarkMode ? 'text-emerald-200/70' : 'text-emerald-700'
+                      }`}>
+                        진입 전 설정한 원칙에 따른 매도였습니다. Panic Score에서 제외되며, Truth Score에 가산점이 부여됩니다.
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </button>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
