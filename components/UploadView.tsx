@@ -140,16 +140,19 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
       {/* 콘텐츠 레이어 */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6">
         <div className="max-w-2xl w-full text-center space-y-10">
-          <div className="space-y-4">
-            {/* REFLEX 타이틀 */}
+          <div className="space-y-6">
+            {/* PRISM 타이틀 */}
             <h1 className="text-7xl font-extrabold tracking-tighter text-white drop-shadow-[0_0_20px_rgba(16,185,129,0.5)]">
-              REFLEX
+              PRISM
             </h1>
-            <p className="text-lg text-zinc-300 max-w-lg mx-auto leading-relaxed">
-              가장 비용이 많이 드는 거래 습관을 찾아 고치세요.
-              <br />
-              <span className="text-zinc-400 text-sm">거래 내역을 업로드하여 심리적 편향을 발견하세요.</span>
-            </p>
+            <div className="space-y-3">
+              <h2 className="text-2xl font-bold text-white max-w-2xl mx-auto">
+                Uncover Your Trading Blind Spots
+              </h2>
+              <p className="text-lg text-zinc-300 max-w-2xl mx-auto leading-relaxed">
+                Upload your transaction history and let our AI reveal the psychological patterns costing you money.
+              </p>
+            </div>
           </div>
 
           <div 
@@ -161,18 +164,18 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
           {isProcessing ? (
              <div className="flex flex-col items-center gap-6">
                 <div className="p-6 bg-zinc-900 rounded-full border border-zinc-800">
-                    {loadingStage.includes('파싱') && <FileSearch className="w-10 h-10 text-emerald-500 animate-pulse" />}
+                    {loadingStage.includes('파싱') && <FileSearch className="w-10 h-10 text-emerald-500" />}
                     {loadingStage.includes('시장 데이터') && <Database className="w-10 h-10 text-emerald-500 animate-spin" />}
-                    {loadingStage.includes('패턴') && <TrendingUp className="w-10 h-10 text-emerald-500 animate-pulse" />}
-                    {loadingStage.includes('GPT') && <Brain className="w-10 h-10 text-emerald-500 animate-pulse" />}
+                    {loadingStage.includes('패턴') && <TrendingUp className="w-10 h-10 text-emerald-500" />}
+                    {loadingStage.includes('GPT') && <Brain className="w-10 h-10 text-emerald-500" />}
                     {!loadingStage && <Database className="w-10 h-10 text-emerald-500 animate-spin" />}
                 </div>
                 <div className="space-y-2 text-center">
-                    <p className="text-zinc-200 font-medium animate-pulse">{loadingStage || '분석 중...'}</p>
+                    <p className="text-zinc-200 font-medium">{loadingStage || '분석 중...'}</p>
                     <div className="flex items-center justify-center gap-2 text-xs text-zinc-500">
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
                     </div>
                 </div>
              </div>

@@ -176,7 +176,7 @@ export const AICoach: React.FC<AICoachProps> = ({ analysis, loading, truthScore 
 
   if (loading) {
     return (
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 animate-pulse space-y-4">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 space-y-4">
         <div className="h-6 bg-zinc-800 w-1/3 rounded"></div>
         <div className="space-y-2">
           <div className="h-4 bg-zinc-800 rounded w-full"></div>
@@ -215,40 +215,6 @@ export const AICoach: React.FC<AICoachProps> = ({ analysis, loading, truthScore 
           <span className="text-2xl">{persona.iconEmoji}</span>
         )}
       </div>
-
-      {/* 이달의 명장면 (Best Executions) */}
-      {analysis.strengths && analysis.strengths.length > 0 && (
-        <div className="bg-gradient-to-br from-emerald-950/20 to-emerald-900/10 border border-emerald-900/30 rounded-xl p-6 space-y-4">
-          <div className="flex items-center gap-2 mb-4">
-            <Award className="w-5 h-5 text-emerald-400" />
-            <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider">
-              이달의 명장면 (Best Execution)
-            </h3>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-1 lg:grid-cols-2">
-            {analysis.strengths.map((strength, idx) => (
-              <div
-                key={idx}
-                className="bg-emerald-950/30 border border-emerald-900/40 rounded-lg p-4 space-y-2"
-              >
-                <div className="flex items-center gap-2">
-                  <Target className="w-4 h-4 text-emerald-400" />
-                  <span className="font-semibold text-emerald-300">{strength.ticker}</span>
-                  <span className="text-xs px-2 py-0.5 bg-emerald-900/40 text-emerald-200 rounded-full">
-                    {strength.execution}
-                  </span>
-                </div>
-                <p className="text-sm text-emerald-100/90 leading-relaxed">
-                  {strength.lesson}
-                </p>
-                <p className="text-xs text-emerald-200/70 italic">
-                  💡 {strength.reason}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-6">
@@ -324,7 +290,7 @@ export const AICoach: React.FC<AICoachProps> = ({ analysis, loading, truthScore 
           <div className="flex items-center gap-2 mb-4">
             <BookOpen className="w-5 h-5 text-blue-400" />
             <h3 className="text-sm font-bold text-blue-400 uppercase tracking-wider">
-              Personal Playbook (나만의 투자 원칙)
+              Your 3-Step Recovery Plan
             </h3>
           </div>
           <div className="bg-blue-950/30 border border-blue-900/40 rounded-lg p-4 mb-3">

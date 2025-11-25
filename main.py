@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from app.services.rag import load_rag_index
+from app.services.rag_v2 import load_rag_index
 from app.routers import analysis, coach
 
 @asynccontextmanager
@@ -9,7 +9,7 @@ async def lifespan(app: FastAPI):
     load_rag_index()
     yield
 
-app = FastAPI(title="Truth Pipeline Engine", lifespan=lifespan)
+app = FastAPI(title="PRISM Engine", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

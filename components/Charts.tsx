@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Radar,
   RadarChart,
@@ -20,6 +20,7 @@ import {
   Scatter,
   ReferenceArea
 } from 'recharts';
+import { HelpCircle } from 'lucide-react';
 import { AnalysisResult, EnrichedTrade, EquityCurvePoint } from '../types';
 
 export const BehavioralRadar: React.FC<{ metrics: AnalysisResult['metrics'] }> = ({ metrics }) => {
@@ -53,7 +54,7 @@ export const BehavioralRadar: React.FC<{ metrics: AnalysisResult['metrics'] }> =
   );
 };
 
-const classifyPersona = (data: Array<{ subject: string; value: number }>) => {
+export const classifyPersona = (data: Array<{ subject: string; value: number }>) => {
   const impulse = data.find(d => d.subject.includes('Impulse'))?.value || 0;
   const fear = data.find(d => d.subject.includes('Fear'))?.value || 0;
   const greed = data.find(d => d.subject.includes('Greed'))?.value || 0;
@@ -70,6 +71,8 @@ const classifyPersona = (data: Array<{ subject: string; value: number }>) => {
 };
 
 export const BiasDNARadar: React.FC<{ metrics: AnalysisResult['metrics'] }> = ({ metrics }) => {
+  const [hoveredAxis, setHoveredAxis] = useState<string | null>(null);
+  
   const data = [
     { subject: 'Impulse (충동)', value: Math.max(0, (1 - metrics.fomoIndex) * 100) },
     { subject: 'Fear (공포)', value: metrics.panicIndex * 100 },
@@ -79,6 +82,14 @@ export const BiasDNARadar: React.FC<{ metrics: AnalysisResult['metrics'] }> = ({
   ];
 
   const persona = classifyPersona(data);
+
+  const axisExplanations: Record<string, string> = {
+    'Impulse (충동)': `(1 - FOMO Index) × 100. 낮을수록 충동적 매수 경향이 큽니다.`,
+    'Fear (공포)': `Panic Index × 100. 높을수록 공포 매도 경향이 큽니다.`,
+    'Greed (탐욕)': `FOMO Index × 100. 높을수록 탐욕적 매수 경향이 큽니다.`,
+    'Resilience (회복력)': `100 - (Revenge Trading Count × 25). 낮을수록 손실 후 즉시 재진입하는 경향이 큽니다.`,
+    'Discipline (절제)': `(1 - Disposition Ratio) × 50. 낮을수록 손실 종목을 오래 보유하는 경향이 큽니다.`,
+  };
 
   return (
     <div className="w-full">
@@ -106,6 +117,23 @@ export const BiasDNARadar: React.FC<{ metrics: AnalysisResult['metrics'] }> = ({
             />
           </RadarChart>
         </ResponsiveContainer>
+      </div>
+      {/* 축 설명 */}
+      <div className="mt-4 space-y-2">
+        {data.map((item) => (
+          <div
+            key={item.subject}
+            className="flex items-center gap-2 text-xs text-zinc-400"
+            onMouseEnter={() => setHoveredAxis(item.subject)}
+            onMouseLeave={() => setHoveredAxis(null)}
+          >
+            <HelpCircle className="w-3 h-3 text-zinc-500" />
+            <span className="font-medium">{item.subject}:</span>
+            <span className="text-zinc-500">
+              {hoveredAxis === item.subject ? axisExplanations[item.subject] : `${item.value.toFixed(0)}%`}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );

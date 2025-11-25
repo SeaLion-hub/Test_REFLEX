@@ -12,7 +12,7 @@ from typing import List
 from app.core.database import get_db
 from app.orm import StrategyTag
 from app.models import CoachRequest, DeepPattern, BiasPriority, PersonalBaseline, PersonalPlaybook, NewsVerification, NewsVerificationRequest
-from app.services.rag import RAG_CARDS, RAG_EMBEDDINGS, get_embeddings_batch, cosine_similarity_top_k
+from app.services.rag_v2 import RAGRetriever, is_loaded, get_chunk_text
 from app.services.patterns import generate_personal_playbook
 from app.services.news import fetch_news_context, validate_news_relevance
 
@@ -42,59 +42,115 @@ async def get_ai_coach(request: CoachRequest):
         first_item = request.bias_priority[0]
         primary_bias = first_item.get('bias') or first_item.get('Bias')
     
-    # 2. RAG 검색 쿼리 생성
+    # 2. 사용자 컨텍스트 구성 및 RAG 검색 쿼리 생성
+    fomo_score = request.metrics.get('fomo_score') or request.metrics.get('fomoScore') or 0
+    panic_score = request.metrics.get('panic_score') or request.metrics.get('panicScore') or 0
+    volume_weight = request.metrics.get('volume_weight') or request.metrics.get('volumeWeight') or 1.0
+    disposition_ratio = request.metrics.get('disposition_ratio') or request.metrics.get('dispositionRatio') or 0
+    market_regime = request.metrics.get('market_regime') or request.metrics.get('marketRegime') or 'UNKNOWN'
+    revenge_count = request.metrics.get('revenge_trading_count') or request.metrics.get('revengeTradingCount') or 0
+    
+    # 패턴에서 태그 추출
+    detected_tags = []
+    if request.patterns:
+        for pattern in request.patterns:
+            desc = pattern.get('description', '').lower()
+            if 'volatility' in desc or 'volatile' in desc:
+                detected_tags.append('high_volatility')
+            if 'volume' in desc or '거래량' in desc:
+                detected_tags.append('volume')
+            if 'chasing' in desc or '추격' in desc:
+                detected_tags.append('chasing')
+    
+    # 사용자 컨텍스트
+    user_context = {
+        "fomo_score": fomo_score,
+        "panic_score": panic_score,
+        "volume_weight": volume_weight,
+        "disposition_ratio": disposition_ratio,
+        "market_regime": market_regime,
+        "primary_bias": primary_bias,
+        "detected_tags": detected_tags,
+        "is_revenge": revenge_count > 0,
+        "regret": sum(t.get('regret', 0) for t in request.top_regrets)
+    }
+    
+    # RAG 검색 쿼리 생성 (더 구체적으로)
     query = ""
     if primary_bias:
-        fomo_score = request.metrics.get('fomo_score') or request.metrics.get('fomoScore') or 0
-        panic_score = request.metrics.get('panic_score') or request.metrics.get('panicScore') or 0
-        
         if primary_bias == "FOMO":
-            query = "FOMO extreme high entry chasing panic buying impulse" if fomo_score > 0.8 else "FOMO chasing high entry impulse fear of missing out"
+            if fomo_score > 0.8 and volume_weight > 1.2:
+                query = f"FOMO high volatility risk fomo_score {fomo_score:.2f} volume_weight {volume_weight:.1f} chasing high entry"
+            elif fomo_score > 0.7 and market_regime == "BEAR":
+                query = f"FOMO bear market chasing entry fomo_score {fomo_score:.2f} regime BEAR"
+            else:
+                query = f"FOMO chasing impulse fomo_score {fomo_score:.2f} fear of missing out"
         elif primary_bias == "Panic Sell":
-            query = "Panic Sell extreme loss aversion selling low fear" if panic_score < 0.2 else "Panic Sell loss aversion selling low fear"
+            if panic_score < 0.2 and volume_weight > 1.5:
+                query = f"Panic Sell extreme loss aversion panic_score {panic_score:.2f} volume_weight {volume_weight:.1f} selling low"
+            elif panic_score < 0.3 and market_regime == "BULL":
+                query = f"Panic Sell bull market loss aversion panic_score {panic_score:.2f} regime BULL"
+            else:
+                query = f"Panic Sell loss aversion panic_score {panic_score:.2f} fear selling low"
         elif primary_bias == "Revenge Trading":
-            query = "Revenge Trading anger emotional recovery tilt overtrading"
+            query = f"Revenge Trading anger emotional recovery tilt overtrading revenge_count {revenge_count}"
         elif primary_bias == "Disposition Effect":
-            query = "Disposition Effect holding losers selling winners too early"
+            if disposition_ratio > 1.5:
+                query = f"Disposition Effect holding losers selling winners disposition_ratio {disposition_ratio:.1f}"
+            else:
+                query = f"Disposition Effect early profit taking regret"
         else:
             query = f"{primary_bias} trading psychology bias"
     else:
         win_rate_check = request.metrics.get('win_rate') or request.metrics.get('winRate') or 0
         query = "Winning psychology consistency discipline" if win_rate_check > 0.6 else "Trading psychology basics risk management"
     
-    # 3. RAG 검색
+    # 3. RAG 검색 (새로운 하이브리드 검색)
     rag_context_text = ""
     retrieved_cards_for_response = []
-    if RAG_CARDS and RAG_EMBEDDINGS is not None:
+    if is_loaded():
         try:
-            filtered_indices = []
-            if primary_bias:
-                target_tags = []
-                if primary_bias == "FOMO": target_tags = ["FOMO", "entry", "chasing"]
-                elif primary_bias == "Panic Sell": target_tags = ["Panic Sell", "exit", "loss_aversion"]
-                elif primary_bias == "Revenge Trading": target_tags = ["Revenge Trading", "revenge", "emotion"]
-                elif primary_bias == "Disposition Effect": target_tags = ["Disposition Effect", "holding_loser"]
-                
-                for idx, card in enumerate(RAG_CARDS):
-                    if any(t in card.get('tags', []) for t in target_tags):
-                        filtered_indices.append(idx)
-            if not filtered_indices: filtered_indices = list(range(len(RAG_CARDS)))
+            retriever = RAGRetriever(openai_client=openai)
+            retrieved_results = retriever.retrieve(
+                query=query,
+                user_context=user_context,
+                search_mode="hybrid",
+                k=2
+            )
             
-            query_embeddings = get_embeddings_batch([query], openai)
-            if query_embeddings and len(query_embeddings) > 0:
-                query_vec = np.array(query_embeddings[0])
-                target_vecs = RAG_EMBEDDINGS[filtered_indices]
-                threshold = 0.4 if primary_bias else 0.6
-                local_indices, _ = cosine_similarity_top_k(query_vec, target_vecs, k=2, threshold=threshold)
-                final_indices = [filtered_indices[i] for i in local_indices]
-                retrieved_cards = [RAG_CARDS[i] for i in final_indices]
+            if retrieved_results:
+                rag_text_lines = []
+                for result in retrieved_results:
+                    card_id = result["card_id"]
+                    card_meta = result["card_metadata"]
+                    
+                    # 전체 카드 정보 가져오기
+                    definition = get_chunk_text(card_id, "definition")
+                    connection = get_chunk_text(card_id, "connection")
+                    prescription = get_chunk_text(card_id, "prescription")
+                    
+                    rag_text_lines.append(
+                        f"- PRINCIPLE: {card_meta.get('title', '')}\n"
+                        f"  DEFINITION: {definition}\n"
+                        f"  CONNECTION: {connection}\n"
+                        f"  PRESCRIPTION: {prescription}"
+                    )
                 
-                if retrieved_cards:
-                    rag_text_lines = [f"- PRINCIPLE: {c['title']}\n  DEFINITION: {c.get('definition', '')}\n  CONNECTION: {c.get('connection', '')}\n  PRESCRIPTION: {c.get('prescription', '')}" for c in retrieved_cards]
-                    rag_context_text = f"RAG KNOWLEDGE BASE:\n{chr(10).join(rag_text_lines)}"
-                    retrieved_cards_for_response = [{"title": c['title'], "definition": c.get('definition', ''), "connection": c.get('connection', ''), "prescription": c.get('prescription', '')} for c in retrieved_cards]
+                rag_context_text = f"RAG KNOWLEDGE BASE:\n{chr(10).join(rag_text_lines)}"
+                retrieved_cards_for_response = [
+                    {
+                        "title": r["card_metadata"].get("title", ""),
+                        "definition": get_chunk_text(r["card_id"], "definition"),
+                        "connection": get_chunk_text(r["card_id"], "connection"),
+                        "prescription": get_chunk_text(r["card_id"], "prescription"),
+                        "relevance_score": r.get("final_score", 0.0)
+                    }
+                    for r in retrieved_results
+                ]
         except Exception as e:
             print(f"RAG Error: {e}")
+            import traceback
+            traceback.print_exc()
 
     # 4. 프롬프트 데이터 준비
     top_regrets_str = [f"{t['ticker']} (Missed ${t.get('regret', 0):.0f})" for t in request.top_regrets]
@@ -252,7 +308,7 @@ async def get_ai_coach(request: CoachRequest):
 
     # 5. 프롬프트 강화 (한국어 강제)
     prompt = f"""
-    Act as the "Truth Pipeline" AI. You are an objective, data-driven Trading Coach.
+    Act as the "PRISM" AI. You are an objective, data-driven Trading Coach.
     
     CRITICAL RULES (STRICTLY ENFORCED):
     - **LANGUAGE: ALL RESPONSES MUST BE IN KOREAN (한국어).**

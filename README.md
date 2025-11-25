@@ -1,4 +1,4 @@
-# Reflex - 투자 심리 분석 도구
+# PRISM (프리즘) - 투자 심리 분석 도구
 
 <div align="center">
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
@@ -6,7 +6,7 @@
 
 ## 📖 프로젝트 소개
 
-**Reflex**는 투자자의 거래 내역을 분석하여 심리적 편향을 감지하고 개선 방안을 제시하는 AI 기반 분석 도구입니다. 단순한 수익률 분석을 넘어서 **행동 금융학(Behavioral Finance)** 원칙에 기반하여 투자자의 심리적 패턴을 파악하고, AI 코치가 맞춤형 피드백을 제공합니다.
+**PRISM (프리즘)**은 투자자의 거래 내역을 분석하여 심리적 편향을 감지하고 개선 방안을 제시하는 AI 기반 분석 도구입니다. 단순한 수익률 분석을 넘어서 **행동 금융학(Behavioral Finance)** 원칙에 기반하여 투자자의 심리적 패턴을 파악하고, AI 코치가 맞춤형 피드백을 제공합니다.
 
 ### 🎯 핵심 아이디어
 
@@ -21,7 +21,9 @@
    - **Disposition Effect**: 손실 종목을 수익 종목보다 오래 보유
 
 3. **AI 기반 개인화 코칭**:
-   - RAG (Retrieval-Augmented Generation) 기술로 행동 금융학 원칙 기반 조언
+   - **RAG v2.0 (구조화된 하이브리드 검색)** 기술로 행동 금융학 원칙 기반 조언
+   - 각 카드의 definition, connection, prescription을 분리하여 의미적 희석 문제 해결
+   - 메타데이터 필터링 + 벡터 검색 + 재랭킹을 통한 정확한 검색
    - 사용자의 거래 패턴에 맞춘 구체적이고 실행 가능한 개선 방안 제시
    - Sandwich Feedback 방식 (칭찬 → 비판 → 격려)
 
@@ -45,7 +47,7 @@
 - **NumPy** (수치 계산)
 - **yfinance** (시장 데이터 수집)
 - **OpenAI API** (GPT-4o-mini 기반 AI 코칭)
-- **OpenAI Embeddings** (RAG 임베딩)
+- **OpenAI Embeddings** (RAG v2.0 구조화된 임베딩)
 - **DuckDuckGo Search** (뉴스 검색)
 - **SQLAlchemy** + **Alembic** (데이터베이스 ORM 및 마이그레이션)
 - **PostgreSQL** (데이터베이스)
@@ -108,7 +110,10 @@
 
 ### 4. AI 코칭 (`/coach` 엔드포인트)
 - 사용자의 거래 패턴을 분석하여 맞춤형 피드백 제공
-- RAG 기반 지식 베이스 활용 (`rag_cards.json`)
+- **RAG v2.0 하이브리드 검색** 기반 지식 베이스 활용 (`rag_cards.json`)
+  - 메타데이터 필터링: 사용자 메트릭(fomo_score, volume_weight, regime 등) 기반 후보군 축소
+  - 벡터 검색: 필터링된 후보군에서 의미적 유사도 검색
+  - 재랭킹: 컨텍스트 기반 점수 조정으로 관련성 높은 결과 우선 반환
 - Sandwich Feedback 방식:
   1. **Strengths**: 잘한 매매 (이달의 명장면) 먼저 언급
   2. **Diagnosis**: 패턴 기반 진단 (단일 거래가 아닌 반복 패턴)
@@ -170,7 +175,7 @@
 ```bash
 # 저장소 클론
 git clone <repository-url>
-cd REFLEX_1122
+cd PRISM
 
 # 프론트엔드 의존성 설치
 npm install
@@ -220,20 +225,25 @@ alembic upgrade head
 
 ### 4단계: RAG 임베딩 생성 (선택사항)
 
-RAG 기능을 사용하려면 임베딩 파일을 먼저 생성해야 합니다:
+RAG 기능을 사용하려면 구조화된 임베딩 파일을 먼저 생성해야 합니다:
 
 ```bash
 # OPENAI_API_KEY가 설정되어 있어야 함
-python generate_embeddings.py
+python generate_embeddings_v2.py
 ```
 
 이 스크립트는:
 - `rag_cards.json` 파일을 읽어서
-- 각 카드의 제목, 내용, 액션, 태그를 결합하여
-- OpenAI Embeddings API로 벡터화하고
-- `rag_embeddings.npy` 파일로 저장합니다
+- 각 카드의 `definition`, `connection`, `prescription`을 분리하여
+- 각각 별도 임베딩 생성 (의미적 희석 문제 해결)
+- 검색 조건을 자동 파싱하여 메타데이터에 저장
+- `rag_embeddings_v2.json` 파일로 저장합니다
 
-**참고**: `rag_embeddings.npy` 파일이 없어도 서버는 정상 작동하지만, RAG 기능은 비활성화됩니다. 이 파일은 대용량이므로 Git에 커밋하지 않습니다 (`.gitignore`에 포함됨).
+**참고**: 
+- `rag_embeddings_v2.json` 파일이 없어도 서버는 정상 작동하지만, RAG 기능은 비활성화됩니다.
+- 이 파일은 대용량이므로 Git에 커밋하지 않습니다 (`.gitignore`에 포함됨).
+- **RAG v2.0의 주요 개선사항**: 하이브리드 검색 파이프라인 (메타데이터 필터링 → 벡터 검색 → 재랭킹)으로 더 정확한 검색 결과 제공
+- 자세한 내용은 `RAG_V2_IMPLEMENTATION.md` 참조
 
 ### 4-1단계: 뉴스 캐시 준비 (시연용, 선택사항)
 
@@ -327,51 +337,53 @@ TSLA,2024-01-16,240.00,2024-01-18,235.00,5
 ## 🔧 프로젝트 구조
 
 ```
-REFLEX_1122/
-├── main.py                 # FastAPI 백엔드 서버
-├── generate_embeddings.py  # RAG 임베딩 생성 스크립트
-├── rag_cards.json          # RAG 지식 베이스 (행동 금융학 원칙)
-├── requirements.txt        # Python 의존성
-├── alembic.ini             # Alembic 설정
+PRISM/
+├── main.py                      # FastAPI 백엔드 서버
+├── generate_embeddings_v2.py   # RAG v2.0 임베딩 생성 스크립트
+├── rag_cards.json               # RAG 지식 베이스 (행동 금융학 원칙)
+├── rag_embeddings_v2.json      # 구조화된 RAG 임베딩 (생성 필요)
+├── RAG_V2_IMPLEMENTATION.md    # RAG v2.0 구현 가이드
+├── requirements.txt             # Python 의존성
+├── alembic.ini                   # Alembic 설정
 │
-├── alembic/                # 데이터베이스 마이그레이션
+├── alembic/                      # 데이터베이스 마이그레이션
 │   ├── env.py
-│   └── versions/           # 마이그레이션 파일들
+│   └── versions/                 # 마이그레이션 파일들
 │
-├── app/                     # 백엔드 애플리케이션
+├── app/                          # 백엔드 애플리케이션
 │   ├── core/
-│   │   └── database.py      # 데이터베이스 연결 설정
-│   ├── routers/             # API 라우터
-│   │   ├── analysis.py     # 거래 분석 엔드포인트
-│   │   └── coach.py        # AI 코칭 및 뉴스 검증 엔드포인트
-│   ├── services/            # 비즈니스 로직
-│   │   ├── market.py       # 시장 데이터 수집
-│   │   ├── patterns.py     # 패턴 분석
-│   │   ├── rag.py          # RAG 서비스
-│   │   └── news.py         # 뉴스 검색 서비스
-│   ├── models.py           # Pydantic 모델
-│   └── orm.py              # SQLAlchemy ORM 모델
+│   │   └── database.py           # 데이터베이스 연결 설정
+│   ├── routers/                  # API 라우터
+│   │   ├── analysis.py          # 거래 분석 엔드포인트
+│   │   └── coach.py             # AI 코칭 및 뉴스 검증 엔드포인트
+│   ├── services/                 # 비즈니스 로직
+│   │   ├── market.py            # 시장 데이터 수집
+│   │   ├── patterns.py          # 패턴 분석
+│   │   ├── rag_v2.py            # RAG v2.0 서비스 (하이브리드 검색)
+│   │   └── news.py              # 뉴스 검색 서비스
+│   ├── models.py                # Pydantic 모델
+│   └── orm.py                   # SQLAlchemy ORM 모델
 │
-├── index.html              # HTML 진입점
-├── index.tsx               # React 진입점
-├── App.tsx                 # 메인 앱 컴포넌트
-├── package.json            # Node.js 의존성
+├── index.html                    # HTML 진입점
+├── index.tsx                     # React 진입점
+├── App.tsx                       # 메인 앱 컴포넌트
+├── package.json                  # Node.js 의존성
 │
-├── components/             # React 컴포넌트
-│   ├── UploadView.tsx      # CSV 업로드 UI
-│   ├── Dashboard.tsx      # 대시보드 (메트릭 표시)
-│   ├── Charts.tsx          # 차트 시각화
-│   ├── AICoach.tsx         # AI 코치 UI
-│   ├── StrategyTagModal.tsx # 전략 태그 모달
-│   ├── AIJudgeModal.tsx    # AI 판사 모달 (뉴스 검증)
-│   ├── Threads.tsx         # 스레드 UI
-│   └── Toast.tsx           # 토스트 알림
+├── components/                   # React 컴포넌트
+│   ├── UploadView.tsx           # CSV 업로드 UI
+│   ├── Dashboard.tsx            # 대시보드 (메트릭 표시)
+│   ├── Charts.tsx               # 차트 시각화
+│   ├── AICoach.tsx              # AI 코치 UI
+│   ├── StrategyTagModal.tsx     # 전략 태그 모달
+│   ├── AIJudgeModal.tsx         # AI 판사 모달 (뉴스 검증)
+│   ├── Threads.tsx              # 스레드 UI
+│   └── Toast.tsx                # 토스트 알림
 │
-├── services/               # 프론트엔드 비즈니스 로직
-│   ├── analysisEngine.ts  # 프론트엔드 분석 엔진
-│   └── openaiService.ts    # OpenAI API 래퍼
+├── services/                     # 프론트엔드 비즈니스 로직
+│   ├── analysisEngine.ts        # 프론트엔드 분석 엔진
+│   └── openaiService.ts         # OpenAI API 래퍼
 │
-└── types.ts                # TypeScript 타입 정의
+└── types.ts                      # TypeScript 타입 정의
 ```
 
 ## 🎓 주요 개념 설명
@@ -437,10 +449,11 @@ REFLEX_1122/
 - Alembic 마이그레이션이 실행되었는지 확인: `alembic upgrade head`
 
 ### RAG 기능이 작동하지 않음
-- `rag_embeddings.npy` 파일이 존재하는지 확인
-- `python generate_embeddings.py` 실행하여 임베딩 생성
+- `rag_embeddings_v2.json` 파일이 존재하는지 확인
+- `python generate_embeddings_v2.py` 실행하여 임베딩 생성
 - `rag_cards.json` 파일이 올바른 형식인지 확인
 - `OPENAI_API_KEY` 환경 변수가 설정되어 있는지 확인
+- 자세한 내용은 `RAG_V2_IMPLEMENTATION.md` 참조
 
 ### 시장 데이터를 가져오지 못함
 - 인터넷 연결 확인
@@ -473,4 +486,4 @@ REFLEX_1122/
 
 ---
 
-**Reflex** - 투자 심리 분석으로 더 나은 거래 습관 만들기
+**PRISM (프리즘)** - 투자 심리 분석으로 더 나은 거래 습관 만들기

@@ -668,7 +668,7 @@ async def analyze_trades(file: UploadFile):
         # 기회비용 계산 (편향 거래 기간 동안 SPY 수익률)
         opportunity_cost, biased_trades_pnl, spy_return_rate, total_bias_loss, spy_load_failed_opportunity = calculate_opportunity_cost(trades_df)
         
-        # Reflex Adjusted PnL = Actual PnL - (Biased Trades PnL) + (SPY Return during Biased Trade Duration)
+        # PRISM Adjusted PnL = Actual PnL - (Biased Trades PnL) + (SPY Return during Biased Trade Duration)
         adjusted_pnl = current_total_pnl - biased_trades_pnl + opportunity_cost
         adjusted_improvement = adjusted_pnl - current_total_pnl
         

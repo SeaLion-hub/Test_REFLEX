@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Scale, Loader2, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { X, Scale, Loader2, CheckCircle2, XCircle, AlertCircle, Gavel } from 'lucide-react';
 import { EnrichedTrade, NewsVerification } from '../types';
 
 interface AIJudgeModalProps {
@@ -114,7 +114,7 @@ export const AIJudgeModal: React.FC<AIJudgeModalProps> = ({
             <div className={`p-2 rounded-lg ${
               isDarkMode ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-100 text-purple-600'
             }`}>
-              <Scale className="w-6 h-6" />
+              <Gavel className="w-6 h-6" />
             </div>
             <div>
               <h2 className={`text-xl font-bold ${

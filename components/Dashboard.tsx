@@ -1,14 +1,15 @@
 
 import React, { useEffect, useState } from 'react';
-import { AnalysisResult, AIAnalysis, EnrichedTrade } from '../types';
+import { AnalysisResult, AIAnalysis, EnrichedTrade, BehavioralMetrics } from '../types';
 import { getAIInterpretation } from '../services/openaiService';
 import { fetchExchangeRate, formatCurrency } from '../services/exchangeRateService';
-import { BiasDNARadar, RegretChart, EquityCurveChart } from './Charts';
+import { BiasDNARadar, RegretChart, EquityCurveChart, classifyPersona } from './Charts';
 import { AICoach } from './AICoach';
 import { StrategyTagModal } from './StrategyTagModal';
 import { AIJudgeModal } from './AIJudgeModal';
+import { AnalysisReportModal } from './AnalysisReportModal';
 import { ToastContainer, ToastType } from './Toast';
-import { ShieldAlert, TrendingUp, RefreshCcw, Award, BarChart2, HelpCircle, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Database, ServerCrash, Skull, TrendingDown, DollarSign, AlertCircle, CheckCircle2, XCircle, Moon, Sun, BookOpen, MessageSquare, Brain, Scale, X } from 'lucide-react';
+import { ShieldAlert, TrendingUp, RefreshCcw, Award, BarChart2, HelpCircle, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Database, ServerCrash, Skull, TrendingDown, DollarSign, AlertCircle, CheckCircle2, XCircle, Moon, Sun, BookOpen, MessageSquare, Brain, Scale, X, Target } from 'lucide-react';
 
 type Currency = 'USD' | 'KRW';
 
@@ -183,9 +184,11 @@ const MetricExplanationModal: React.FC<{
 interface DashboardProps {
   data: AnalysisResult;
   onReset: () => void;
+  showAnalysisReport?: boolean;
+  onCloseAnalysisReport?: () => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ data, onReset, showAnalysisReport = false, onCloseAnalysisReport }) => {
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
   const [showDeepDive, setShowDeepDive] = useState(false);
@@ -633,6 +636,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   ];
   const topIssues = issues.filter(i => i.severity).slice(0, 3);
 
+  // Calculate Persona for diagnosis
+  const biasDNARadarData = [
+    { subject: 'Impulse (충동)', value: Math.max(0, (1 - currentMetrics.fomoIndex) * 100) },
+    { subject: 'Fear (공포)', value: metrics.panicIndex * 100 },
+    { subject: 'Greed (탐욕)', value: currentMetrics.fomoIndex * 100 },
+    { subject: 'Resilience (회복력)', value: Math.max(0, 100 - (metrics.revengeTradingCount * 25)) },
+    { subject: 'Discipline (절제)', value: Math.min(100, Math.max(0, (1 - metrics.dispositionRatio) * 50)) },
+  ];
+  const persona = classifyPersona(biasDNARadarData);
+
+  // Calculate Total Bias Loss
+  const totalBiasLoss = data.biasLossMapping
+    ? (data.biasLossMapping.fomoLoss || 0) +
+      (data.biasLossMapping.panicLoss || 0) +
+      (data.biasLossMapping.revengeLoss || 0) +
+      (data.biasLossMapping.dispositionLoss || 0)
+    : 0;
+
   // Prepare Evidence items for checklist display
   const evidenceItems = [
     {
@@ -762,7 +783,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                 <div>
                     <h1 className={`text-lg font-bold tracking-tight ${
                       isDarkMode ? 'text-white' : 'text-zinc-900'
-                    }`}>Truth Pipeline</h1>
+                    }`}>PRISM</h1>
                 </div>
             </div>
             <div className="flex items-center gap-3">
@@ -820,32 +841,64 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8">
+      <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-12">
         
-        {/* PRIMARY TITLE: Biggest Bias & Financial Impact */}
-        {data.biasPriority && data.biasPriority.length > 0 && (
-          <div className={`text-center mb-8 py-8 rounded-2xl border ${
+        {/* SECTION 1: THE VERDICT (진단) */}
+        <div className="space-y-6">
+          {/* 진단명 (Persona) */}
+          <div className={`text-center py-12 rounded-2xl border ${
             isDarkMode
-              ? 'bg-zinc-900/50 border-zinc-800'
-              : 'bg-zinc-50 border-zinc-200'
-          }`}>
-            <h1 className={`text-5xl font-bold mb-3 ${
+              ? 'bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 border-zinc-800'
+              : 'bg-gradient-to-br from-zinc-50 to-white border-zinc-200'
+          } shadow-lg`}>
+            <div className="text-4xl mb-4">🏥</div>
+            <h2 className={`text-2xl font-bold mb-2 ${
               isDarkMode ? 'text-red-400' : 'text-red-600'
             }`}>
-              Your biggest bias is {data.biasPriority[0].bias}
-            </h1>
-            <p className={`text-2xl ${
-              isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
+              진단명
+            </h2>
+            <p className={`text-5xl font-extrabold mb-6 ${
+              isDarkMode ? 'text-white' : 'text-zinc-900'
             }`}>
-              It has cost you an estimated{' '}
-              <span className={`font-bold ${
-                isDarkMode ? 'text-red-400' : 'text-red-600'
-              }`}>
-                {formatCurrency(data.biasPriority[0].financialLoss, currency, exchangeRate)}
-              </span>
+              {persona}
+            </p>
+            <p className={`text-sm ${
+              isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+            }`}>
+              당신의 투자 행동 패턴을 분석한 결과입니다
             </p>
           </div>
-        )}
+
+          {/* Total Bias Loss */}
+          {totalBiasLoss !== 0 && (
+            <div className={`rounded-xl p-6 border ${
+              isDarkMode
+                ? 'bg-red-950/20 border-red-900/30'
+                : 'bg-red-50 border-red-200'
+            }`}>
+              <div className="flex items-center gap-3 mb-3">
+                <DollarSign className={`w-6 h-6 ${
+                  isDarkMode ? 'text-red-400' : 'text-red-600'
+                }`} />
+                <h3 className={`text-lg font-bold ${
+                  isDarkMode ? 'text-red-400' : 'text-red-600'
+                }`}>
+                  총 편향 손실
+                </h3>
+              </div>
+              <p className={`text-4xl font-bold mb-2 ${
+                isDarkMode ? 'text-red-400' : 'text-red-600'
+              }`}>
+                {formatCurrency(totalBiasLoss, currency, exchangeRate)}
+              </p>
+              <p className={`text-sm ${
+                isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+              }`}>
+                이 나쁜 습관만 막았어도, 최신 아이폰 1대를 더 살 수 있었습니다.
+              </p>
+            </div>
+          )}
+        </div>
 
         {/* LEVEL 2: THE VERDICT (HERO SECTION) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -901,7 +954,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                                  ? 'bg-red-950/30 border-red-900/40'
                                  : 'bg-red-50 border-red-200'
                              }`}>
-                                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                                 <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
                                  <span className={`text-xs font-bold uppercase tracking-wide ${
                                    isDarkMode ? 'text-red-400' : 'text-red-600'
                                  }`}>{issue.label}: {issue.value}</span>
@@ -1027,6 +1080,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                  </div>
                  
                  <div data-section="ai-coach">
+                   <div className="mb-6">
+                     <h2 className={`text-2xl font-bold mb-2 ${
+                       isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                     }`}>
+                       행동 계획: 어떻게 개선할 것인가
+                     </h2>
+                     <p className={`text-sm ${
+                       isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+                     }`}>
+                       AI가 당신의 패턴을 분석하여 제시하는 구체적인 개선 방안입니다
+                     </p>
+                   </div>
                    <AICoach 
                      analysis={aiAnalysis} 
                      loading={loadingAI} 
@@ -1168,58 +1233,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
           </div>
         </div>
 
-        {/* Causal Chain 추론 (인과 사슬) */}
-        {data.deepPatterns && data.deepPatterns.some(p => p.type === 'CAUSAL_CHAIN') && (
-          <div className={`rounded-xl p-6 border ${
-            isDarkMode
-              ? 'bg-purple-950/20 border-purple-900/30'
-              : 'bg-purple-50 border-purple-200'
-          }`}>
-            <div className="flex items-center gap-2 mb-4">
-              <Brain className={`w-5 h-5 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
-              <h3 className={`text-lg font-bold ${
-                isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
-              }`}>인과 사슬 분석 (Causal Chain)</h3>
-            </div>
-            {data.deepPatterns
-              .filter(p => p.type === 'CAUSAL_CHAIN')
-              .map((pattern, idx) => (
-                <div key={idx} className={`p-4 rounded-lg border mb-3 ${
-                  isDarkMode
-                    ? 'bg-zinc-900/50 border-purple-800/50'
-                    : 'bg-white border-purple-200'
-                }`}>
-                  <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-lg ${
-                      isDarkMode ? 'bg-purple-900/30' : 'bg-purple-100'
-                    }`}>
-                      <TrendingDown className={`w-5 h-5 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
-                    </div>
-                    <div className="flex-1">
-                      <div className={`text-sm font-semibold mb-2 ${
-                        isDarkMode ? 'text-purple-300' : 'text-purple-900'
-                      }`}>
-                        {pattern.metadata?.ticker || 'Unknown'} 거래의 인과관계
-                      </div>
-                      <p className={`text-sm leading-relaxed ${
-                        isDarkMode ? 'text-zinc-300' : 'text-zinc-800'
-                      }`}>
-                        {pattern.description}
-                      </p>
-                      {pattern.metadata?.events && (
-                        <div className={`mt-2 text-xs ${
-                          isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
-                        }`}>
-                          감지된 이벤트: {pattern.metadata.events}개
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-          </div>
-        )}
-
         {/* FOMO 의심 거래 알림 배너 */}
         {(() => {
           const fomoSuspiciousTrades = trades.filter(t => 
@@ -1322,26 +1335,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
         </div>
 
         {/* LEVEL 3: BEHAVIORAL EVIDENCE & PSYCHOLOGY */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
              
-             {/* Left: Radar Chart */}
-             <div className={`rounded-xl p-6 flex flex-col justify-between shadow-lg border ${
-               isDarkMode 
-                 ? 'bg-zinc-900 border-zinc-800' 
-                 : 'bg-zinc-50 border-zinc-200'
-             }`}>
-                <div className="flex items-center gap-2 mb-4">
-                    <BarChart2 className={`w-4 h-4 ${isDarkMode ? 'text-emerald-500' : 'text-emerald-600'}`} />
-                    <h3 className={`text-sm font-bold uppercase tracking-wider ${
-                      isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
-                    }`}>Psychology Map</h3>
-                </div>
-                <div className="flex-grow flex items-center justify-center">
-                    <BiasDNARadar metrics={metrics} />
-                </div>
-             </div>
-
-             {/* Right: Detailed Metrics Grid */}
+             {/* Detailed Metrics Grid */}
              <div className={`lg:col-span-2 rounded-xl p-6 shadow-lg flex flex-col border ${
                isDarkMode 
                  ? 'bg-zinc-900 border-zinc-800' 
@@ -1774,7 +1770,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                     </p>
                 </div>
                 <div className="space-y-3">
-                    {data.deepPatterns.map((pattern, idx) => (
+                    {data.deepPatterns
+                      .filter(p => p.type !== 'CAUSAL_CHAIN')
+                      .map((pattern, idx) => (
                         <div key={idx} className={`p-4 rounded-lg border ${
                           pattern.significance === 'HIGH' 
                             ? (isDarkMode ? 'bg-red-950/20 border-red-900/30' : 'bg-red-50 border-red-200')
@@ -1813,89 +1811,128 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
             </div>
         )}
 
-        {/* PERFECT EDITION: BIAS LOSS MAPPING & PRIORITY */}
-        {(data.biasLossMapping || data.biasPriority) && (
+        {/* Bias DNA Signature (페르소나) */}
+        <div className="space-y-6">
+          <div className={`rounded-xl p-6 border ${
+            isDarkMode 
+              ? 'bg-zinc-900 border-zinc-800' 
+              : 'bg-zinc-50 border-zinc-200'
+          }`}>
+            <h2 className={`text-2xl font-bold mb-6 ${
+              isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+            }`}>
+              Bias DNA Signature
+            </h2>
+            
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Bias Loss Mapping */}
-                {data.biasLossMapping && (
-                    <div className={`rounded-xl p-6 border ${
-                      isDarkMode 
-                        ? 'bg-zinc-900 border-zinc-800' 
-                        : 'bg-zinc-50 border-zinc-200'
-                    }`}>
-                        <div className="flex items-center gap-2 mb-6">
-                            <DollarSign className={`w-5 h-5 ${isDarkMode ? 'text-red-500' : 'text-red-600'}`} />
-                            <h3 className={`text-sm font-bold uppercase tracking-wider ${
-                              isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
-                            }`}>Bias Loss Mapping</h3>
-                        </div>
-                        <div className="space-y-3">
-                            {data.biasLossMapping.fomoLoss > 0 && (
-                                <div className={`p-3 rounded-lg border ${
-                                  isDarkMode 
-                                    ? 'bg-zinc-950 border-zinc-800' 
-                                    : 'bg-white border-zinc-200'
-                                }`}>
-                                    <div className="flex items-center justify-between">
-                                        <span className={`text-sm ${
-                                          isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
-                                        }`}>FOMO Loss</span>
-                                        <span className="text-red-400 font-mono font-bold">-{formatCurrency(data.biasLossMapping.fomoLoss, currency, exchangeRate)}</span>
-                                    </div>
-                                </div>
-                            )}
-                            {data.biasLossMapping.panicLoss > 0 && (
-                                <div className={`p-3 rounded-lg border ${
-                                  isDarkMode 
-                                    ? 'bg-zinc-950 border-zinc-800' 
-                                    : 'bg-white border-zinc-200'
-                                }`}>
-                                    <div className="flex items-center justify-between">
-                                        <span className={`text-sm ${
-                                          isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
-                                        }`}>Panic Sell Loss</span>
-                                        <span className="text-red-400 font-mono font-bold">-{formatCurrency(data.biasLossMapping.panicLoss, currency, exchangeRate)}</span>
-                                    </div>
-                                </div>
-                            )}
-                            {data.biasLossMapping.revengeLoss > 0 && (
-                                <div className={`p-3 rounded-lg border ${
-                                  isDarkMode 
-                                    ? 'bg-zinc-950 border-zinc-800' 
-                                    : 'bg-white border-zinc-200'
-                                }`}>
-                                    <div className="flex items-center justify-between">
-                                        <span className={`text-sm ${
-                                          isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
-                                        }`}>Revenge Trading Loss</span>
-                                        <span className="text-red-400 font-mono font-bold">-{formatCurrency(data.biasLossMapping.revengeLoss, currency, exchangeRate)}</span>
-                                    </div>
-                                </div>
-                            )}
-                            {data.biasLossMapping.dispositionLoss > 0 && (
-                                <div className={`p-3 rounded-lg border ${
-                                  isDarkMode 
-                                    ? 'bg-zinc-950 border-zinc-800' 
-                                    : 'bg-white border-zinc-200'
-                                }`}>
-                                    <div className="flex items-center justify-between">
-                                        <span className={`text-sm ${
-                                          isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
-                                        }`}>Disposition Effect (Missed)</span>
-                                        <span className="text-orange-400 font-mono font-bold">-{formatCurrency(data.biasLossMapping.dispositionLoss, currency, exchangeRate)}</span>
-                                    </div>
-                                </div>
-                            )}
-                            {data.biasLossMapping.fomoLoss === 0 && data.biasLossMapping.panicLoss === 0 && 
-                             data.biasLossMapping.revengeLoss === 0 && data.biasLossMapping.dispositionLoss === 0 && (
-                                <div className={`text-xs text-center py-4 ${
-                                  isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
-                                }`}>No significant bias losses detected</div>
-                            )}
-                        </div>
-                    </div>
-                )}
+              {/* Bias DNA Radar */}
+              <div className={`rounded-xl p-6 border ${
+                isDarkMode 
+                  ? 'bg-zinc-950 border-zinc-800' 
+                  : 'bg-white border-zinc-200'
+              }`}>
+                <BiasDNARadar metrics={metrics} />
+              </div>
 
+              {/* 손실 분석 */}
+              {data.biasLossMapping && (
+                <div className={`rounded-xl p-6 border ${
+                  isDarkMode 
+                    ? 'bg-zinc-950 border-zinc-800' 
+                    : 'bg-white border-zinc-200'
+                }`}>
+                  <div className="flex items-center gap-2 mb-6">
+                    <DollarSign className={`w-5 h-5 ${isDarkMode ? 'text-red-500' : 'text-red-600'}`} />
+                    <h3 className={`text-sm font-bold uppercase tracking-wider ${
+                      isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                    }`}>손실 분석</h3>
+                  </div>
+                  <div className="space-y-3">
+                    {data.biasLossMapping.fomoLoss > 0 && (
+                      <div className={`p-3 rounded-lg border ${
+                        isDarkMode 
+                          ? 'bg-zinc-900 border-zinc-700' 
+                          : 'bg-zinc-100 border-zinc-300'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <span className={`text-sm ${
+                            isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
+                          }`}>FOMO Loss</span>
+                          <span className="text-red-400 font-mono font-bold">-{formatCurrency(data.biasLossMapping.fomoLoss, currency, exchangeRate)}</span>
+                        </div>
+                      </div>
+                    )}
+                    {data.biasLossMapping.panicLoss > 0 && (
+                      <div className={`p-3 rounded-lg border ${
+                        isDarkMode 
+                          ? 'bg-zinc-900 border-zinc-700' 
+                          : 'bg-zinc-100 border-zinc-300'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <span className={`text-sm ${
+                            isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
+                          }`}>Panic Sell Loss</span>
+                          <span className="text-red-400 font-mono font-bold">-{formatCurrency(data.biasLossMapping.panicLoss, currency, exchangeRate)}</span>
+                        </div>
+                      </div>
+                    )}
+                    {data.biasLossMapping.revengeLoss > 0 && (
+                      <div className={`p-3 rounded-lg border ${
+                        isDarkMode 
+                          ? 'bg-zinc-900 border-zinc-700' 
+                          : 'bg-zinc-100 border-zinc-300'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <span className={`text-sm ${
+                            isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
+                          }`}>Revenge Trading Loss</span>
+                          <span className="text-red-400 font-mono font-bold">-{formatCurrency(data.biasLossMapping.revengeLoss, currency, exchangeRate)}</span>
+                        </div>
+                      </div>
+                    )}
+                    {data.biasLossMapping.dispositionLoss > 0 && (
+                      <div className={`p-3 rounded-lg border ${
+                        isDarkMode 
+                          ? 'bg-zinc-900 border-zinc-700' 
+                          : 'bg-zinc-100 border-zinc-300'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <span className={`text-sm ${
+                            isDarkMode ? 'text-zinc-300' : 'text-zinc-700'
+                          }`}>Disposition Effect (Missed)</span>
+                          <span className="text-orange-400 font-mono font-bold">-{formatCurrency(data.biasLossMapping.dispositionLoss, currency, exchangeRate)}</span>
+                        </div>
+                      </div>
+                    )}
+                    {data.biasLossMapping.fomoLoss === 0 && data.biasLossMapping.panicLoss === 0 && 
+                     data.biasLossMapping.revengeLoss === 0 && data.biasLossMapping.dispositionLoss === 0 && (
+                        <div className={`text-xs text-center py-4 ${
+                          isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                        }`}>No significant bias losses detected</div>
+                    )}
+                  </div>
+                  {data.biasLossMapping && (
+                    <div className={`mt-4 p-3 rounded-lg border ${
+                      isDarkMode 
+                        ? 'bg-red-950/20 border-red-900/30' 
+                        : 'bg-red-50 border-red-200'
+                    }`}>
+                      <p className={`text-xs ${
+                        isDarkMode ? 'text-red-200' : 'text-red-800'
+                      }`}>
+                        💡 이 나쁜 습관만 막았어도, 최신 아이폰 1대를 더 살 수 있었습니다.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* PERFECT EDITION: BIAS PRIORITY */}
+        {data.biasPriority && data.biasPriority.length > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
                 {/* Bias Priority */}
                 {data.biasPriority && data.biasPriority.length > 0 && (
                     <div className={`rounded-xl p-6 border ${
@@ -1943,8 +1980,69 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
             </div>
         )}
 
-        {/* EQUITY CURVE & WHAT-IF SIMULATOR */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* SECTION 2: THE "WHY" (증거) */}
+        <div className="space-y-6">
+          <h2 className={`text-2xl font-bold mb-2 ${
+            isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+          }`}>
+            증거: 왜 이런 결과가 나왔는가
+          </h2>
+          <p className={`text-sm mb-6 ${
+            isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+          }`}>
+            거래 패턴과 심리적 편향을 시각적으로 분석합니다
+          </p>
+
+          {/* 이달의 명장면 (Best Execution) */}
+          {aiAnalysis?.strengths && aiAnalysis.strengths.length > 0 && (
+            <div className={`bg-gradient-to-br from-emerald-950/20 to-emerald-900/10 border border-emerald-900/30 rounded-xl p-6 space-y-4 ${
+              isDarkMode ? '' : 'bg-emerald-50'
+            }`}>
+              <div className="flex items-center gap-2 mb-4">
+                <Award className={`w-5 h-5 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                <h3 className={`text-sm font-bold uppercase tracking-wider ${
+                  isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
+                }`}>
+                  이달의 명장면 (Best Execution)
+                </h3>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-1 lg:grid-cols-2">
+                {aiAnalysis.strengths.map((strength, idx) => (
+                  <div
+                    key={idx}
+                    className={`bg-emerald-950/30 border border-emerald-900/40 rounded-lg p-4 space-y-2 ${
+                      isDarkMode ? '' : 'bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Target className={`w-4 h-4 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                      <span className={`font-semibold ${isDarkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>{strength.ticker}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        isDarkMode 
+                          ? 'bg-emerald-900/40 text-emerald-200' 
+                          : 'bg-emerald-100 text-emerald-700'
+                      }`}>
+                        {strength.execution}
+                      </span>
+                    </div>
+                    <p className={`text-sm leading-relaxed ${
+                      isDarkMode ? 'text-emerald-100/90' : 'text-emerald-800'
+                    }`}>
+                      {strength.lesson}
+                    </p>
+                    <p className={`text-xs italic ${
+                      isDarkMode ? 'text-emerald-200/70' : 'text-emerald-600'
+                    }`}>
+                      💡 {strength.reason}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* EQUITY CURVE & WHAT-IF SIMULATOR */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Equity Curve Chart */}
             {data.equityCurve && data.equityCurve.length > 0 && (
                 <div className={`rounded-xl p-6 border ${
@@ -2141,6 +2239,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                     )}
                 </div>
             )}
+          </div>
         </div>
 
         {/* 2A: Contextual Score 분해 영역 (차트 클릭 시 업데이트) */}
@@ -2648,6 +2747,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
             setSelectedTradeForJudge(null);
           }}
           isDarkMode={isDarkMode}
+        />
+      )}
+
+      {/* Analysis Report Modal */}
+      {showAnalysisReport && (
+        <AnalysisReportModal
+          isOpen={showAnalysisReport}
+          onClose={() => {
+            if (onCloseAnalysisReport) {
+              onCloseAnalysisReport();
+            }
+          }}
+          data={data}
+          currency={currency}
+          exchangeRate={exchangeRate}
+          formatCurrency={formatCurrency}
         />
       )}
     </div>
