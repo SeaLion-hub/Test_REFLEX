@@ -130,3 +130,5 @@ python main.py
 - `rag_cards.json`이 변경되면 임베딩을 재생성해야 합니다
 
 
+
+

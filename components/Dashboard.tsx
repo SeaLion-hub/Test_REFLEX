@@ -25,19 +25,19 @@ interface MetricExplanation {
 const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
   fomo: {
     title: 'FOMO Score',
-    description: '매수 시점이 당일 고가 대비 얼마나 높은 위치였는지를 나타내는 지표입니다. 70% 이상이면 임상적 FOMO로 판단됩니다.',
+    description: '매수 시점이 당일 고가 대비 얼마나 높은 위치였는지를 나타내는 지표입니다. Entry >70% of day\'s range = Clinical FOMO (행동경제학 연구 기반). 이 지표는 행동 편향을 탐지합니다. 기술적 돌파매매나 모멘텀 전략과는 다릅니다. 높은 FOMO 점수는 "돌파 전략"이 아니라 "놓칠까봐 두려워서 고가에 매수"를 의미합니다. ⚠️ 사후적 감사: 이 지표는 매매 시점에는 사용할 수 없습니다. 당일 고가/저가는 장 마감 후에야 알 수 있기 때문입니다.',
     threshold: '>70% = FOMO',
     formula: '(매수가 - 당일 저가) / (당일 고가 - 당일 저가) × 100'
   },
   panic: {
     title: 'Panic Sell Score',
-    description: '매도 시점이 당일 저가 대비 얼마나 낮은 위치였는지를 나타내는 지표입니다. 30% 미만이면 비효율적인 매도 타이밍으로 판단됩니다.',
+    description: '매도 시점이 당일 저가 대비 얼마나 낮은 위치였는지를 나타내는 지표입니다. Exit <30% of day\'s range = Low Efficiency (행동경제학 연구 기반). 이 지표는 행동 편향을 탐지합니다. ⚠️ 사후적 감사: 이 지표는 매매 시점에는 사용할 수 없습니다. 당일 고가/저가는 장 마감 후에야 알 수 있기 때문입니다.',
     threshold: '<30% = Panic Sell',
     formula: '(매도가 - 당일 저가) / (당일 고가 - 당일 저가) × 100'
   },
   disposition: {
     title: 'Disposition Ratio',
-    description: '손실 거래를 이익 거래보다 얼마나 오래 보유하는지를 나타내는 비율입니다. 1.5배 이상이면 임상적 Disposition Effect로 판단됩니다.',
+    description: '손실 거래를 이익 거래보다 얼마나 오래 보유하는지를 나타내는 비율입니다. Hold losers >1.5x longer = Clinical Disposition (Shefrin & Statman 연구). 과정 평가: 단일 거래의 결과가 아니라 반복되는 패턴에 집중합니다. "한두 번은 운 탓일 수 있지만, 10번 반복되면 실력(편향)입니다."',
     threshold: '>1.5x = Disposition Effect',
     formula: '손실 거래 평균 보유 기간 / 이익 거래 평균 보유 기간'
   },
@@ -211,10 +211,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset, showAnalysi
   // Chart Interaction State (2A: 거래 차트 매핑 시각화)
   const [selectedTradeFromChart, setSelectedTradeFromChart] = useState<EnrichedTrade | null>(null);
   
-  // Truth Score 애니메이션 State
-  const [isScoreVisible, setIsScoreVisible] = useState(false);
+  // Display metrics state
   const [displayMetrics, setDisplayMetrics] = useState(data.metrics);
-  const [displayScore, setDisplayScore] = useState(data.metrics.truthScore);
   
   // Toast State
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type?: ToastType }>>([]);
@@ -227,6 +225,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset, showAnalysi
   
   // Metric explanation modal state
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
+  
+  // Progressive Disclosure: 초기에는 Persona + Truth Score만 표시
+  const [showEvidence, setShowEvidence] = useState(false);
+  
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'overview' | 'analysis' | 'journal'>('overview');
   
   const showToast = (message: string, type: ToastType = 'info') => {
     const id = Date.now().toString();
@@ -286,15 +290,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset, showAnalysi
     setTrades(data.trades);
   }, [data.trades]);
 
-  // Truth Score 애니메이션 트리거
+  // Update display metrics when data changes
   useEffect(() => {
-    // 분석 완료 후 약간의 딜레이를 두고 애니메이션 시작
-    setIsScoreVisible(false);
     setDisplayMetrics(data.metrics);
-    setDisplayScore(data.metrics.truthScore);
-    const timer = setTimeout(() => setIsScoreVisible(true), 300);
-    return () => clearTimeout(timer);
-  }, [data.metrics.truthScore]);
+  }, [data.metrics]);
 
   // SPY 데이터 로드 실패 알림
   useEffect(() => {
@@ -574,10 +573,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset, showAnalysi
       };
       setDisplayMetrics(updatedMetrics);
       
-      // Truth Score 애니메이션 재트리거
-      setDisplayScore(newTruthScore);
-      setIsScoreVisible(false);
-      setTimeout(() => setIsScoreVisible(true), 100);
+      // Update display score
       
       // Toast 메시지 표시
       const tagName = tag === 'BREAKOUT' ? '돌파 매매' : '공격적 진입';
@@ -612,7 +608,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset, showAnalysi
     fomoIndex: fomoMetrics.excludedCount > 0 
       ? fomoMetrics.adjustedFomoIndex 
       : displayMetrics.fomoIndex,
-    truthScore: displayScore
+    truthScore: displayMetrics.truthScore
   };
   
   // Color logic (use current metrics)
@@ -684,7 +680,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset, showAnalysi
     },
     {
       label: 'Revenge Trading',
-      value: metrics.revengeTradingCount + ' trades',
+      value: metrics.revengeTradingCount + '회',
       threshold: '>0',
       status: metrics.revengeTradingCount > 0 ? 'warning' : 'normal',
       description: '손실 후 24시간 이내 재진입',
@@ -841,385 +837,234 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset, showAnalysi
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-12">
+      <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8">
         
-        {/* SECTION 1: THE VERDICT (진단) */}
-        <div className="space-y-6">
-          {/* 진단명 (Persona) */}
-          <div className={`text-center py-12 rounded-2xl border ${
-            isDarkMode
-              ? 'bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 border-zinc-800'
-              : 'bg-gradient-to-br from-zinc-50 to-white border-zinc-200'
-          } shadow-lg`}>
-            <div className="text-4xl mb-4">🏥</div>
-            <h2 className={`text-2xl font-bold mb-2 ${
-              isDarkMode ? 'text-red-400' : 'text-red-600'
-            }`}>
-              진단명
-            </h2>
-            <p className={`text-5xl font-extrabold mb-6 ${
-              isDarkMode ? 'text-white' : 'text-zinc-900'
-            }`}>
-              {persona}
-            </p>
-            <p className={`text-sm ${
-              isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
-            }`}>
-              당신의 투자 행동 패턴을 분석한 결과입니다
-            </p>
-          </div>
-
-          {/* Total Bias Loss */}
-          {totalBiasLoss !== 0 && (
-            <div className={`rounded-xl p-6 border ${
-              isDarkMode
-                ? 'bg-red-950/20 border-red-900/30'
-                : 'bg-red-50 border-red-200'
-            }`}>
-              <div className="flex items-center gap-3 mb-3">
-                <DollarSign className={`w-6 h-6 ${
-                  isDarkMode ? 'text-red-400' : 'text-red-600'
-                }`} />
-                <h3 className={`text-lg font-bold ${
-                  isDarkMode ? 'text-red-400' : 'text-red-600'
-                }`}>
-                  총 편향 손실
-                </h3>
-              </div>
-              <p className={`text-4xl font-bold mb-2 ${
-                isDarkMode ? 'text-red-400' : 'text-red-600'
+        {/* HERO CARD: Truth Score, Persona, Total Bias Loss 통합 */}
+        <div className={`rounded-2xl p-8 border shadow-2xl ${
+          isDarkMode
+            ? 'bg-gradient-to-br from-zinc-900 to-zinc-950 border-zinc-800'
+            : 'bg-gradient-to-br from-zinc-50 to-white border-zinc-200'
+        }`}>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+            {/* Left: Truth Score */}
+            <div className="flex flex-col items-center justify-center">
+              <div className={`w-40 h-40 rounded-full border-8 ${scoreRing} flex items-center justify-center shadow-[0_0_30px_rgba(0,0,0,0.5)] relative ${
+                isDarkMode ? 'bg-[#0c0c0e]' : 'bg-white'
               }`}>
-                {formatCurrency(totalBiasLoss, currency, exchangeRate)}
-              </p>
+                <span className={`text-6xl font-bold tracking-tighter ${scoreColor}`}>
+                  {currentMetrics.truthScore}
+                </span>
+                {isLowSample && (
+                  <div className={`absolute bottom-4 text-xs px-2 py-1 rounded ${
+                    isDarkMode 
+                      ? 'bg-zinc-800 text-zinc-400' 
+                      : 'bg-zinc-200 text-zinc-600'
+                  }`}>Low Sample</div>
+                )}
+              </div>
+              <div className="mt-4 text-center">
+                <div className={`text-xs font-bold uppercase tracking-widest mb-1 ${
+                  isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                }`}>행동 무결성 점수</div>
+                <button
+                  onClick={() => setSelectedMetric('truthScore')}
+                  className={`text-xs px-2 py-1 rounded transition-colors ${
+                    isDarkMode
+                      ? 'hover:bg-zinc-800 text-zinc-500 hover:text-zinc-400'
+                      : 'hover:bg-zinc-200 text-zinc-600 hover:text-zinc-700'
+                  }`}
+                  title="지표 설명 보기"
+                >
+                  <HelpCircle className="w-3 h-3 inline" />
+                </button>
+              </div>
+            </div>
+
+            {/* Middle: Persona */}
+            <div className="text-center space-y-3">
+              <div className="text-3xl mb-2">🏥</div>
+              <h2 className={`text-2xl font-bold ${
+                isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+              }`}>
+                {persona}
+              </h2>
               <p className={`text-sm ${
                 isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
               }`}>
-                이 나쁜 습관만 막았어도, 최신 아이폰 1대를 더 살 수 있었습니다.
+                당신의 투자 행동 패턴을 분석한 결과입니다
               </p>
             </div>
-          )}
-        </div>
 
-        {/* LEVEL 2: THE VERDICT (HERO SECTION) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
-            {/* Truth Score Card */}
-            <div className={`lg:col-span-4 rounded-2xl p-8 flex flex-col items-center justify-center text-center relative overflow-hidden shadow-2xl ${
-              isDarkMode 
-                ? 'bg-zinc-900 border-zinc-800' 
-                : 'bg-zinc-50 border-zinc-200'
-            } border`}>
-                 <div className={`absolute top-0 w-full h-1.5 bg-gradient-to-r from-transparent via-current to-transparent opacity-70 ${scoreColor}`}></div>
-                 
-                 <div className="flex items-center gap-2 mb-8">
-                   <span className={`text-xs font-bold uppercase tracking-widest ${
-                     isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
-                   }`}>행동 무결성 점수</span>
-                   <button
-                     onClick={() => setSelectedMetric('truthScore')}
-                     className={`p-1 rounded-full transition-colors ${
-                       isDarkMode
-                         ? 'hover:bg-zinc-800 text-zinc-500 hover:text-zinc-400'
-                         : 'hover:bg-zinc-200 text-zinc-600 hover:text-zinc-700'
-                     }`}
-                     title="지표 설명 보기"
-                   >
-                     <HelpCircle className="w-3 h-3" />
-                   </button>
-                 </div>
-                 
-                 <div className={`w-48 h-48 rounded-full border-8 ${scoreRing} flex items-center justify-center mb-8 shadow-[0_0_30px_rgba(0,0,0,0.5)] relative ${
-                   isDarkMode ? 'bg-[#0c0c0e]' : 'bg-white'
-                 }`}>
-                    <span className={`text-7xl font-bold tracking-tighter ${scoreColor} transition-all duration-500 ${
-                      isScoreVisible 
-                        ? 'opacity-100 scale-100' 
-                        : 'opacity-0 scale-150'
-                    }`}>{currentMetrics.truthScore}</span>
-                    {isLowSample && (
-                        <div className={`absolute bottom-8 text-xs px-2 py-1 rounded ${
-                          isDarkMode 
-                            ? 'bg-zinc-800 text-zinc-400' 
-                            : 'bg-zinc-200 text-zinc-600'
-                        }`}>Low Sample</div>
-                    )}
-                 </div>
-                 
-                 {/* Top Issues Badges */}
-                 {topIssues.length > 0 && (
-                     <div className="flex flex-wrap justify-center gap-2 mb-8 max-w-[80%]">
-                         {topIssues.map((issue, idx) => (
-                             <div key={idx} className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${
-                               isDarkMode
-                                 ? 'bg-red-950/30 border-red-900/40'
-                                 : 'bg-red-50 border-red-200'
-                             }`}>
-                                 <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-                                 <span className={`text-xs font-bold uppercase tracking-wide ${
-                                   isDarkMode ? 'text-red-400' : 'text-red-600'
-                                 }`}>{issue.label}: {issue.value}</span>
-                             </div>
-                         ))}
-                     </div>
-                 )}
-
-                 <div className={`w-full grid grid-cols-3 gap-px rounded-xl overflow-hidden border ${
-                   isDarkMode 
-                     ? 'bg-zinc-800/50 border-zinc-800' 
-                     : 'bg-zinc-200/50 border-zinc-200'
-                 }`}>
-                    <div className={`p-3 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>
-                        <div className="flex items-center gap-1 justify-center">
-                          <div className={`text-xs uppercase ${
-                            isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
-                          }`}>Win Rate</div>
-                          <button
-                            onClick={() => setSelectedMetric('winRate')}
-                            className={`p-0.5 rounded-full transition-colors ${
-                              isDarkMode
-                                ? 'hover:bg-zinc-800 text-zinc-500 hover:text-zinc-400'
-                                : 'hover:bg-zinc-200 text-zinc-600 hover:text-zinc-700'
-                            }`}
-                            title="지표 설명 보기"
-                          >
-                            <HelpCircle className="w-2.5 h-2.5" />
-                          </button>
-                        </div>
-                        <div className={`font-mono font-semibold ${
-                          isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
-                        }`}>{(currentMetrics.winRate * 100).toFixed(0)}%</div>
-                    </div>
-                    <div className={`p-3 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>
-                        <div className="flex items-center gap-1 justify-center">
-                          <div className={`text-xs uppercase ${
-                            isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
-                          }`}>Profit F.</div>
-                          <button
-                            onClick={() => setSelectedMetric('profitFactor')}
-                            className={`p-0.5 rounded-full transition-colors ${
-                              isDarkMode
-                                ? 'hover:bg-zinc-800 text-zinc-500 hover:text-zinc-400'
-                                : 'hover:bg-zinc-200 text-zinc-600 hover:text-zinc-700'
-                            }`}
-                            title="지표 설명 보기"
-                          >
-                            <HelpCircle className="w-2.5 h-2.5" />
-                          </button>
-                        </div>
-                        <div className={`font-mono font-semibold ${
-                          isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
-                        }`}>{currentMetrics.profitFactor.toFixed(2)}</div>
-                    </div>
-                    <div className={`p-3 ${isDarkMode ? 'bg-zinc-900' : 'bg-white'}`}>
-                        <div className={`text-xs uppercase ${
-                          isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
-                        }`}>총 손익</div>
-                        <div className={`font-mono font-semibold ${
-                          totalPnL >= 0 
-                            ? (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')
-                            : (isDarkMode ? 'text-red-400' : 'text-red-600')
-                        }`}>
-                            {formatCurrency(totalPnL, currency, exchangeRate)}
-                        </div>
-                    </div>
-                 </div>
-                 
-                 {/* 선견 편향 인정 문구 */}
-                 <div className={`mt-4 text-xs p-2 rounded-lg border ${
-                   isDarkMode 
-                     ? 'bg-yellow-950/20 border-yellow-900/30 text-yellow-200/80' 
-                     : 'bg-yellow-50 border-yellow-200 text-yellow-800'
-                 }`}>
-                   <AlertCircle className="w-3 h-3 inline mr-1" />
-                   <span className="italic">
-                     ⚠️ 이 점수는 장 마감 후의 고가/저가를 기준으로 한 사후적(Post-Analysis) 평가입니다.
-                     실제 거래 시점에는 이 정보를 알 수 없었습니다. 교육용 도구로 활용하세요.
-                   </span>
-                 </div>
-            </div>
-
-            {/* AI Coach */}
-            <div className="lg:col-span-8 h-full space-y-4">
-                 {/* CTA Button */}
-                 <div className={`rounded-xl p-6 border ${
-                   isDarkMode
-                     ? 'bg-gradient-to-r from-purple-900/20 to-blue-900/20 border-purple-800/50'
-                     : 'bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200'
-                 }`}>
-                   <div className="flex items-center justify-between">
-                     <div>
-                       <h3 className={`text-lg font-bold mb-1 ${
-                         isDarkMode ? 'text-zinc-100' : 'text-zinc-900'
-                       }`}>
-                         Chat with My AI Coach
-                       </h3>
-                       <p className={`text-sm ${
-                         isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
-                       }`}>
-                         Get personalized insights and a 3-step plan to fix your trading habits
-                       </p>
-                     </div>
-                     <button
-                       onClick={() => {
-                         const aiCoachSection = document.querySelector('[data-section="ai-coach"]');
-                         if (aiCoachSection) {
-                           aiCoachSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                         }
-                       }}
-                       className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105 ${
-                         isDarkMode
-                           ? 'bg-purple-600 hover:bg-purple-500 text-white'
-                           : 'bg-purple-600 hover:bg-purple-700 text-white'
-                       }`}
-                     >
-                       <MessageSquare className="w-5 h-5" />
-                       <span>Get My 3-Step Plan</span>
-                       <ArrowRight className="w-5 h-5" />
-                     </button>
-                   </div>
-                 </div>
-                 
-                 <div data-section="ai-coach">
-                   <div className="mb-6">
-                     <h2 className={`text-2xl font-bold mb-2 ${
-                       isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
-                     }`}>
-                       행동 계획: 어떻게 개선할 것인가
-                     </h2>
-                     <p className={`text-sm ${
-                       isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
-                     }`}>
-                       AI가 당신의 패턴을 분석하여 제시하는 구체적인 개선 방안입니다
-                     </p>
-                   </div>
-                   <AICoach 
-                     analysis={aiAnalysis} 
-                     loading={loadingAI} 
-                     truthScore={currentMetrics.truthScore}
-                   />
-                 </div>
-            </div>
-        </div>
-
-        {/* 3중 분석 구조 (Behavior → Regime → Narrative) */}
-        <div className={`rounded-xl p-6 border ${
-          isDarkMode
-            ? 'bg-zinc-900 border-zinc-800'
-            : 'bg-zinc-50 border-zinc-200'
-        }`}>
-          <div className="flex items-center gap-2 mb-4">
-            <Brain className={`w-5 h-5 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
-            <h3 className={`text-lg font-bold ${
-              isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
-            }`}>3중 분석 구조</h3>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Layer 1: Behavior (팩트) */}
-            <div className={`rounded-lg p-4 border ${
-              isDarkMode
-                ? 'bg-zinc-950 border-zinc-800'
-                : 'bg-white border-zinc-200'
-            }`}>
-              <div className="flex items-center gap-2 mb-3">
-                <BarChart2 className={`w-4 h-4 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-                <h4 className={`text-sm font-semibold ${
-                  isDarkMode ? 'text-zinc-300' : 'text-zinc-900'
-                }`}>1단계: 팩트</h4>
-              </div>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}>FOMO</span>
-                  <span className={`font-mono font-semibold ${
-                    data.metrics.fomoIndex > 0.7 
-                      ? (isDarkMode ? 'text-red-400' : 'text-red-600')
-                      : (isDarkMode ? 'text-zinc-300' : 'text-zinc-600')
-                  }`}>{(data.metrics.fomoIndex * 100).toFixed(0)}%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}>Panic</span>
-                  <span className={`font-mono font-semibold ${
-                    data.metrics.panicIndex < 0.3 
-                      ? (isDarkMode ? 'text-red-400' : 'text-red-600')
-                      : (isDarkMode ? 'text-zinc-300' : 'text-zinc-600')
-                  }`}>{(data.metrics.panicIndex * 100).toFixed(0)}%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}>Revenge</span>
-                  <span className={`font-mono font-semibold ${
-                    data.metrics.revengeTradingCount > 0 
-                      ? (isDarkMode ? 'text-red-400' : 'text-red-600')
-                      : (isDarkMode ? 'text-zinc-300' : 'text-zinc-600')
-                  }`}>{data.metrics.revengeTradingCount}회</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Layer 2: Regime (맥락) */}
-            <div className={`rounded-lg p-4 border ${
-              isDarkMode
-                ? 'bg-zinc-950 border-zinc-800'
-                : 'bg-white border-zinc-200'
-            }`}>
-              <div className="flex items-center gap-2 mb-3">
-                <TrendingUp className={`w-4 h-4 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`} />
-                <h4 className={`text-sm font-semibold ${
-                  isDarkMode ? 'text-zinc-300' : 'text-zinc-900'
-                }`}>2단계: 맥락</h4>
-              </div>
-              <div className="text-xs">
-                {data.trades.length > 0 ? (
+            {/* Right: Total Bias Loss */}
+            <div className="text-center space-y-3">
+              {totalBiasLoss !== 0 ? (
+                <>
+                  <DollarSign className={`w-8 h-8 mx-auto ${
+                    isDarkMode ? 'text-red-400' : 'text-red-600'
+                  }`} />
                   <div>
-                    <div className={`text-sm font-semibold mb-2 ${
-                      data.trades[0].marketRegime === 'BULL' 
-                        ? (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')
-                        : data.trades[0].marketRegime === 'BEAR' 
-                        ? (isDarkMode ? 'text-red-400' : 'text-red-600')
-                        : (isDarkMode ? 'text-zinc-400' : 'text-zinc-600')
+                    <div className={`text-xs font-bold uppercase tracking-wider mb-2 ${
+                      isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                    }`}>총 편향 손실</div>
+                    <p className={`text-3xl font-bold ${
+                      isDarkMode ? 'text-red-400' : 'text-red-600'
                     }`}>
-                      {data.trades[0].marketRegime === 'BULL' ? '상승장 (BULL)' :
-                       data.trades[0].marketRegime === 'BEAR' ? '하락장 (BEAR)' :
-                       data.trades[0].marketRegime === 'SIDEWAYS' ? '횡보장 (SIDEWAYS)' :
-                       '알 수 없음 (UNKNOWN)'}
-                    </div>
-                    <p className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}>
-                      시장 국면에 따른 편향 심각도 가중치 적용
+                      {formatCurrency(totalBiasLoss, currency, exchangeRate)}
+                    </p>
+                    <p className={`text-xs mt-2 ${
+                      isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+                    }`}>
+                      편향으로 인한 손실 금액입니다
                     </p>
                   </div>
-                ) : (
-                  <p className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}>데이터 없음</p>
-                )}
+                </>
+              ) : (
+                <div className={`text-sm ${
+                  isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                }`}>
+                  편향 손실 없음
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* TAB NAVIGATION */}
+        <div className={`border-b ${
+          isDarkMode ? 'border-zinc-800' : 'border-zinc-200'
+        }`}>
+          <nav className="flex space-x-8">
+            {(['overview', 'analysis', 'journal'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === tab
+                    ? isDarkMode
+                      ? 'border-purple-500 text-purple-400'
+                      : 'border-purple-600 text-purple-600'
+                    : isDarkMode
+                    ? 'border-transparent text-zinc-500 hover:text-zinc-400 hover:border-zinc-600'
+                    : 'border-transparent text-zinc-600 hover:text-zinc-700 hover:border-zinc-300'
+                }`}
+              >
+                {tab === 'overview' && 'Overview'}
+                {tab === 'analysis' && 'Analysis'}
+                {tab === 'journal' && 'Journal'}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* TAB CONTENT */}
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            {/* Overview: Truth Score, Persona, AI Coach만 표시 */}
+            {/* Truth Score와 Persona는 이미 Hero Card에 표시됨 */}
+            
+            {/* AI Coach Summary */}
+            <div data-section="ai-coach">
+              <AICoach 
+                analysis={aiAnalysis} 
+                loading={loadingAI}
+                truthScore={currentMetrics.truthScore}
+              />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'analysis' && (
+          <div className="space-y-6">
+            {/* Charts Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Bias DNA Radar */}
+              <div className={`rounded-xl p-6 border ${
+                isDarkMode
+                  ? 'bg-zinc-900 border-zinc-800'
+                  : 'bg-zinc-50 border-zinc-200'
+              }`}>
+                <h3 className={`text-sm font-bold uppercase tracking-wider mb-4 ${
+                  isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                }`}>Bias DNA Radar</h3>
+                <BiasDNARadar metrics={metrics} />
+              </div>
+
+              {/* Regret Chart */}
+              <div className={`rounded-xl p-6 border ${
+                isDarkMode
+                  ? 'bg-zinc-900 border-zinc-800'
+                  : 'bg-zinc-50 border-zinc-200'
+              }`}>
+                <h3 className={`text-sm font-bold uppercase tracking-wider mb-4 ${
+                  isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                }`}>Regret Chart</h3>
+                <RegretChart trades={data.trades} />
               </div>
             </div>
 
-            {/* Layer 3: Narrative (해석) */}
-            <div className={`rounded-lg p-4 border ${
-              isDarkMode
-                ? 'bg-zinc-950 border-zinc-800'
-                : 'bg-white border-zinc-200'
-            }`}>
-              <div className="flex items-center gap-2 mb-3">
-                <MessageSquare className={`w-4 h-4 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
-                <h4 className={`text-sm font-semibold ${
-                  isDarkMode ? 'text-zinc-300' : 'text-zinc-900'
-                }`}>3단계: 해석</h4>
+            {/* Equity Curve Chart */}
+            {data.equityCurve && data.equityCurve.length > 0 && (
+              <div className={`rounded-xl p-6 border ${
+                isDarkMode
+                  ? 'bg-zinc-900 border-zinc-800'
+                  : 'bg-zinc-50 border-zinc-200'
+              }`}>
+                <h3 className={`text-sm font-bold uppercase tracking-wider mb-4 ${
+                  isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                }`}>Equity Curve</h3>
+                <EquityCurveChart 
+                  equityCurve={data.equityCurve}
+                  biasFreeMetrics={biasFreeMetrics}
+                  showBiasFree={showBiasFreeSimulation}
+                  onTradeClick={(tradeId) => {
+                    const trade = trades.find(t => t.id === tradeId);
+                    if (trade) {
+                      setSelectedTradeFromChart(trade);
+                    }
+                  }}
+                  demoMode={data.dataSource === 'CLIENT_DEMO'}
+                />
               </div>
-              <div className="text-xs space-y-2 max-h-32 overflow-y-auto">
+            )}
+
+            {/* 3-Layer Analysis - Simplified (Interpretation only) */}
+            <div className={`rounded-xl p-6 border ${
+              isDarkMode
+                ? 'bg-zinc-900 border-zinc-800'
+                : 'bg-zinc-50 border-zinc-200'
+            }`}>
+              <div className="flex items-center gap-2 mb-4">
+                <Brain className={`w-5 h-5 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+                <h3 className={`text-lg font-bold ${
+                  isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                }`}>해석 (Interpretation)</h3>
+              </div>
+              
+              <div className="space-y-3">
                 {narrativeLoading ? (
                   <p className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}>분석 중...</p>
                 ) : narrativeData.length > 0 ? (
                   narrativeData.map((item, idx) => (
-                    <div key={idx} className={`p-2 rounded border ${
+                    <div key={idx} className={`p-4 rounded-lg border ${
                       isDarkMode
-                        ? 'bg-zinc-900/50 border-zinc-800'
-                        : 'bg-zinc-50 border-zinc-200'
+                        ? 'bg-zinc-950 border-zinc-800'
+                        : 'bg-white border-zinc-200'
                     }`}>
-                      <div className="font-semibold text-zinc-300 mb-1">{item.ticker}</div>
-                      <p className={isDarkMode ? 'text-zinc-400' : 'text-zinc-600'}>
+                      <div className={`font-semibold mb-2 ${
+                        isDarkMode ? 'text-zinc-300' : 'text-zinc-900'
+                      }`}>{item.ticker}</div>
+                      <p className={`text-sm leading-relaxed ${
+                        isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+                      }`}>
+                        {data.trades[0]?.marketRegime === 'BULL' ? '상승장에서 ' :
+                         data.trades[0]?.marketRegime === 'BEAR' ? '하락장에서 ' :
+                         data.trades[0]?.marketRegime === 'SIDEWAYS' ? '횡보장에서 ' : ''}
                         {item.narrative}
                       </p>
                       {item.source === 'cache' && (
-                        <span className="text-xs text-zinc-500 mt-1 block">(캐시 데이터)</span>
+                        <span className={`text-xs mt-2 block ${
+                          isDarkMode ? 'text-zinc-500' : 'text-zinc-400'
+                        }`}>(캐시 데이터)</span>
                       )}
                     </div>
                   ))
@@ -1230,8 +1075,293 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset, showAnalysi
                 )}
               </div>
             </div>
+
+            {/* Evidence Section with Traffic Light System - Only show warning/good metrics */}
+            <div className="space-y-6">
+              {/* Warning/Good Metrics Only */}
+              <div className={`rounded-xl p-6 border ${
+                isDarkMode
+                  ? 'bg-zinc-900 border-zinc-800'
+                  : 'bg-zinc-50 border-zinc-200'
+              }`}>
+                <h3 className={`text-sm font-bold uppercase tracking-wider mb-4 ${
+                  isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                }`}>주요 지표 (Traffic Light)</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {evidenceItems
+                    .filter(item => {
+                      // Show only warning (red) or good (green) metrics
+                      const isWarning = item.status === 'warning';
+                      const isGood = item.status === 'info' && (
+                        (item.label.includes('FOMO') && parseFloat(item.value) < 70) ||
+                        (item.label.includes('Panic') && parseFloat(item.value) > 30) ||
+                        (item.label.includes('Revenge') && item.value === '0회') ||
+                        (item.label.includes('Disposition') && parseFloat(item.value) < 1.5)
+                      );
+                      return isWarning || isGood;
+                    })
+                    .map((item, idx) => {
+                      // Get tooltip text from METRIC_EXPLANATIONS
+                      const metricKey = item.label.toLowerCase().includes('fomo') ? 'fomo' :
+                                       item.label.toLowerCase().includes('panic') || item.label.toLowerCase().includes('exit') ? 'panic' :
+                                       item.label.toLowerCase().includes('disposition') ? 'disposition' :
+                                       item.label.toLowerCase().includes('revenge') ? 'revenge' :
+                                       item.label.toLowerCase().includes('regret') ? 'regret' :
+                                       item.label.toLowerCase().includes('profit') ? 'profitFactor' :
+                                       item.label.toLowerCase().includes('win') ? 'winRate' : null;
+                      const tooltipText = metricKey ? METRIC_EXPLANATIONS[metricKey]?.description || item.description : item.description;
+                      
+                      return (
+                        <div 
+                          key={idx} 
+                          className={`p-4 rounded-lg border relative group ${
+                            item.status === 'warning'
+                              ? isDarkMode
+                                ? 'bg-red-950/30 border-red-900/40'
+                                : 'bg-red-50 border-red-200'
+                              : isDarkMode
+                              ? 'bg-emerald-950/30 border-emerald-900/40'
+                              : 'bg-emerald-50 border-emerald-200'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            {item.status === 'warning' ? (
+                              <XCircle className={`w-4 h-4 ${isDarkMode ? 'text-red-400' : 'text-red-600'}`} />
+                            ) : (
+                              <CheckCircle2 className={`w-4 h-4 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                            )}
+                            <span 
+                              className={`text-xs font-bold cursor-help ${
+                                isDarkMode ? 'text-zinc-300' : 'text-zinc-900'
+                              }`}
+                              title={tooltipText}
+                            >
+                              {item.label}
+                            </span>
+                          </div>
+                          <div className={`text-xl font-mono font-bold ${
+                            item.status === 'warning'
+                              ? isDarkMode ? 'text-red-400' : 'text-red-600'
+                              : isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
+                          }`}>{item.value}</div>
+                          
+                          {/* Custom Tooltip on Hover */}
+                          <div className={`absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 rounded-lg shadow-xl border text-xs max-w-xs z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none ${
+                            isDarkMode
+                              ? 'bg-zinc-800 border-zinc-700 text-zinc-200'
+                              : 'bg-white border-zinc-300 text-zinc-800'
+                          }`}>
+                            <div className="font-semibold mb-1">{item.label}</div>
+                            <div className="text-[11px] leading-relaxed">{tooltipText}</div>
+                            {item.threshold && (
+                              <div className={`mt-1 pt-1 border-t ${
+                                isDarkMode ? 'border-zinc-700' : 'border-zinc-300'
+                              }`}>
+                                <span className="font-semibold">임계값: </span>{item.threshold}
+                              </div>
+                            )}
+                            <div className={`absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 ${
+                              isDarkMode
+                                ? 'border-t-zinc-800'
+                                : 'border-t-white'
+                            }`}></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+                
+                {/* View All Details Toggle - Only show if there are hidden metrics */}
+                {evidenceItems.some(item => {
+                  const isWarning = item.status === 'warning';
+                  const isGood = item.status === 'info' && (
+                    (item.label.includes('FOMO') && parseFloat(item.value) < 70) ||
+                    (item.label.includes('Panic') && parseFloat(item.value) > 30) ||
+                    (item.label.includes('Revenge') && item.value === '0회') ||
+                    (item.label.includes('Disposition') && parseFloat(item.value) < 1.5)
+                  );
+                  return !isWarning && !isGood;
+                }) && (
+                  <button
+                    onClick={() => setShowDeepDive(!showDeepDive)}
+                    className={`mt-4 w-full py-2 rounded-lg border transition-colors ${
+                      isDarkMode
+                        ? 'border-zinc-700 hover:bg-zinc-800 text-zinc-400'
+                        : 'border-zinc-300 hover:bg-zinc-100 text-zinc-600'
+                    }`}
+                  >
+                    {showDeepDive ? '상세 정보 숨기기' : '모든 지표 보기'}
+                  </button>
+                )}
+              </div>
+
+              {/* All Details (when expanded) */}
+              {showDeepDive && (
+                <div className={`rounded-xl p-6 border ${
+                  isDarkMode
+                    ? 'bg-zinc-900 border-zinc-800'
+                    : 'bg-zinc-50 border-zinc-200'
+                }`}>
+                  <h3 className={`text-sm font-bold uppercase tracking-wider mb-4 ${
+                    isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                  }`}>모든 지표</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {evidenceItems.map((item, idx) => (
+                      <div key={idx} className={`p-4 rounded-lg border ${
+                        isDarkMode
+                          ? 'bg-zinc-950 border-zinc-800'
+                          : 'bg-white border-zinc-200'
+                      }`}>
+                        <div className={`text-xs font-bold mb-2 ${
+                          isDarkMode ? 'text-zinc-400' : 'text-zinc-600'
+                        }`}>{item.label}</div>
+                        <div className={`text-lg font-mono ${
+                          isDarkMode ? 'text-zinc-300' : 'text-zinc-900'
+                        }`}>{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {activeTab === 'journal' && (
+          <div className="space-y-6">
+            {/* Trade Log Table */}
+            <div data-section="trade-log" className={`rounded-xl overflow-hidden shadow-2xl border ${
+              isDarkMode 
+                ? 'bg-zinc-900 border-zinc-800' 
+                : 'bg-zinc-50 border-zinc-200'
+            }`}>
+              <div className={`px-6 py-4 border-b flex justify-between items-center ${
+                isDarkMode 
+                  ? 'border-zinc-800 bg-zinc-950/30' 
+                  : 'border-zinc-200 bg-zinc-100/50'
+              }`}>
+                <h3 className={`font-medium text-sm ${
+                  isDarkMode ? 'text-zinc-200' : 'text-zinc-900'
+                }`}>Trade Log (FIFO)</h3>
+                <span className={`text-xs uppercase ${
+                  isDarkMode ? 'text-zinc-500' : 'text-zinc-600'
+                }`}>Deterministic Analysis</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left text-zinc-400">
+                  <thead className={`text-xs uppercase ${
+                    isDarkMode ? 'bg-zinc-950 text-zinc-500' : 'bg-zinc-100 text-zinc-600'
+                  }`}>
+                    <tr>
+                      <th className="px-6 py-3 font-semibold">Ticker</th>
+                      <th className="px-6 py-3 font-semibold">Market Regime</th>
+                      <th className="px-6 py-3 font-semibold">Entry / Exit</th>
+                      <th className="px-6 py-3 text-right font-semibold">Realized PnL</th>
+                      <th className="px-6 py-3 text-center font-semibold">FOMO (Entry) / 소명</th>
+                      <th className="px-6 py-3 text-center font-semibold">Panic (Exit)</th>
+                      <th className="px-6 py-3 text-right font-semibold text-orange-400/80">Regret ($)</th>
+                    </tr>
+                  </thead>
+                  <tbody className={`divide-y ${
+                    isDarkMode ? 'divide-zinc-800/50' : 'divide-zinc-200/50'
+                  }`}>
+                    {trades.map((trade) => (
+                      <React.Fragment key={trade.id}>
+                        <tr className={`transition-colors ${
+                          isDarkMode ? 'hover:bg-zinc-800/20' : 'hover:bg-zinc-100/50'
+                        }`}>
+                          <td className="px-6 py-4 font-medium text-zinc-200">
+                            <div className="flex items-center gap-2">
+                              {trade.ticker}
+                              {trade.isRevenge && (
+                                <span className="px-1.5 py-0.5 bg-red-500/10 text-red-500 text-[9px] font-bold rounded uppercase border border-red-500/20">
+                                  REVENGE
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-1 rounded text-xs font-bold border ${
+                              trade.marketRegime === 'BULL' ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-100 text-emerald-700 border-emerald-300') : 
+                              trade.marketRegime === 'BEAR' ? (isDarkMode ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-red-100 text-red-700 border-red-300') : 
+                              (isDarkMode ? 'bg-zinc-800/50 text-zinc-500 border-zinc-700' : 'bg-zinc-200 text-zinc-600 border-zinc-300')
+                            }`}>
+                              {trade.marketRegime}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col text-xs font-mono">
+                              <span className={isDarkMode ? 'text-emerald-500/80' : 'text-emerald-600'}>BUY : {trade.entryDate} @ {trade.entryPrice}</span>
+                              <span className={isDarkMode ? 'text-red-500/80' : 'text-red-600'}>SELL: {trade.exitDate} @ {trade.exitPrice}</span>
+                            </div>
+                          </td>
+                          <td className={`px-6 py-4 text-right font-mono font-medium ${
+                            trade.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'
+                          }`}>
+                            {formatCurrency(trade.pnl, currency, exchangeRate)}
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            {trade.fomoScore === -1 ? (
+                              <span className={`text-xs ${isDarkMode ? 'text-zinc-700' : 'text-zinc-400'}`}>-</span>
+                            ) : (
+                              <div className="flex flex-col items-center gap-2">
+                                <span className={`text-xs font-mono ${
+                                  (trade.fomoScore > 0.8) ? 'text-red-400 font-bold' : (isDarkMode ? 'text-zinc-400' : 'text-zinc-600')
+                                }`}>
+                                  {(trade.fomoScore * 100).toFixed(0)}%
+                                </span>
+                                {trade.strategyTag && (
+                                  <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${
+                                    trade.strategyTag === 'BREAKOUT' || trade.strategyTag === 'AGGRESSIVE_ENTRY'
+                                      ? (isDarkMode ? 'bg-blue-950/50 text-blue-400 border-blue-900/50' : 'bg-blue-100 text-blue-700 border-blue-300')
+                                      : (isDarkMode ? 'bg-red-950/50 text-red-400 border-red-900/50' : 'bg-red-100 text-red-700 border-red-300')
+                                  }`}>
+                                    {trade.strategyTag === 'BREAKOUT' ? '돌파' : 
+                                     trade.strategyTag === 'AGGRESSIVE_ENTRY' ? '공격적 진입' : 'FOMO'}
+                                  </span>
+                                )}
+                                {trade.fomoScore > 0.7 && !trade.userAcknowledged && (
+                                  <button
+                                    onClick={() => openStrategyModal(trade)}
+                                    className={`px-2 py-1 text-[10px] font-medium rounded transition-colors flex items-center gap-1 ${
+                                      isDarkMode
+                                        ? 'bg-orange-950/50 text-orange-400 border border-orange-900/50 hover:bg-orange-900/50'
+                                        : 'bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-100'
+                                    }`}
+                                  >
+                                    <MessageSquare className="w-3 h-3" />
+                                    소명하기
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            {trade.panicScore === -1 ? (
+                              <span className={`text-xs ${isDarkMode ? 'text-zinc-700' : 'text-zinc-400'}`}>-</span>
+                            ) : (
+                              <span className={`text-xs font-mono ${
+                                (trade.panicScore < 0.2) ? 'text-red-400 font-bold' : (isDarkMode ? 'text-zinc-400' : 'text-zinc-600')
+                              }`}>
+                                {(trade.panicScore * 100).toFixed(0)}%
+                              </span>
+                            )}
+                          </td>
+                          <td className={`px-6 py-4 text-right font-mono ${
+                            isDarkMode ? 'text-orange-400/80' : 'text-orange-600'
+                          }`}>
+                            {trade.regret > 0 ? formatCurrency(trade.regret, currency, exchangeRate) : <span className={isDarkMode ? 'text-zinc-800' : 'text-zinc-300'}>-</span>}
+                          </td>
+                        </tr>
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
 
         {/* FOMO 의심 거래 알림 배너 */}
         {(() => {
@@ -1290,51 +1420,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset, showAnalysi
           );
         })()}
 
-        {/* CLINICAL THRESHOLDS INFO */}
-        <div className={`rounded-xl p-4 border ${
-          isDarkMode 
-            ? 'bg-blue-950/20 border-blue-900/30' 
-            : 'bg-blue-50 border-blue-200'
-        }`}>
-          <div className="flex items-start gap-3">
-            <HelpCircle className={`w-5 h-5 mt-0.5 ${
-              isDarkMode ? 'text-blue-400' : 'text-blue-600'
-            }`} />
-            <div className="flex-1">
-              <h4 className={`text-sm font-semibold mb-2 ${
-                isDarkMode ? 'text-blue-300' : 'text-blue-900'
-              }`}>Clinical Thresholds (보수적 기준)</h4>
-              <div className={`text-xs space-y-1 ${
-                isDarkMode ? 'text-blue-200/80' : 'text-blue-800'
-              }`}>
-                <p>• <strong>FOMO:</strong> Entry &gt;70% of day's range = Clinical FOMO (행동경제학 연구 기반)</p>
-                <p>• <strong>Exit Efficiency:</strong> Exit &lt;30% of day's range = Low Efficiency (행동경제학 연구 기반)</p>
-                <p>• <strong>Disposition Effect:</strong> Hold losers &gt;1.5x longer = Clinical Disposition (Shefrin & Statman 연구)</p>
-                <p className={`mt-2 pt-2 border-t ${
-                  isDarkMode ? 'border-blue-900/30' : 'border-blue-200'
-                }`}>
-                  <strong>중요:</strong> 이 지표는 <strong>행동 편향</strong>을 탐지합니다. 기술적 돌파매매나 모멘텀 전략과는 다릅니다. 
-                  높은 FOMO 점수는 "돌파 전략"이 아니라 "놓칠까봐 두려워서 고가에 매수"를 의미합니다.
-                </p>
-                <p className={`mt-2 pt-2 border-t ${
-                  isDarkMode ? 'border-blue-900/30' : 'border-blue-200'
-                }`}>
-                  <strong>⚠️ 사후적 감사 (Post-trade Audit):</strong> 이 지표는 <strong>매매 시점에는 사용할 수 없습니다.</strong> 
-                  당일 고가/저가는 장 마감 후에야 알 수 있기 때문입니다. 이 지표는 "복기해보니 결과적으로 나쁜 위치였다"는 
-                  교육적 평가를 위한 사후 분석 도구입니다.
-                </p>
-                <p className={`mt-2 pt-2 border-t ${
-                  isDarkMode ? 'border-blue-900/30' : 'border-blue-200'
-                }`}>
-                  <strong>과정 평가 (Process Evaluation):</strong> 단일 거래의 결과가 아니라 <strong>반복되는 패턴</strong>에 집중합니다. 
-                  "한두 번은 운 탓일 수 있지만, 10번 반복되면 실력(편향)입니다."
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* LEVEL 3: BEHAVIORAL EVIDENCE & PSYCHOLOGY */}
+        {showEvidence && (
+          <div className={`transition-opacity duration-500 ${showEvidence ? 'opacity-100' : 'opacity-0'}`}>
         <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
              
              {/* Detailed Metrics Grid */}
@@ -1920,7 +2009,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset, showAnalysi
                       <p className={`text-xs ${
                         isDarkMode ? 'text-red-200' : 'text-red-800'
                       }`}>
-                        💡 이 나쁜 습관만 막았어도, 최신 아이폰 1대를 더 살 수 있었습니다.
+                        💡 편향으로 인한 손실 금액입니다
                       </p>
                     </div>
                   )}
@@ -2704,6 +2793,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset, showAnalysi
               </div>
             )}
         </div>
+          </div>
+        )}
       </div>
       
       {/* Toast Container */}

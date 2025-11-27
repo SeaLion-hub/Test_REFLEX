@@ -10,37 +10,37 @@ interface UploadViewProps {
 }
 
 const SAMPLE_PAIRED = `Ticker,Entry Date,Entry Price,Exit Date,Exit Price,Qty
-AAPL,2023-01-10,130.50,2023-01-15,135.20,100
-TSLA,2023-02-01,180.00,2023-02-03,172.50,50
-NVDA,2023-02-10,210.00,2023-02-20,230.00,20
-AMD,2023-03-05,85.00,2023-03-06,82.00,200
-GOOGL,2023-03-10,95.00,2023-03-25,105.00,100
-AMZN,2023-04-01,100.00,2023-04-05,98.00,150`;
+NVDA,2024-01-08,490.00,2024-02-22,785.00,20
+AAPL,2023-12-14,198.00,2024-01-05,181.00,50
+TSLA,2024-04-23,145.00,2024-04-29,194.00,100
+AMD,2024-03-08,227.00,2024-03-13,195.00,30
+PLTR,2024-02-06,21.50,2024-02-09,24.00,200
+MSFT,2024-03-21,429.00,2024-04-04,417.00,40`;
 
 const SAMPLE_LOG = `Ticker,Date,Action,Price,Qty
-AAPL,2023-01-10,BUY,130.50,100
-AAPL,2023-01-12,BUY,132.00,50
-AAPL,2023-01-15,SELL,135.20,150
-TSLA,2023-02-01,BUY,180.00,50
-TSLA,2023-02-03,SELL,172.50,50`;
+NVDA,2024-01-08,BUY,490.00,20
+NVDA,2024-02-22,SELL,785.00,20
+AAPL,2023-12-14,BUY,198.00,50
+AAPL,2024-01-05,SELL,181.00,50
+TSLA,2024-04-23,BUY,145.00,100
+TSLA,2024-04-29,SELL,194.00,100`;
 
 const REKT_LOG = `Ticker,Date,Action,Price,Qty
-GME,2021-01-27,BUY,350.00,10
-GME,2021-01-28,SELL,120.00,10
-GME,2021-01-28,BUY,150.00,20
-GME,2021-01-28,SELL,130.00,20
-GME,2021-01-28,BUY,140.00,50
-GME,2021-01-28,SELL,125.00,50
-TSLA,2023-02-01,BUY,198.00,20
-TSLA,2023-02-02,SELL,180.00,20
-TSLA,2023-02-02,BUY,185.00,30
-TSLA,2023-02-03,SELL,175.00,30`;
+NVDA,2024-03-08,BUY,972.00,10
+NVDA,2024-03-08,SELL,880.00,10
+NVDA,2024-03-08,BUY,890.00,20
+NVDA,2024-03-08,SELL,860.00,20
+GME,2021-01-28,BUY,480.00,50
+GME,2021-01-28,SELL,130.00,50
+GME,2021-01-28,BUY,250.00,100
+GME,2021-01-28,SELL,150.00,100`;
 
 export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [loadingStage, setLoadingStage] = useState<string>('');
+  const [isRektMode, setIsRektMode] = useState(false);
 
   const handleFile = async (file: File) => {
     const reader = new FileReader();
@@ -88,6 +88,10 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
 
   const loadSample = async (csvData: string) => {
     setIsProcessing(true);
+    // Rekt Mode 감지
+    const isRekt = csvData === REKT_LOG;
+    setIsRektMode(isRekt);
+    
     setLoadingStage('CSV 파일 파싱 중...');
     
     const rows = parseCSV(csvData);
@@ -110,6 +114,10 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
     onAnalyze(result);
     setIsProcessing(false);
     setLoadingStage('');
+    // Rekt 효과는 1초 후 제거
+    if (isRekt) {
+      setTimeout(() => setIsRektMode(false), 1000);
+    }
   };
 
 
@@ -127,18 +135,22 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-[#09090b]">
-      {/* Threads 배경 */}
-      <div className="absolute inset-0 z-0">
+      {/* Threads 배경 - 항상 표시하여 흰 화면 방지 */}
+      <div className={`absolute inset-0 z-0 transition-all duration-1000 ${
+        isRektMode ? 'bg-red-950/20' : ''
+      }`}>
         <Threads
-          color={[0.1, 0.9, 0.5]} // emerald 색상 (RGB 0-1 범위)
-          amplitude={1}
+          color={isRektMode ? [0.9, 0.1, 0.1] : [0.1, 0.9, 0.5]} // Rekt 모드일 때 빨간색
+          amplitude={isRektMode ? 1.5 : 1}
           distance={0}
           enableMouseInteraction={true}
         />
       </div>
 
-      {/* 콘텐츠 레이어 */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6">
+      {/* 콘텐츠 레이어 - 로딩 상태와 관계없이 항상 표시 */}
+      <div className={`relative z-10 flex flex-col items-center justify-center min-h-screen p-6 transition-opacity duration-300 ${
+        isProcessing ? 'opacity-100' : 'opacity-100'
+      }`}>
         <div className="max-w-2xl w-full text-center space-y-10">
           <div className="space-y-6">
             {/* PRISM 타이틀 */}
@@ -147,10 +159,10 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
             </h1>
             <div className="space-y-3">
               <h2 className="text-2xl font-bold text-white max-w-2xl mx-auto">
-                Uncover Your Trading Blind Spots
+                당신의 거래 맹점을 발견하세요
               </h2>
               <p className="text-lg text-zinc-300 max-w-2xl mx-auto leading-relaxed">
-                Upload your transaction history and let our AI reveal the psychological patterns costing you money.
+                거래 내역을 업로드하면 AI가 당신의 돈을 잃게 만드는 심리적 패턴을 밝혀냅니다.
               </p>
             </div>
           </div>
@@ -173,9 +185,9 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
                 <div className="space-y-2 text-center">
                     <p className="text-zinc-200 font-medium">{loadingStage || '분석 중...'}</p>
                     <div className="flex items-center justify-center gap-2 text-xs text-zinc-500">
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1s' }}></div>
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '200ms', animationDuration: '1s' }}></div>
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '400ms', animationDuration: '1s' }}></div>
                     </div>
                 </div>
              </div>
@@ -223,8 +235,8 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
               className="bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 px-4 py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:scale-[1.02]"
             >
               <FileSpreadsheet className="w-5 h-5 text-emerald-500" />
-              <span className="text-sm font-medium">Standard CSV</span>
-              <span className="text-[10px] text-zinc-500">Pre-paired Trades</span>
+              <span className="text-sm font-medium">표준 CSV</span>
+              <span className="text-[10px] text-zinc-500">미리 매칭된 거래</span>
             </button>
             
             <button 
@@ -232,8 +244,8 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
               className="bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 px-4 py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:scale-[1.02]"
             >
               <GitMerge className="w-5 h-5 text-blue-500" />
-              <span className="text-sm font-medium">Execution Log</span>
-              <span className="text-[10px] text-zinc-500">Test FIFO Logic</span>
+              <span className="text-sm font-medium">실행 로그</span>
+              <span className="text-[10px] text-zinc-500">FIFO 로직 테스트</span>
             </button>
             
             <button 
@@ -241,8 +253,8 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
               className="bg-red-950/10 hover:bg-red-900/20 border border-red-900/30 text-red-400 px-4 py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:scale-[1.02]"
             >
               <Skull className="w-5 h-5" />
-              <span className="text-sm font-medium">"Rekt" Mode</span>
-              <span className="text-[10px] text-red-500/60">High FOMO & Revenge</span>
+              <span className="text-sm font-medium">"Rekt" 모드</span>
+              <span className="text-[10px] text-red-500/60">높은 FOMO & 복수 거래</span>
             </button>
           </div>
         </div>

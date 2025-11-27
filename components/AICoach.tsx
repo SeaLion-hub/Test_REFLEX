@@ -290,7 +290,7 @@ export const AICoach: React.FC<AICoachProps> = ({ analysis, loading, truthScore 
           <div className="flex items-center gap-2 mb-4">
             <BookOpen className="w-5 h-5 text-blue-400" />
             <h3 className="text-sm font-bold text-blue-400 uppercase tracking-wider">
-              Your 3-Step Recovery Plan
+              3단계 회복 플랜
             </h3>
           </div>
           <div className="bg-blue-950/30 border border-blue-900/40 rounded-lg p-4 mb-3">

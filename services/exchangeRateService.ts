@@ -59,11 +59,11 @@ export const formatCurrency = (amount: number, currency: Currency, exchangeRate:
   if (currency === 'KRW') {
     const krwAmount = amount * exchangeRate;
     if (Math.abs(krwAmount) >= 1000000) {
-      return `₩${(krwAmount / 1000000).toFixed(1)}M`;
+      return `${(krwAmount / 1000000).toFixed(1)}만원`;
     } else if (Math.abs(krwAmount) >= 1000) {
-      return `₩${(krwAmount / 1000).toFixed(0)}k`;
+      return `${(krwAmount / 1000).toFixed(0)}천원`;
     }
-    return `₩${Math.abs(krwAmount).toFixed(0)}`;
+    return `${Math.abs(krwAmount).toFixed(0)}원`;
   } else {
     if (Math.abs(amount) >= 1000) {
       return `$${(Math.abs(amount) / 1000).toFixed(1)}k`;
