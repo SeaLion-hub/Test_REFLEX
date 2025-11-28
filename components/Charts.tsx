@@ -78,7 +78,7 @@ export const BiasDNARadar: React.FC<{ metrics: AnalysisResult['metrics'] }> = ({
     { subject: 'Fear (공포)', value: metrics.panicIndex * 100 },
     { subject: 'Greed (탐욕)', value: metrics.fomoIndex * 100 },
     { subject: 'Resilience (회복력)', value: Math.max(0, 100 - (metrics.revengeTradingCount * 25)) },
-    { subject: 'Discipline (절제)', value: Math.min(100, Math.max(0, (1 - metrics.dispositionRatio) * 50)) },
+    { subject: 'Discipline (절제)', value: Math.min(100, Math.max(0, (1 - 0.3*metrics.dispositionRatio) * 50)) },
   ];
 
   const persona = classifyPersona(data);

@@ -15,6 +15,12 @@ interface CoachRequestMetrics {
   revenge_trading_count: number;
   truth_score: number;
   total_regret: number;
+  // [수정] 누락된 리스크 지표 추가
+  sharpe_ratio: number;
+  sortino_ratio: number;
+  alpha: number;
+  luck_percentile: number;
+  max_drawdown: number;
 }
 
 interface CoachRequestPersonalBaseline {
@@ -34,19 +40,19 @@ interface CoachRequestBiasLossMapping {
 
 interface BestExecution {
   ticker: string;
-  execution_type: string; // "PERFECT_ENTRY", "PERFECT_EXIT", "CLEAN_CUT", "PERFECT_TRADE"
+  execution_type: string; 
   fomo_score?: number;
   panic_score?: number;
   pnl?: number;
-  reason: string; // 설명
+  reason: string; 
 }
 
 interface CoachRequestPayload {
   top_regrets: Array<{ ticker: string; regret: number }>;
   revenge_details: Array<{ ticker: string; pnl: number }>;
-  best_executions: Array<BestExecution>; // 잘한 매매
-  patterns: Array<PatternMetric>; // 반복되는 패턴
-  deep_patterns?: Array<{ type: string; description: string; significance: string; metadata?: Record<string, any> }> | null; // 고급 패턴
+  best_executions: Array<BestExecution>; 
+  patterns: Array<PatternMetric>; 
+  deep_patterns?: Array<{ type: string; description: string; significance: string; metadata?: Record<string, any> }> | null; 
   metrics: CoachRequestMetrics;
   is_low_sample: boolean;
   personal_baseline: CoachRequestPersonalBaseline | null;
@@ -69,6 +75,12 @@ const mapMetricsToBackend = (metrics: BehavioralMetrics): CoachRequestMetrics =>
     revenge_trading_count: metrics.revengeTradingCount,
     truth_score: metrics.truthScore,
     total_regret: metrics.totalRegret,
+    // [수정] 누락된 매핑 추가
+    sharpe_ratio: metrics.sharpeRatio,
+    sortino_ratio: metrics.sortinoRatio,
+    alpha: metrics.alpha,
+    luck_percentile: metrics.luckPercentile,
+    max_drawdown: metrics.maxDrawdown,
   };
 };
 
@@ -103,7 +115,6 @@ const mapBiasLossMappingToBackend = (
 
 /**
  * Best Execution 찾기 (이달의 명장면)
- * 잘한 매매를 자동으로 발굴합니다.
  */
 const findBestExecutions = (trades: EnrichedTrade[]): BestExecution[] => {
   if (trades.length === 0) return [];
@@ -113,7 +124,7 @@ const findBestExecutions = (trades: EnrichedTrade[]): BestExecution[] => {
 
   const bestExecutions: BestExecution[] = [];
 
-  // 1. 완벽한 진입 (최저 FOMO 점수)
+  // 1. 완벽한 진입
   const bestEntry = [...validTrades]
     .filter(t => t.fomoScore !== -1)
     .sort((a, b) => a.fomoScore - b.fomoScore)[0];
@@ -128,7 +139,7 @@ const findBestExecutions = (trades: EnrichedTrade[]): BestExecution[] => {
     });
   }
 
-  // 2. 완벽한 청산 (최고 Panic 점수 - panicScore가 높을수록 고점 매도)
+  // 2. 완벽한 청산
   const bestExit = [...validTrades]
     .filter(t => t.panicScore !== -1)
     .sort((a, b) => b.panicScore - a.panicScore)[0];
@@ -143,7 +154,7 @@ const findBestExecutions = (trades: EnrichedTrade[]): BestExecution[] => {
     });
   }
 
-  // 3. 칼손절 (손실이 작고 빠른 청산)
+  // 3. 칼손절
   const cleanCuts = validTrades
     .filter(t => t.pnl < 0 && Math.abs(t.pnl) < 100 && t.durationDays < 1 && t.panicScore !== -1 && t.panicScore < 0.4)
     .sort((a, b) => a.durationDays - b.durationDays);
@@ -159,7 +170,7 @@ const findBestExecutions = (trades: EnrichedTrade[]): BestExecution[] => {
     });
   }
 
-  // 4. 완벽한 거래 (진입 + 청산 모두 우수)
+  // 4. 완벽한 거래
   const perfectTrades = validTrades.filter(t => 
     t.fomoScore < 0.3 && t.panicScore > 0.7 && t.pnl > 0
   );
@@ -176,35 +187,31 @@ const findBestExecutions = (trades: EnrichedTrade[]): BestExecution[] => {
     });
   }
 
-  // 최대 3개만 반환
   return bestExecutions.slice(0, 3);
 };
 
 /**
  * 패턴 인식 (과정 평가)
- * 최근 N건 거래를 분석하여 반복되는 패턴을 감지합니다.
  */
 const detectPatterns = (trades: EnrichedTrade[]): PatternMetric[] => {
-  if (trades.length < 3) return []; // 최소 3건 필요
+  if (trades.length < 3) return [];
 
   const validTrades = trades.filter(t => t.fomoScore !== -1 && t.panicScore !== -1);
   if (validTrades.length < 3) return [];
 
-  // 시간순 정렬 (최신순)
   const sortedTrades = [...validTrades].sort((a, b) => 
     new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime()
   );
 
-  // 최근 10건 (또는 전체가 10건 미만이면 전체)
   const recentCount = Math.min(10, sortedTrades.length);
   const recentTrades = sortedTrades.slice(0, recentCount);
 
   const patterns: PatternMetric[] = [];
 
-  // 1. FOMO 패턴 (최근 N건 중 FOMO > 70%인 횟수)
+  // 1. FOMO 패턴
   const fomoCount = recentTrades.filter(t => t.fomoScore > 0.7).length;
   const fomoPercentage = (fomoCount / recentCount) * 100;
-  if (fomoCount >= 5) { // 5건 이상이면 의미있는 패턴
+  if (fomoCount >= 5) {
     patterns.push({
       pattern: 'FOMO',
       description: `최근 ${recentCount}번 거래 중 ${fomoCount}번이나 고점 매수(FOMO > 70%)`,
@@ -215,7 +222,7 @@ const detectPatterns = (trades: EnrichedTrade[]): PatternMetric[] => {
     });
   }
 
-  // 2. Exit Efficiency 패턴 (Panic Score < 30%, 이전에는 Panic이었지만 이제는 Exit Efficiency)
+  // 2. Exit Efficiency 패턴
   const lowExitCount = recentTrades.filter(t => t.panicScore < 0.3).length;
   const exitPercentage = (lowExitCount / recentCount) * 100;
   if (lowExitCount >= 5) {
@@ -229,7 +236,7 @@ const detectPatterns = (trades: EnrichedTrade[]): PatternMetric[] => {
     });
   }
 
-  // 3. Early Exit 패턴 (Regret이 있는 거래 - 너무 일찍 파는 경향)
+  // 3. Early Exit 패턴
   const regretTrades = recentTrades.filter(t => (t.regret || 0) > 0);
   const earlyExitCount = regretTrades.length;
   const earlyExitPercentage = (earlyExitCount / recentCount) * 100;
@@ -247,7 +254,7 @@ const detectPatterns = (trades: EnrichedTrade[]): PatternMetric[] => {
   // 4. Revenge Trading 패턴
   const revengeCount = recentTrades.filter(t => t.isRevenge).length;
   const revengePercentage = (revengeCount / recentCount) * 100;
-  if (revengeCount >= 2) { // Revenge는 2건만 있어도 패턴
+  if (revengeCount >= 2) {
     patterns.push({
       pattern: 'REVENGE',
       description: `최근 ${recentCount}번 거래 중 ${revengeCount}번이나 복수 매매(Revenge Trading)`,
@@ -258,7 +265,7 @@ const detectPatterns = (trades: EnrichedTrade[]): PatternMetric[] => {
     });
   }
 
-  // 5. Disposition Effect 패턴 (손익거래별 보유 기간 분석)
+  // 5. Disposition Effect 패턴
   const winners = recentTrades.filter(t => t.pnl > 0);
   const losers = recentTrades.filter(t => t.pnl <= 0);
   if (winners.length >= 2 && losers.length >= 2) {
@@ -278,11 +285,9 @@ const detectPatterns = (trades: EnrichedTrade[]): PatternMetric[] => {
     }
   }
 
-  // 유의성 순으로 정렬 (HIGH -> MEDIUM -> LOW)
   const significanceOrder = { 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
   patterns.sort((a, b) => significanceOrder[b.significance] - significanceOrder[a.significance]);
 
-  // 최대 3개만 반환
   return patterns.slice(0, 3);
 };
 
@@ -290,7 +295,6 @@ const detectPatterns = (trades: EnrichedTrade[]): PatternMetric[] => {
  * AnalysisResult를 백엔드 요청 페이로드로 변환
  */
 const mapAnalysisResultToCoachRequest = (data: AnalysisResult): CoachRequestPayload => {
-  // Top 3 regrets만 계산 (백엔드로 전송할 최소 데이터)
   const topRegrets = [...data.trades]
     .sort((a, b) => (b.regret || 0) - (a.regret || 0))
     .slice(0, 3)
@@ -299,7 +303,6 @@ const mapAnalysisResultToCoachRequest = (data: AnalysisResult): CoachRequestPayl
       regret: t.regret || 0,
     }));
 
-  // Revenge trades 요약 정보만
   const revengeDetails = data.trades
     .filter(t => t.isRevenge)
     .map(t => ({
@@ -307,13 +310,9 @@ const mapAnalysisResultToCoachRequest = (data: AnalysisResult): CoachRequestPayl
       pnl: t.pnl,
     }));
 
-  // Best Executions 찾기
   const bestExecutions = findBestExecutions(data.trades);
-
-  // 패턴 인식 (또는 이미 계산된 패턴 사용)
   const patterns = data.patterns || detectPatterns(data.trades);
 
-  // Deep Patterns 매핑
   const deepPatterns = data.deepPatterns ? data.deepPatterns.map(dp => ({
     type: dp.type,
     description: dp.description,
@@ -341,8 +340,6 @@ const mapAnalysisResultToCoachRequest = (data: AnalysisResult): CoachRequestPayl
 };
 
 export const getAIInterpretation = async (data: AnalysisResult): Promise<AIAnalysis> => {
-  // 백엔드 /coach 엔드포인트 호출
-  // 최적화: trades 전체 대신 top_regrets만 전송 (데이터 핑퐁 구조 제거)
   try {
     const requestPayload = mapAnalysisResultToCoachRequest(data);
 
@@ -370,4 +367,3 @@ export const getAIInterpretation = async (data: AnalysisResult): Promise<AIAnaly
     };
   }
 };
-

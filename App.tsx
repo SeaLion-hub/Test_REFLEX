@@ -28,7 +28,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="antialiased bg-[#09090b] min-h-screen">
+    <div className="antialiased bg-white dark:bg-[#09090b] min-h-screen transition-colors duration-300">
       {!result ? (
         <UploadView onAnalyze={setResult} />
       ) : showTransition ? (

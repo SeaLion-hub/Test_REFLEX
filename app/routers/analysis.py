@@ -14,45 +14,35 @@ router = APIRouter()
 DEFAULT_COMMISSION_RATE = 0.001  # 0.1% 기본 수수료율
 DEFAULT_SLIPPAGE_RATE = 0.0005   # 0.05% 기본 슬리피지
 
+# --- [핵심] JSON 직렬화 오류 방지를 위한 안전한 변환 함수 ---
+def safe_float(value, default=0.0):
+    """NaN, Inf를 0.0(또는 지정된 default)으로 변환하여 JSON 에러 방지"""
+    if value is None:
+        return default
+    try:
+        val = float(value)
+        if np.isnan(val) or np.isinf(val):
+            return default
+        return val
+    except:
+        return default
+
 def calculate_trading_cost(entry_price: float, exit_price: float, qty: float) -> float:
-    """
-    거래 비용 계산 (수수료 + 슬리피지)
-    매수와 매도 각각에 대해 수수료와 슬리피지가 발생
-    """
     trade_value = abs(entry_price * qty)
-    commission = trade_value * DEFAULT_COMMISSION_RATE * 2  # 매수 + 매도
-    slippage = trade_value * DEFAULT_SLIPPAGE_RATE * 2  # 매수 + 매도
-    return commission + slippage
+    commission = trade_value * DEFAULT_COMMISSION_RATE * 2
+    slippage = trade_value * DEFAULT_SLIPPAGE_RATE * 2
+    return safe_float(commission + slippage)
 
 def calculate_opportunity_cost(trades_df: pd.DataFrame) -> tuple[float, float, float, float, bool]:
-    """
-    편향 거래 기간 동안 벤치마크(SPY) 수익률을 계산하여 기회비용 산출
-    
-    Returns:
-        tuple: (total_opportunity_cost, biased_trades_pnl, spy_return_during_biased, total_bias_loss, spy_load_failed)
-        - total_opportunity_cost: 편향 거래 대신 SPY에 투자했다면 얻었을 수익 (벤치마크 수익률)
-        - biased_trades_pnl: 편향 거래들의 실제 손익 합계
-        - spy_return_during_biased: 편향 거래 기간 동안 SPY 수익률
-        - total_bias_loss: 편향으로 인한 직접 손실
-        - spy_load_failed: SPY 데이터 로드 실패 여부
-    """
     try:
         if len(trades_df) == 0:
             return (0.0, 0.0, 0.0, 0.0, False)
         
         # 편향 거래 식별
-        biased_trades = []
-        
-        # FOMO 거래 (FOMO > 0.7이고 손실인 거래)
         high_fomo = trades_df[(trades_df['fomo_score'] > 0.7) & (trades_df['fomo_score'] != -1) & (trades_df['pnl'] < 0)]
-        
-        # Panic Sell 거래 (Panic < 0.3이고 손실인 거래)
         low_panic = trades_df[(trades_df['panic_score'] < 0.3) & (trades_df['panic_score'] != -1) & (trades_df['pnl'] < 0)]
-        
-        # Revenge Trading (복수 매매)
         revenge = trades_df[(trades_df['is_revenge'] == True) & (trades_df['pnl'] < 0)]
         
-        # 편향 거래 합치기 (중복 제거)
         biased_indices = set()
         biased_indices.update(high_fomo.index)
         biased_indices.update(low_panic.index)
@@ -63,27 +53,23 @@ def calculate_opportunity_cost(trades_df: pd.DataFrame) -> tuple[float, float, f
         if len(biased_trades_df) == 0:
             return (0.0, 0.0, 0.0, 0.0, False)
         
-        # 편향 거래들의 총 손익
         biased_trades_pnl = biased_trades_df['pnl'].sum()
         total_bias_loss = abs(biased_trades_pnl)
         
-        # 편향 거래 기간 전체 범위
         min_date = biased_trades_df['entry_dt'].min()
         max_date = biased_trades_df['exit_dt'].max()
         
-        # SPY 데이터 다운로드 (버퍼 포함)
         spy_start = (min_date - timedelta(days=5)).strftime("%Y-%m-%d")
         spy_end = (max_date + timedelta(days=5)).strftime("%Y-%m-%d")
         
-        spy_df = yf.download('SPY', start=spy_start, end=spy_end, progress=False)
+        # [수정] auto_adjust=False로 일관성 유지
+        spy_df = yf.download('SPY', start=spy_start, end=spy_end, progress=False, auto_adjust=False)
         if spy_df.empty:
-            return (0.0, biased_trades_pnl, 0.0, total_bias_loss, True)  # SPY 로드 실패
+            return (0.0, safe_float(biased_trades_pnl), 0.0, safe_float(total_bias_loss), True)
         
         if isinstance(spy_df.columns, pd.MultiIndex):
             spy_df.columns = spy_df.columns.get_level_values(0)
         
-        # 각 편향 거래별로 진입일~청산일 동안 SPY 수익률 계산
-        # 개선: % 수익률로 정규화하여 통화 단위 문제 해결
         total_opportunity_cost = 0.0
         total_invested = 0.0
         
@@ -91,200 +77,171 @@ def calculate_opportunity_cost(trades_df: pd.DataFrame) -> tuple[float, float, f
             entry_dt = pd.to_datetime(trade['entry_dt']).normalize()
             exit_dt = pd.to_datetime(trade['exit_dt']).normalize()
             
-            # SPY 인덱스 찾기 (주말/휴일 보정)
-            entry_idx = spy_df.index.get_indexer([entry_dt], method='nearest')[0]
-            exit_idx = spy_df.index.get_indexer([exit_dt], method='nearest')[0]
-            
-            if entry_idx == -1 or exit_idx == -1:
+            # 인덱스 찾기 안전장치
+            try:
+                if entry_dt not in spy_df.index:
+                    entry_locs = spy_df.index.get_indexer([entry_dt], method='nearest')
+                    if entry_locs[0] == -1: continue
+                    entry_idx = entry_locs[0]
+                else:
+                    entry_idx = spy_df.index.get_loc(entry_dt)
+
+                if exit_dt not in spy_df.index:
+                    exit_locs = spy_df.index.get_indexer([exit_dt], method='nearest')
+                    if exit_locs[0] == -1: continue
+                    exit_idx = exit_locs[0]
+                else:
+                    exit_idx = spy_df.index.get_loc(exit_dt)
+            except:
                 continue
             
-            # 거래 금액 (진입 가격 * 수량) - 통화 단위 무관
             invested_amount = abs(trade['entry_price'] * trade['qty'])
             
-            # SPY 수익률 계산 (%)
-            entry_price_spy = spy_df.iloc[entry_idx]['Close']
-            exit_price_spy = spy_df.iloc[exit_idx]['Close']
-            spy_return_pct = (exit_price_spy - entry_price_spy) / entry_price_spy if entry_price_spy > 0 else 0.0
-            
-            # 사용자 거래 수익률 (%)
-            user_return_pct = trade['return_pct'] if 'return_pct' in trade else (trade['exit_price'] - trade['entry_price']) / trade['entry_price']
-            
-            # 개선: % 수익률 차이를 금액으로 환산 (통화 단위 문제 해결)
-            # SPY가 더 좋았다면 양수, 사용자 거래가 더 좋았다면 음수
-            return_diff_pct = spy_return_pct - user_return_pct
-            opportunity_cost_for_trade = invested_amount * return_diff_pct
-            
-            total_opportunity_cost += opportunity_cost_for_trade
-            total_invested += invested_amount
+            try:
+                entry_price_spy = safe_float(spy_df.iloc[entry_idx]['Close'])
+                exit_price_spy = safe_float(spy_df.iloc[exit_idx]['Close'])
+                
+                spy_return_pct = (exit_price_spy - entry_price_spy) / entry_price_spy if entry_price_spy > 0 else 0.0
+                user_return_pct = trade['return_pct'] if 'return_pct' in trade else 0.0
+                
+                return_diff_pct = spy_return_pct - user_return_pct
+                opportunity_cost_for_trade = invested_amount * return_diff_pct
+                
+                total_opportunity_cost += opportunity_cost_for_trade
+                total_invested += invested_amount
+            except:
+                continue
         
-        # 총 기회비용 계산
+        spy_return_during_biased = 0.0
+        opportunity_cost = 0.0
+        
         if total_invested > 0:
-            # 가중 평균 수익률 차이 (%)
             spy_return_during_biased = total_opportunity_cost / total_invested
-            opportunity_cost = total_opportunity_cost  # 절대 금액 (통화 단위는 사용자 거래와 동일)
-        else:
-            spy_return_during_biased = 0.0
-            opportunity_cost = 0.0
+            opportunity_cost = total_opportunity_cost
         
-        # 편향 거래 제거 시 수수료 절감분 계산
         biased_trades_cost = 0.0
         for _, trade in biased_trades_df.iterrows():
             trading_cost = calculate_trading_cost(trade['entry_price'], trade['exit_price'], trade['qty'])
             biased_trades_cost += trading_cost
         
-        # 기회비용에 수수료 절감분 추가 (편향 거래를 하지 않았다면 절감된 비용)
         opportunity_cost_with_savings = opportunity_cost + biased_trades_cost
         
-        return (opportunity_cost_with_savings, biased_trades_pnl, spy_return_during_biased, total_bias_loss, False)
+        return (
+            safe_float(opportunity_cost_with_savings), 
+            safe_float(biased_trades_pnl), 
+            safe_float(spy_return_during_biased), 
+            safe_float(total_bias_loss), 
+            False
+        )
         
     except Exception as e:
         print(f"Error calculating opportunity cost: {e}")
-        return (0.0, 0.0, 0.0, 0.0, True)  # 예외 발생 시 로드 실패로 간주
+        return (0.0, 0.0, 0.0, 0.0, True)
 
 def calculate_beta_and_jensens_alpha(
     trades_df: pd.DataFrame, 
-    risk_free_rate: float = 0.02 / 252  # 일일 무위험 수익률 (연 2%)
+    risk_free_rate: float = 0.02 / 252
 ) -> tuple[float, float, bool]:
-    """
-    CAPM 기반 Beta 및 Jensen's Alpha 계산
-    
-    Args:
-        trades_df: 거래 데이터프레임 (entry_dt, exit_dt, return_pct 포함)
-        risk_free_rate: 일일 무위험 수익률
-    
-    Returns:
-        tuple: (beta, jensens_alpha, is_valid)
-        - beta: 포트폴리오의 시장 민감도
-        - jensens_alpha: 시장 위험 제거 후 순수 초과 수익 (연환산)
-        - is_valid: 계산이 유효한지 여부 (최소 20개 거래 또는 60일 이상 필요)
-    """
     try:
-        if len(trades_df) < 20:  # 최소 거래 수 체크
+        if len(trades_df) < 20:
             return (1.0, 0.0, False)
         
         min_date = trades_df['entry_dt'].min()
         max_date = trades_df['exit_dt'].max()
         duration_days = (max_date - min_date).days
         
-        if duration_days < 60:  # 최소 기간 체크
+        if duration_days < 60:
             return (1.0, 0.0, False)
         
-        # SPY 데이터 다운로드 (버퍼 포함)
         spy_start = (min_date - timedelta(days=10)).strftime("%Y-%m-%d")
         spy_end = (max_date + timedelta(days=10)).strftime("%Y-%m-%d")
         
-        spy_df = yf.download('SPY', start=spy_start, end=spy_end, progress=False)
+        spy_df = yf.download('SPY', start=spy_start, end=spy_end, progress=False, auto_adjust=False)
         if spy_df.empty:
             return (1.0, 0.0, False)
         
         if isinstance(spy_df.columns, pd.MultiIndex):
             spy_df.columns = spy_df.columns.get_level_values(0)
         
-        # 포트폴리오 일일 수익률 계산
         portfolio_returns = []
         market_returns = []
         
-        # 각 거래의 수익률을 해당 기간의 일일 수익률로 분해
         for _, trade in trades_df.iterrows():
             entry_dt = pd.to_datetime(trade['entry_dt']).normalize()
             exit_dt = pd.to_datetime(trade['exit_dt']).normalize()
             
-            # 거래 기간 동안의 일일 수익률 계산
-            trade_days = pd.bdate_range(entry_dt, exit_dt)  # 영업일만
+            trade_days = pd.bdate_range(entry_dt, exit_dt)
             if len(trade_days) == 0:
                 continue
             
-            # 거래 수익률을 일일 수익률로 균등 분배 (간단한 근사)
-            trade_return = trade['return_pct']
+            trade_return = safe_float(trade['return_pct'])
             if len(trade_days) > 0:
-                daily_return = (1 + trade_return) ** (1 / len(trade_days)) - 1
+                daily_return = trade_return / len(trade_days)
             else:
                 daily_return = 0
             
-            # 해당 기간의 SPY 일일 수익률
             for day in trade_days:
                 if day in spy_df.index:
-                    spy_idx = spy_df.index.get_loc(day)
-                    if spy_idx > 0:
-                        spy_prev = spy_df.iloc[spy_idx - 1]['Close']
-                        spy_curr = spy_df.iloc[spy_idx]['Close']
-                        market_return = (spy_curr - spy_prev) / spy_prev if spy_prev > 0 else 0
-                        
-                        portfolio_returns.append(daily_return)
-                        market_returns.append(market_return)
+                    try:
+                        spy_idx = spy_df.index.get_loc(day)
+                        if spy_idx > 0:
+                            spy_prev = safe_float(spy_df.iloc[spy_idx - 1]['Close'])
+                            spy_curr = safe_float(spy_df.iloc[spy_idx]['Close'])
+                            market_return = (spy_curr - spy_prev) / spy_prev if spy_prev > 0 else 0
+                            
+                            portfolio_returns.append(daily_return)
+                            market_returns.append(market_return)
+                    except:
+                        continue
         
-        if len(portfolio_returns) < 20:  # 충분한 데이터 포인트 체크
+        if len(portfolio_returns) < 20:
             return (1.0, 0.0, False)
         
         portfolio_returns = np.array(portfolio_returns)
         market_returns = np.array(market_returns)
         
-        # Beta 계산: Cov(Portfolio, Market) / Var(Market)
+        valid_mask = ~np.isnan(portfolio_returns) & ~np.isnan(market_returns)
+        portfolio_returns = portfolio_returns[valid_mask]
+        market_returns = market_returns[valid_mask]
+
+        if len(portfolio_returns) < 20:
+             return (1.0, 0.0, False)
+
         covariance = np.cov(portfolio_returns, market_returns)[0][1]
         market_variance = np.var(market_returns)
         
-        if market_variance == 0:
+        if market_variance == 0 or np.isnan(market_variance):
             return (1.0, 0.0, False)
         
         beta = covariance / market_variance
         
-        # 포트폴리오 평균 수익률
         portfolio_avg_return = np.mean(portfolio_returns)
         market_avg_return = np.mean(market_returns)
         
-        # Jensen's Alpha = Portfolio Return - (Rf + Beta * (Market Return - Rf))
         expected_return = risk_free_rate + beta * (market_avg_return - risk_free_rate)
         jensens_alpha = portfolio_avg_return - expected_return
-        
-        # 연환산 (선택사항)
         jensens_alpha_annualized = jensens_alpha * 252
         
-        return (beta, jensens_alpha_annualized, True)
+        return (safe_float(beta), safe_float(jensens_alpha_annualized), True)
         
     except Exception as e:
-        print(f"Error calculating Beta and Jensen's Alpha: {e}")
+        print(f"Error calculating Beta: {e}")
         return (1.0, 0.0, False)
 
-def calculate_regime_weight(
-    market_regime: str, 
-    fomo_score: float, 
-    panic_score: float
-) -> float:
-    """
-    Regime Weight 계산 공식 (MVP 안전성 우선)
-    
-    Args:
-        market_regime: 'BULL', 'BEAR', 'SIDEWAYS', 'UNKNOWN'
-        fomo_score: FOMO 점수 (0.0 ~ 1.0, -1은 무효)
-        panic_score: Panic 점수 (0.0 ~ 1.0, -1은 무효)
-    
-    Returns:
-        regime_weight: 0.8, 1.0, 또는 1.5
-    """
-    # FOMO Buy 판단: fomo_score >= 0.7
+def calculate_regime_weight(market_regime: str, fomo_score: float, panic_score: float) -> float:
     is_fomo_buy = fomo_score != -1 and fomo_score >= 0.7
-    
-    # Panic Sell 판단: panic_score != -1 and panic_score <= 0.3
     is_panic_sell = panic_score != -1 and panic_score <= 0.3
     
     if market_regime == 'BULL':
-        if is_panic_sell:
-            return 1.5  # 최대 페널티: 상승장에서 공포 매도
-        elif is_fomo_buy:
-            return 0.8  # 완화: 상승장 매수는 때로 합리적
-        else:
-            return 1.0  # 표준
-    
+        if is_panic_sell: return 1.5
+        elif is_fomo_buy: return 0.8
+        else: return 1.0
     elif market_regime == 'BEAR':
-        if is_fomo_buy:
-            return 1.5  # 최대 페널티: 하락장 반등 추격 매수
-        elif is_panic_sell:
-            return 1.0  # 하락장에서 파는 것은 불가피성 있음
-        else:
-            return 1.0  # 표준
-    
-    else:  # SIDEWAYS, UNKNOWN
-        return 1.0  # 표준 (맥락 불명확)
+        if is_fomo_buy: return 1.5
+        elif is_panic_sell: return 1.0
+        else: return 1.0
+    else:
+        return 1.0
 
 @router.post("/analyze", response_model=AnalysisResponse)
 async def analyze_trades(file: UploadFile):
@@ -306,7 +263,6 @@ async def analyze_trades(file: UploadFile):
     unique_ticker_ranges = {}
     for _, row in df.iterrows():
         ticker = str(row['ticker'])
-        # [시간 기능 추가] API 호출 및 캐싱 시에는 날짜(YYYY-MM-DD)만 사용
         try:
             entry_date_key = pd.to_datetime(row['entry_date']).strftime("%Y-%m-%d")
             exit_date_key = pd.to_datetime(row['exit_date']).strftime("%Y-%m-%d")
@@ -321,10 +277,9 @@ async def analyze_trades(file: UploadFile):
     enriched_trades = []
     for _, row in df.iterrows():
         ticker = str(row['ticker'])
-        entry_date_full = str(row['entry_date']) # 시간 포함 원본
-        exit_date_full = str(row['exit_date'])   # 시간 포함 원본
+        entry_date_full = str(row['entry_date'])
+        exit_date_full = str(row['exit_date'])
         
-        # 시장 데이터 조회용 키
         try:
             entry_date_key = pd.to_datetime(entry_date_full).strftime("%Y-%m-%d")
             exit_date_key = pd.to_datetime(exit_date_full).strftime("%Y-%m-%d")
@@ -345,20 +300,26 @@ async def analyze_trades(file: UploadFile):
         }
         
         if market_df is not None:
-            metrics = calculate_metrics(row, market_df)
+            raw_metrics = calculate_metrics(row, market_df)
+            # [중요] 여기서 모든 메트릭을 안전하게 변환
+            for k, v in raw_metrics.items():
+                metrics[k] = safe_float(v)
         
-        # 거래 비용 계산 (수수료 + 슬리피지)
-        trading_cost = calculate_trading_cost(row['entry_price'], row['exit_price'], row['qty'])
-        
-        # PnL 계산 (거래 비용 반영)
-        pnl_gross = (row['exit_price'] - row['entry_price']) * row['qty']
+        entry_price = safe_float(row['entry_price'])
+        exit_price = safe_float(row['exit_price'])
+        qty = safe_float(row['qty'])
+
+        trading_cost = calculate_trading_cost(entry_price, exit_price, qty)
+        pnl_gross = (exit_price - entry_price) * qty
         pnl = pnl_gross - trading_cost
-        ret_pct = (row['exit_price'] - row['entry_price']) / row['entry_price']
         
-        # [시간 기능 추가] Duration 계산 시 시간까지 고려
+        ret_pct = 0.0
+        if entry_price != 0:
+            ret_pct = (exit_price - entry_price) / entry_price
+        
         d1 = pd.to_datetime(entry_date_full)
         d2 = pd.to_datetime(exit_date_full)
-        duration = max(0, (d2 - d1).days) # 소수점 일수 필요시 .total_seconds() / 86400 사용 가능
+        duration = max(0, (d2 - d1).days)
         
         market_regime = detect_market_regime(ticker, entry_date_key, market_df)
         
@@ -366,12 +327,12 @@ async def analyze_trades(file: UploadFile):
             "id": f"{ticker}-{entry_date_full}",
             "ticker": ticker,
             "entry_date": entry_date_full,
-            "entry_price": row['entry_price'],
+            "entry_price": entry_price,
             "exit_date": exit_date_full,
-            "exit_price": row['exit_price'],
-            "qty": row['qty'],
-            "pnl": pnl,
-            "return_pct": ret_pct,
+            "exit_price": exit_price,
+            "qty": qty,
+            "pnl": safe_float(pnl),
+            "return_pct": safe_float(ret_pct),
             "duration_days": duration,
             "market_regime": market_regime,
             "is_revenge": False,
@@ -380,7 +341,6 @@ async def analyze_trades(file: UploadFile):
         
     trades_df = pd.DataFrame(enriched_trades)
     
-    # 시간순 정렬 (시/분/초 포함)
     trades_df['entry_dt'] = pd.to_datetime(trades_df['entry_date'])
     trades_df['exit_dt'] = pd.to_datetime(trades_df['exit_date'])
     trades_df = trades_df.sort_values('entry_dt')
@@ -394,7 +354,6 @@ async def analyze_trades(file: UploadFile):
         is_revenge = False
         for _, prev in same_ticker.iterrows():
             if prev['pnl'] < 0:
-                # [시간 기능 추가] 정밀한 24시간 이내 재진입 체크
                 time_diff = (curr['entry_dt'] - prev['exit_dt']).total_seconds() / 3600
                 if 0 <= time_diff <= 24:
                     is_revenge = True
@@ -408,212 +367,145 @@ async def analyze_trades(file: UploadFile):
     winners = trades_df[trades_df['pnl'] > 0]
     losers = trades_df[trades_df['pnl'] <= 0]
     
-    win_rate = len(winners) / total_trades if total_trades > 0 else 0
-    avg_win = winners['pnl'].mean() if not winners.empty else 0
-    avg_loss = abs(losers['pnl'].mean()) if not losers.empty else 0
-    profit_factor = (avg_win * len(winners)) / (avg_loss * len(losers)) if avg_loss > 0 else 0
+    win_rate = len(winners) / total_trades if total_trades > 0 else 0.0
+    avg_win = winners['pnl'].mean() if not winners.empty else 0.0
+    avg_loss = abs(losers['pnl'].mean()) if not losers.empty else 0.0
+    profit_factor = (avg_win * len(winners)) / (avg_loss * len(losers)) if avg_loss > 0 else 0.0
     
     valid_fomo = trades_df[trades_df['fomo_score'] != -1]['fomo_score']
-    fomo_index = valid_fomo.mean() if not valid_fomo.empty else 0
+    fomo_index = valid_fomo.mean() if not valid_fomo.empty else 0.0
     
-    # --- Panic Score with Market Regime Weighting ---
     weighted_panic_sum = 0
     valid_panic_count = 0
-    
     for _, row in trades_df.iterrows():
         if row['panic_score'] != -1:
             score = row['panic_score']
             regime = row.get('market_regime', 'UNKNOWN')
-            
-            # 상승장(BULL)에서 저점 매도(Panic < 0.3)는 더 심각한 문제
-            # 하락장(BEAR)은 공포가 당연하므로 일반 처벌
-            if regime == 'BULL' and score < 0.3:  # 저점 매도인 경우만
-                score = max(0.0, score * 0.67)  # 1/1.5 = 0.67 (더 낮은 점수 = 더 나쁨)
-            # BEAR와 SIDEWAYS는 그대로 (1.0배)
-            
+            if regime == 'BULL' and score < 0.3:
+                score = max(0.0, score * 0.67)
             weighted_panic_sum += score
             valid_panic_count += 1
     
-    weighted_panic_avg = weighted_panic_sum / valid_panic_count if valid_panic_count > 0 else 0
-    panic_index = 1 - weighted_panic_avg  # 낮은 panic_score = 높은 panic_index
+    weighted_panic_avg = weighted_panic_sum / valid_panic_count if valid_panic_count > 0 else 0.0
+    panic_index = 1.0 - weighted_panic_avg
     
-    # --- Disposition Ratio with Time Context ---
-    avg_win_hold = winners['duration_days'].mean() if not winners.empty else 0
-    avg_loss_hold = losers['duration_days'].mean() if not losers.empty else 0
-    base_disposition_ratio = avg_loss_hold / avg_win_hold if avg_win_hold > 0 else 0
+    avg_win_hold = winners['duration_days'].mean() if not winners.empty else 0.0
+    avg_loss_hold = losers['duration_days'].mean() if not losers.empty else 0.0
+    base_disposition_ratio = avg_loss_hold / avg_win_hold if avg_win_hold > 0 else 0.0
     
-    # Time Context Weighting: 너무 짧은 시간 내 작은 수익 청산 패널티
     if not winners.empty:
-        # 5분 이내(0.1일) + 2% 미만 수익 = 단기 쫄보 청산
-        short_win_trades = winners[
-            (winners['duration_days'] < 0.1) &  # 약 2.4시간 이내
-            (winners['return_pct'] < 0.02)     # 2% 미만 수익
-        ]
+        short_win_trades = winners[(winners['duration_days'] < 0.1) & (winners['return_pct'] < 0.02)]
         if len(short_win_trades) > 0:
             short_win_ratio = len(short_win_trades) / len(winners)
-            if short_win_ratio > 0.3:  # 30% 이상이면 문제
-                # 단기 쫄보 청산 가중치 적용
+            if short_win_ratio > 0.3:
                 base_disposition_ratio *= (1 + short_win_ratio * 0.5)
     
-    # 장기 보유 후 손절도 문제 (30일 이상 보유 후 손절)
     if not losers.empty:
         long_loss_trades = losers[losers['duration_days'] > 30]
         if len(long_loss_trades) > 0:
             long_loss_ratio = len(long_loss_trades) / len(losers)
-            if long_loss_ratio > 0.2:  # 20% 이상이면 문제
+            if long_loss_ratio > 0.2:
                 base_disposition_ratio *= (1 + long_loss_ratio * 0.3)
     
     disposition_ratio = base_disposition_ratio
     
     returns = trades_df['return_pct'].tolist()
-    avg_return = np.mean(returns) if returns else 0.0
+    # [중요] returns 리스트의 각 항목도 안전하게 변환
+    returns = [safe_float(r) for r in returns]
     
+    avg_return = np.mean(returns) if returns else 0.0
     std_dev = np.std(returns) if len(returns) > 1 else 0.0
-    sharpe_ratio = (avg_return - 0.02/252) / std_dev if std_dev > 0 else 0.0
+    
+    sharpe_ratio = 0.0
+    if std_dev > 0:
+        sharpe_ratio = (avg_return - 0.02/252) / std_dev
     
     downside_returns = [r for r in returns if r < 0]
     downside_dev = np.sqrt(np.mean([r**2 for r in downside_returns])) if downside_returns else 0.0
-    sortino_ratio = avg_return / downside_dev if downside_dev > 0 else 0.0
     
-    # Maximum Drawdown (MDD) 계산
+    sortino_ratio = 0.0
+    if downside_dev > 0:
+        sortino_ratio = avg_return / downside_dev
+    
     max_drawdown = 0.0
     if len(trades_df) > 0:
         trades_df_sorted_for_mdd = trades_df.sort_values('entry_dt').copy()
         trades_df_sorted_for_mdd['cumulative_pnl'] = trades_df_sorted_for_mdd['pnl'].cumsum()
         
-        cumulative_pnls = trades_df_sorted_for_mdd['cumulative_pnl'].tolist()
+        cumulative_pnls = [safe_float(x) for x in trades_df_sorted_for_mdd['cumulative_pnl'].tolist()]
+        
         if len(cumulative_pnls) > 0:
             peak = cumulative_pnls[0]
             max_dd = 0.0
-            
             for pnl in cumulative_pnls:
-                if pnl > peak:
-                    peak = pnl
+                if pnl > peak: peak = pnl
                 if peak != 0:
                     drawdown = (peak - pnl) / abs(peak) if peak > 0 else 0.0
                 else:
                     drawdown = 0.0
-                if drawdown > max_dd:
-                    max_dd = drawdown
-            
-            max_drawdown = max_dd * 100  # 퍼센트로 변환
+                if drawdown > max_dd: max_dd = drawdown
+            max_drawdown = max_dd * 100
     
-    # --- Alpha 계산 (CAPM 기반 개선) ---
     alpha = 0.0
-    beta = 1.0
-    alpha_is_jensens = False
-    
     try:
-        if len(trades_df) > 0:
-            # CAPM 기반 Beta 및 Jensen's Alpha 계산 시도
-            beta, jensens_alpha, is_valid = calculate_beta_and_jensens_alpha(trades_df)
-            
-            if is_valid:
-                alpha = jensens_alpha
-                alpha_is_jensens = True
-            else:
-                # Fallback: 기존 단순 Alpha 계산
-                min_date = trades_df['entry_dt'].min()
-                max_date = trades_df['exit_dt'].max()
-                spy_start = (min_date - timedelta(days=10)).strftime("%Y-%m-%d")
-                spy_end = (max_date + timedelta(days=10)).strftime("%Y-%m-%d")
-                
-                spy_df = yf.download('SPY', start=spy_start, end=spy_end, progress=False)
-                if not spy_df.empty:
-                    if isinstance(spy_df.columns, pd.MultiIndex):
-                        spy_df.columns = spy_df.columns.get_level_values(0)
-                    
-                    spy_start_price = spy_df.iloc[0]['Close']
-                    spy_end_price = spy_df.iloc[-1]['Close']
-                    spy_return = (spy_end_price - spy_start_price) / spy_start_price
-                    
-                    portfolio_return = avg_return * len(trades_df)
-                    alpha = portfolio_return - spy_return
-                    alpha_is_jensens = False
-    except Exception as e:
+        beta, jensens_alpha, is_valid = calculate_beta_and_jensens_alpha(trades_df)
+        if is_valid:
+            alpha = jensens_alpha
+        else:
+            alpha = avg_return
+    except:
         alpha = avg_return
-        alpha_is_jensens = False
-    
+
     luck_percentile = 50.0
-    is_low_sample = total_trades < 5
-    if not is_low_sample and len(trades_df) > 0:
+    if total_trades >= 5 and len(trades_df) > 0:
         simulations = 1000
         realized_total_pnl = trades_df['pnl'].sum()
-        
-        # 실제 통계 계산
         winners_df = trades_df[trades_df['pnl'] > 0]
         losers_df = trades_df[trades_df['pnl'] <= 0]
-        win_rate = len(winners_df) / len(trades_df) if len(trades_df) > 0 else 0
+        sim_win_rate = len(winners_df) / len(trades_df) if len(trades_df) > 0 else 0
         
-        # 실제 PnL 분포
         win_pnls = winners_df['pnl'].tolist()
         loss_pnls = losers_df['pnl'].abs().tolist()
         
         better_outcomes = 0
-        simulation_results = []
         
-        np.random.seed(42)
-        for _ in range(simulations):
-            sim_total = 0
+        if win_pnls or loss_pnls:
+            np.random.seed(42)
+            for _ in range(simulations):
+                sim_total = 0
+                for _ in range(total_trades):
+                    if np.random.random() < sim_win_rate:
+                        if win_pnls: sim_total += np.random.choice(win_pnls)
+                    else:
+                        if loss_pnls: sim_total -= np.random.choice(loss_pnls)
+                
+                if sim_total > realized_total_pnl:
+                    better_outcomes += 1
             
-            # 실제 승률을 유지하면서 실제 PnL 분포에서 샘플링
-            for _ in range(total_trades):
-                if np.random.random() < win_rate:
-                    # 승리: 실제 승리 PnL 중 랜덤 선택
-                    if len(win_pnls) > 0:
-                        sim_total += np.random.choice(win_pnls)
-                else:
-                    # 패배: 실제 손실 PnL 중 랜덤 선택
-                    if len(loss_pnls) > 0:
-                        sim_total -= np.random.choice(loss_pnls)
-            
-            simulation_results.append(sim_total)
-            if sim_total > realized_total_pnl:
-                better_outcomes += 1
-        
-        # Percentile 계산
-        luck_percentile = (better_outcomes / simulations) * 100
-        
-        # 추가: 시뮬레이션 결과의 분포를 보고 해석 개선
-        if len(simulation_results) > 0:
-            simulation_results.sort()
-            p25 = simulation_results[int(simulations * 0.25)]
-            p75 = simulation_results[int(simulations * 0.75)]
-            
-            # 실제 성과가 분위수보다 얼마나 다른지
-            if realized_total_pnl > p75:
-                # 상위 25%에 속함 = 운이 좋음
-                luck_percentile = max(0, luck_percentile - 5)
-            elif realized_total_pnl < p25:
-                # 하위 25%에 속함 = 운이 나쁨
-                luck_percentile = min(100, luck_percentile + 5)
+            luck_percentile = (better_outcomes / simulations) * 100
+
+    total_regret = trades_df['regret'].sum() if 'regret' in trades_df else 0.0
     
-    # --- Truth Score Calculation (Market Regime Weighted) ---
     weighted_fomo_sum = 0
     valid_fomo_count = 0
-    
     for _, row in trades_df.iterrows():
         if row['fomo_score'] != -1:
             score = row['fomo_score']
             regime = row.get('market_regime', 'UNKNOWN')
-            
-            if regime == 'BEAR':
-                score *= 1.5
-            elif regime == 'BULL':
-                score *= 0.8
-                
+            if regime == 'BEAR': score *= 1.5
+            elif regime == 'BULL': score *= 0.8
             weighted_fomo_sum += score
             valid_fomo_count += 1
             
-    weighted_fomo_index = weighted_fomo_sum / valid_fomo_count if valid_fomo_count > 0 else 0
+    weighted_fomo_index = weighted_fomo_sum / valid_fomo_count if valid_fomo_count > 0 else 0.0
     
-    base_score = 50
+    base_score = 50.0
     base_score += (win_rate * 20)
     base_score -= (weighted_fomo_index * 20) 
     base_score -= ((1 - panic_index) * 20) 
-    base_score -= max(0, (disposition_ratio - 1) * 10)
+    base_score -= max(0.0, (disposition_ratio - 1) * 10)
     base_score -= (revenge_count * 5)
-    if not is_low_sample:
+    if total_trades >= 5:
         base_score += (sharpe_ratio * 5)
     else:
         base_score += 5
@@ -623,14 +515,14 @@ async def analyze_trades(file: UploadFile):
     personal_baseline = None
     if total_trades >= 3:
         valid_mae = trades_df[trades_df['mae'] != 0]['mae']
-        avg_mae = valid_mae.mean() if not valid_mae.empty else 0
+        avg_mae = valid_mae.mean() if not valid_mae.empty else 0.0
         
         personal_baseline = PersonalBaseline(
-            avg_fomo=fomo_index,
-            avg_panic=panic_index,
-            avg_mae=abs(avg_mae) if avg_mae < 0 else 0,
-            avg_disposition_ratio=disposition_ratio,
-            avg_revenge_count=revenge_count / total_trades if total_trades > 0 else 0
+            avg_fomo=safe_float(fomo_index),
+            avg_panic=safe_float(panic_index),
+            avg_mae=safe_float(abs(avg_mae) if avg_mae < 0 else 0),
+            avg_disposition_ratio=safe_float(disposition_ratio),
+            avg_revenge_count=safe_float(revenge_count / total_trades if total_trades > 0 else 0)
         )
     
     bias_loss_mapping = None
@@ -648,13 +540,12 @@ async def analyze_trades(file: UploadFile):
         disposition_loss = winners_with_regret['regret'].sum() if not winners_with_regret.empty else 0
         
         bias_loss_mapping = BiasLossMapping(
-            fomo_loss=float(fomo_loss),
-            panic_loss=float(panic_loss),
-            revenge_loss=float(revenge_loss),
-            disposition_loss=float(disposition_loss)
+            fomo_loss=safe_float(fomo_loss),
+            panic_loss=safe_float(panic_loss),
+            revenge_loss=safe_float(revenge_loss),
+            disposition_loss=safe_float(disposition_loss)
         )
     
-    # Bias-Free Metrics 계산 (기회비용 반영)
     bias_free_metrics = None
     if total_trades > 0:
         current_total_pnl = trades_df['pnl'].sum()
@@ -665,19 +556,17 @@ async def analyze_trades(file: UploadFile):
             bias_loss_mapping.disposition_loss
         ) if bias_loss_mapping else 0.0
         
-        # 기회비용 계산 (편향 거래 기간 동안 SPY 수익률)
         opportunity_cost, biased_trades_pnl, spy_return_rate, total_bias_loss, spy_load_failed_opportunity = calculate_opportunity_cost(trades_df)
         
-        # PRISM Adjusted PnL = Actual PnL - (Biased Trades PnL) + (SPY Return during Biased Trade Duration)
         adjusted_pnl = current_total_pnl - biased_trades_pnl + opportunity_cost
         adjusted_improvement = adjusted_pnl - current_total_pnl
         
         bias_free_metrics = BiasFreeMetrics(
-            current_pnl=float(current_total_pnl),
-            potential_pnl=float(adjusted_pnl),
-            bias_loss=float(total_bias_loss_from_mapping),
-            opportunity_cost=float(opportunity_cost),
-            adjusted_improvement=float(adjusted_improvement)
+            current_pnl=safe_float(current_total_pnl),
+            potential_pnl=safe_float(adjusted_pnl),
+            bias_loss=safe_float(total_bias_loss_from_mapping),
+            opportunity_cost=safe_float(opportunity_cost),
+            adjusted_improvement=safe_float(adjusted_improvement)
         )
     
     bias_priority = None
@@ -691,9 +580,9 @@ async def analyze_trades(file: UploadFile):
             priorities.append(BiasPriority(
                 bias='FOMO',
                 priority=0,
-                financial_loss=bias_loss_mapping.fomo_loss,
-                frequency=fomo_frequency,
-                severity=fomo_severity
+                financial_loss=safe_float(bias_loss_mapping.fomo_loss),
+                frequency=safe_float(fomo_frequency),
+                severity=safe_float(fomo_severity)
             ))
         
         low_panic_count = len(trades_df[(trades_df['panic_score'] < 0.3) & (trades_df['panic_score'] != -1)])
@@ -703,9 +592,9 @@ async def analyze_trades(file: UploadFile):
             priorities.append(BiasPriority(
                 bias='Panic Sell',
                 priority=0,
-                financial_loss=bias_loss_mapping.panic_loss,
-                frequency=panic_frequency,
-                severity=panic_severity
+                financial_loss=safe_float(bias_loss_mapping.panic_loss),
+                frequency=safe_float(panic_frequency),
+                severity=safe_float(panic_severity)
             ))
         
         revenge_frequency = revenge_count / total_trades if total_trades > 0 else 0
@@ -714,9 +603,9 @@ async def analyze_trades(file: UploadFile):
             priorities.append(BiasPriority(
                 bias='Revenge Trading',
                 priority=0,
-                financial_loss=bias_loss_mapping.revenge_loss,
-                frequency=revenge_frequency,
-                severity=revenge_severity
+                financial_loss=safe_float(bias_loss_mapping.revenge_loss),
+                frequency=safe_float(revenge_frequency),
+                severity=safe_float(revenge_severity)
             ))
         
         disposition_frequency = len(winners_with_regret) / len(winners) if not winners.empty else 0
@@ -725,34 +614,20 @@ async def analyze_trades(file: UploadFile):
             priorities.append(BiasPriority(
                 bias='Disposition Effect',
                 priority=0,
-                financial_loss=bias_loss_mapping.disposition_loss,
-                frequency=disposition_frequency,
-                severity=disposition_severity
+                financial_loss=safe_float(bias_loss_mapping.disposition_loss),
+                frequency=safe_float(disposition_frequency),
+                severity=safe_float(disposition_severity)
             ))
         
-        # 정렬: 손실 중심이지만 빈도와 심각도도 합리적으로 반영
-        # 공식: 손실($) * 10 + 빈도(%) * 30 + 심각도(%) * 20
-        # 예시:
-        # - $500 손실, 20% 빈도, 50% 심각도 = 5000 + 600 + 1000 = 6600점
-        # - $100 손실, 50% 빈도, 80% 심각도 = 1000 + 1500 + 1600 = 4100점
-        # → 손실이 큰 편향이 우선순위가 높음
-        
-        # 손실이 0이지만 빈도와 심각도가 매우 높은 경우도 고려
         def calculate_priority_score(p: BiasPriority) -> float:
-            # 기본 점수: 손실 중심
             base_score = p.financial_loss * 10
-            
-            # 손실이 없거나 작을 때: 빈도와 심각도로 보완
             if p.financial_loss < 50:
-                # 빈도와 심각도가 모두 높으면 잠재적 위험으로 간주
                 if p.frequency > 0.5 and p.severity > 0.6:
                     base_score += (p.frequency * 100 * 20) + (p.severity * 100 * 15)
                 else:
                     base_score += (p.frequency * 100 * 10) + (p.severity * 100 * 5)
             else:
-                # 손실이 있을 때: 빈도와 심각도는 보조 지표
                 base_score += (p.frequency * 100 * 20) + (p.severity * 100 * 10)
-            
             return base_score
         
         priorities.sort(key=calculate_priority_score, reverse=True)
@@ -767,72 +642,64 @@ async def analyze_trades(file: UploadFile):
         baseline_trades = trades_df.head(max(1, total_trades - 3))
         shifts = []
         
-        recent_fomo = recent_trades[recent_trades['fomo_score'] != -1]['fomo_score'].mean() if not recent_trades[recent_trades['fomo_score'] != -1].empty else 0
-        baseline_fomo = baseline_trades[baseline_trades['fomo_score'] != -1]['fomo_score'].mean() if not baseline_trades[baseline_trades['fomo_score'] != -1].empty else 0
-        if baseline_fomo > 0:
-            fomo_change = ((recent_fomo - baseline_fomo) / baseline_fomo) * 100
-            fomo_trend = 'IMPROVING' if fomo_change < -5 else 'WORSENING' if fomo_change > 5 else 'STABLE'
-            shifts.append(BehaviorShift(
-                bias='FOMO',
-                recent_value=recent_fomo,
-                baseline_value=baseline_fomo,
-                change_percent=fomo_change,
-                trend=fomo_trend
-            ))
+        # Helper to safely calculate shift
+        def calc_shift(recent, baseline, bias_name):
+            if baseline > 0:
+                change = ((recent - baseline) / baseline) * 100
+                trend = 'IMPROVING' if change < -5 else 'WORSENING' if change > 5 else 'STABLE'
+                
+                if bias_name == 'Panic Sell':
+                    trend = 'IMPROVING' if change > 5 else 'WORSENING' if change < -5 else 'STABLE'
+                elif bias_name == 'Disposition Effect':
+                    trend = 'IMPROVING' if change < -10 else 'WORSENING' if change > 10 else 'STABLE'
+                else:
+                    trend = 'IMPROVING' if change < -5 else 'WORSENING' if change > 5 else 'STABLE'
+
+                shifts.append(BehaviorShift(
+                    bias=bias_name,
+                    recent_value=safe_float(recent),
+                    baseline_value=safe_float(baseline),
+                    change_percent=safe_float(change),
+                    trend=trend
+                ))
+
+        # FOMO
+        rec_fomo = recent_trades[recent_trades['fomo_score'] != -1]['fomo_score'].mean() if not recent_trades.empty else 0
+        base_fomo = baseline_trades[baseline_trades['fomo_score'] != -1]['fomo_score'].mean() if not baseline_trades.empty else 0
+        calc_shift(rec_fomo, base_fomo, 'FOMO')
         
-        recent_panic = recent_trades[recent_trades['panic_score'] != -1]['panic_score'].mean() if not recent_trades[recent_trades['panic_score'] != -1].empty else 0
-        baseline_panic = baseline_trades[baseline_trades['panic_score'] != -1]['panic_score'].mean() if not baseline_trades[baseline_trades['panic_score'] != -1].empty else 0
-        if baseline_panic > 0:
-            panic_change = ((recent_panic - baseline_panic) / baseline_panic) * 100
-            panic_trend = 'IMPROVING' if panic_change > 5 else 'WORSENING' if panic_change < -5 else 'STABLE'
-            shifts.append(BehaviorShift(
-                bias='Panic Sell',
-                recent_value=recent_panic,
-                baseline_value=baseline_panic,
-                change_percent=panic_change,
-                trend=panic_trend
-            ))
+        # Panic
+        rec_panic = recent_trades[recent_trades['panic_score'] != -1]['panic_score'].mean() if not recent_trades.empty else 0
+        base_panic = baseline_trades[baseline_trades['panic_score'] != -1]['panic_score'].mean() if not baseline_trades.empty else 0
+        calc_shift(rec_panic, base_panic, 'Panic Sell')
         
-        recent_revenge = len(recent_trades[recent_trades['is_revenge'] == True])
-        baseline_revenge = len(baseline_trades[baseline_trades['is_revenge'] == True])
-        baseline_revenge_rate = baseline_revenge / len(baseline_trades) if len(baseline_trades) > 0 else 0
-        recent_revenge_rate = recent_revenge / len(recent_trades) if len(recent_trades) > 0 else 0
-        if baseline_revenge_rate > 0 or recent_revenge_rate > 0:
-            revenge_change = ((recent_revenge_rate - baseline_revenge_rate) / (baseline_revenge_rate + 0.01)) * 100
-            revenge_trend = 'IMPROVING' if revenge_change < -10 else 'WORSENING' if revenge_change > 10 else 'STABLE'
-            shifts.append(BehaviorShift(
-                bias='Revenge Trading',
-                recent_value=recent_revenge_rate,
-                baseline_value=baseline_revenge_rate,
-                change_percent=revenge_change,
-                trend=revenge_trend
-            ))
+        # Revenge
+        rec_rev = len(recent_trades[recent_trades['is_revenge'] == True])
+        base_rev = len(baseline_trades[baseline_trades['is_revenge'] == True])
+        base_rev_rate = base_rev / len(baseline_trades) if len(baseline_trades) > 0 else 0
+        rec_rev_rate = rec_rev / len(recent_trades) if len(recent_trades) > 0 else 0
+        calc_shift(rec_rev_rate, base_rev_rate + 0.0001, 'Revenge Trading')
         
-        recent_winners = recent_trades[recent_trades['pnl'] > 0]
-        recent_losers = recent_trades[recent_trades['pnl'] <= 0]
-        baseline_winners = baseline_trades[baseline_trades['pnl'] > 0]
-        baseline_losers = baseline_trades[baseline_trades['pnl'] <= 0]
-        
-        recent_disposition = (recent_losers['duration_days'].mean() / recent_winners['duration_days'].mean()) if (not recent_winners.empty and not recent_losers.empty and recent_winners['duration_days'].mean() > 0) else 0
-        baseline_disposition = (baseline_losers['duration_days'].mean() / baseline_winners['duration_days'].mean()) if (not baseline_winners.empty and not baseline_losers.empty and baseline_winners['duration_days'].mean() > 0) else 0
-        
-        if baseline_disposition > 0 and recent_disposition > 0:
-            disposition_change = ((recent_disposition - baseline_disposition) / baseline_disposition) * 100
-            disposition_trend = 'IMPROVING' if disposition_change < -10 else 'WORSENING' if disposition_change > 10 else 'STABLE'
-            shifts.append(BehaviorShift(
-                bias='Disposition Effect',
-                recent_value=recent_disposition,
-                baseline_value=baseline_disposition,
-                change_percent=disposition_change,
-                trend=disposition_trend
-            ))
+        # Disposition
+        rec_winners = recent_trades[recent_trades['pnl'] > 0]
+        rec_losers = recent_trades[recent_trades['pnl'] <= 0]
+        rec_disp = 0
+        if not rec_winners.empty and not rec_losers.empty:
+            rec_disp = rec_losers['duration_days'].mean() / rec_winners['duration_days'].mean()
+            
+        base_winners = baseline_trades[baseline_trades['pnl'] > 0]
+        base_losers = baseline_trades[baseline_trades['pnl'] <= 0]
+        base_disp = 0
+        if not base_winners.empty and not base_losers.empty:
+            base_disp = base_losers['duration_days'].mean() / base_winners['duration_days'].mean()
+            
+        calc_shift(rec_disp, base_disp, 'Disposition Effect')
         
         behavior_shift = shifts if shifts else None
     
     trades_df_sorted = trades_df.sort_values('entry_dt')
     trades_df_sorted['cumulative_pnl'] = trades_df_sorted['pnl'].cumsum()
     
-    # 벤치마크(SPY) 수익률 계산
     benchmark_data = None
     benchmark_load_failed = False
     try:
@@ -842,29 +709,30 @@ async def analyze_trades(file: UploadFile):
             spy_start = (min_date - timedelta(days=5)).strftime("%Y-%m-%d")
             spy_end = (max_date + timedelta(days=5)).strftime("%Y-%m-%d")
             
-            spy_df = yf.download('SPY', start=spy_start, end=spy_end, progress=False)
+            spy_df = yf.download('SPY', start=spy_start, end=spy_end, progress=False, auto_adjust=False)
             if spy_df.empty:
                 benchmark_load_failed = True
             elif not spy_df.empty:
                 if isinstance(spy_df.columns, pd.MultiIndex):
                     spy_df.columns = spy_df.columns.get_level_values(0)
                 
-                # 초기 SPY 가격 및 사용자 초기 투자금 계산
-                initial_spy_price = spy_df.iloc[0]['Close']
-                initial_investment = abs(trades_df_sorted.iloc[0]['entry_price'] * trades_df_sorted.iloc[0]['qty'])
+                initial_spy_price = safe_float(spy_df.iloc[0]['Close'])
+                initial_investment = abs(safe_float(trades_df_sorted.iloc[0]['entry_price']) * safe_float(trades_df_sorted.iloc[0]['qty']))
                 
-                # 각 거래 시점에서의 누적 SPY 수익률 계산
                 benchmark_data = {}
-                
                 for idx, (_, row) in enumerate(trades_df_sorted.iterrows()):
                     entry_dt = pd.to_datetime(row['entry_dt']).normalize()
-                    entry_idx = spy_df.index.get_indexer([entry_dt], method='nearest')[0]
                     
+                    if entry_dt in spy_df.index:
+                        entry_idx = spy_df.index.get_loc(entry_dt)
+                    else:
+                        entry_locs = spy_df.index.get_indexer([entry_dt], method='nearest')
+                        entry_idx = entry_locs[0] if entry_locs[0] != -1 else -1
+                        
                     if entry_idx != -1 and entry_idx < len(spy_df):
-                        current_spy_price = spy_df.iloc[entry_idx]['Close']
-                        spy_return_pct = (current_spy_price - initial_spy_price) / initial_spy_price if initial_spy_price > 0 else 0
-                        # 초기 투자금 기준으로 SPY 수익금 계산 (사용자 수익률과 비교 가능하도록)
-                        benchmark_data[row['id']] = initial_investment * spy_return_pct
+                        current_spy_price = safe_float(spy_df.iloc[entry_idx]['Close'])
+                        spy_return_pct = (current_spy_price - initial_spy_price) / initial_spy_price if initial_spy_price > 0 else 0.0
+                        benchmark_data[row['id']] = safe_float(initial_investment * spy_return_pct)
     except Exception as e:
         print(f"Error calculating benchmark data: {e}")
         benchmark_load_failed = True
@@ -878,92 +746,81 @@ async def analyze_trades(file: UploadFile):
         
         equity_curve.append(EquityCurvePoint(
             date=row['entry_date'],
-            cumulative_pnl=float(row['cumulative_pnl']),
-            fomo_score=float(row['fomo_score']) if row['fomo_score'] != -1 else None,
-            panic_score=float(row['panic_score']) if row['panic_score'] != -1 else None,
+            cumulative_pnl=safe_float(row['cumulative_pnl']),
+            fomo_score=safe_float(row['fomo_score']) if row['fomo_score'] != -1 else None,
+            panic_score=safe_float(row['panic_score']) if row['panic_score'] != -1 else None,
             is_revenge=bool(row['is_revenge']),
             ticker=row['ticker'],
-            pnl=float(row['pnl']),
-            trade_id=row['id'],  # 클릭 인터랙션용
-            base_score=row.get('base_score'),
-            volume_weight=row.get('volume_weight'),
-            regime_weight=row.get('regime_weight'),
-            contextual_score=row.get('contextual_score'),
+            pnl=safe_float(row['pnl']),
+            trade_id=row['id'],
+            base_score=safe_float(row.get('base_score')) if pd.notna(row.get('base_score')) else None,
+            volume_weight=safe_float(row.get('volume_weight')) if pd.notna(row.get('volume_weight')) else None,
+            regime_weight=safe_float(row.get('regime_weight')) if pd.notna(row.get('regime_weight')) else None,
+            contextual_score=safe_float(row.get('contextual_score')) if pd.notna(row.get('contextual_score')) else None,
             market_regime=row.get('market_regime', 'UNKNOWN'),
-            benchmark_cumulative_pnl=benchmark_pnl
+            benchmark_cumulative_pnl=safe_float(benchmark_pnl) if benchmark_pnl is not None else None
         ))
     
     metrics_obj = BehavioralMetrics(
         total_trades=total_trades,
-        win_rate=win_rate,
-        profit_factor=profit_factor,
-        fomo_score=fomo_index,
-        panic_score=panic_index,
-        disposition_ratio=disposition_ratio,
+        win_rate=safe_float(win_rate),
+        profit_factor=safe_float(profit_factor),
+        fomo_score=safe_float(fomo_index),
+        panic_score=safe_float(panic_index),
+        disposition_ratio=safe_float(disposition_ratio),
         revenge_trading_count=revenge_count,
         truth_score=truth_score,
-        sharpe_ratio=float(sharpe_ratio),
-        sortino_ratio=float(sortino_ratio),
-        alpha=float(alpha),
-        luck_percentile=float(luck_percentile),
-        max_drawdown=float(max_drawdown)
+        sharpe_ratio=safe_float(sharpe_ratio),
+        sortino_ratio=safe_float(sortino_ratio),
+        alpha=safe_float(alpha),
+        luck_percentile=safe_float(luck_percentile),
+        max_drawdown=safe_float(max_drawdown)
     )
     
-    # --- Contextual Score 분해 필드 계산 (조건부 부착) ---
     for idx, row in trades_df.iterrows():
         fomo_score = row.get('fomo_score', -1.0)
         panic_score = row.get('panic_score', -1.0)
         is_revenge = row.get('is_revenge', False)
-        market_regime = row.get('market_regime', 'UNKNOWN')
         
-        # 분해 필드 부착 기준 (OR 조건)
         should_decompose = (
-            (fomo_score != -1 and fomo_score >= 0.7) or  # Condition 1: High FOMO
-            (panic_score != -1 and panic_score <= 0.3) or  # Condition 2: High Panic
-            is_revenge  # Condition 3: Revenge Trading
+            (fomo_score != -1 and fomo_score >= 0.7) or 
+            (panic_score != -1 and panic_score <= 0.3) or 
+            is_revenge
         )
         
         if should_decompose:
-            # Base Score 계산 (순수 심리 지표 기반, 0~100 스케일)
             fomo_base = row.get('fomo_score_base', fomo_score if fomo_score != -1 else 0.5)
             panic_base = row.get('panic_score_base', panic_score if panic_score != -1 else 0.5)
             
-            # Base Score: 100점에서 FOMO와 Panic 페널티 차감
             base_score = 100.0
             if fomo_score != -1:
-                base_score -= (fomo_base * 20)  # FOMO 페널티 (최대 20점)
+                base_score -= (fomo_base * 20)
             if panic_score != -1:
-                base_score -= ((1 - panic_base) * 20)  # Panic 페널티 (최대 20점)
+                base_score -= ((1 - panic_base) * 20)
             base_score = max(0.0, min(100.0, base_score))
             
-            # Volume Weight (진입/청산 중 더 나쁜 쪽 선택)
             vol_weight_entry = row.get('volume_weight_entry', 1.0)
             vol_weight_exit = row.get('volume_weight_exit', 1.0)
-            volume_weight = max(vol_weight_entry, vol_weight_exit)  # 더 큰 가중치 사용
+            volume_weight = max(vol_weight_entry, vol_weight_exit)
             
-            # Regime Weight
             regime_weight = calculate_regime_weight(
-                market_regime, 
+                row.get('market_regime', 'UNKNOWN'), 
                 fomo_score, 
                 panic_score
             )
             
-            # Contextual Score (표시용, 0~150 clamp)
             contextual_score = base_score * volume_weight * regime_weight
             contextual_score = max(0.0, min(150.0, contextual_score))
             
-            # 분해 필드 추가
-            trades_df.at[idx, 'base_score'] = float(base_score)
-            trades_df.at[idx, 'volume_weight'] = float(volume_weight)
-            trades_df.at[idx, 'regime_weight'] = float(regime_weight)
-            trades_df.at[idx, 'contextual_score'] = float(contextual_score)
+            trades_df.at[idx, 'base_score'] = safe_float(base_score)
+            trades_df.at[idx, 'volume_weight'] = safe_float(volume_weight)
+            trades_df.at[idx, 'regime_weight'] = safe_float(regime_weight)
+            trades_df.at[idx, 'contextual_score'] = safe_float(contextual_score)
         else:
-            # 분해 필드 없음 (None)
             trades_df.at[idx, 'base_score'] = None
             trades_df.at[idx, 'volume_weight'] = None
             trades_df.at[idx, 'regime_weight'] = None
             trades_df.at[idx, 'contextual_score'] = None
-    # --------------------------------------------------------
     
     final_trades = []
     for _, row in trades_df.iterrows():
@@ -971,34 +828,32 @@ async def analyze_trades(file: UploadFile):
             id=row['id'],
             ticker=row['ticker'],
             entry_date=row['entry_date'],
-            entry_price=row['entry_price'],
+            entry_price=safe_float(row['entry_price']),
             exit_date=row['exit_date'],
-            exit_price=row['exit_price'],
-            qty=row['qty'],
-            pnl=row['pnl'],
-            return_pct=row['return_pct'],
-            duration_days=row['duration_days'],
+            exit_price=safe_float(row['exit_price']),
+            qty=safe_float(row['qty']),
+            pnl=safe_float(row['pnl']),
+            return_pct=safe_float(row['return_pct']),
+            duration_days=int(row['duration_days']),
             market_regime=row['market_regime'],
-            is_revenge=row['is_revenge'],
-            fomo_score=row['fomo_score'],
-            panic_score=row['panic_score'],
-            mae=row['mae'],
-            mfe=row['mfe'],
-            efficiency=row['efficiency'],
-            regret=row['regret'],
-            entry_day_high=row['entry_day_high'],
-            entry_day_low=row['entry_day_low'],
-            exit_day_high=row['exit_day_high'],
-            exit_day_low=row['exit_day_low'],
-            base_score=row.get('base_score'),
-            volume_weight=row.get('volume_weight'),
-            regime_weight=row.get('regime_weight'),
-            contextual_score=row.get('contextual_score')
+            is_revenge=bool(row['is_revenge']),
+            fomo_score=safe_float(row['fomo_score']),
+            panic_score=safe_float(row['panic_score']),
+            mae=safe_float(row['mae']),
+            mfe=safe_float(row['mfe']),
+            efficiency=safe_float(row['efficiency']),
+            regret=safe_float(row['regret']),
+            entry_day_high=safe_float(row['entry_day_high']),
+            entry_day_low=safe_float(row['entry_day_low']),
+            exit_day_high=safe_float(row['exit_day_high']),
+            exit_day_low=safe_float(row['exit_day_low']),
+            base_score=safe_float(row.get('base_score')) if pd.notna(row.get('base_score')) else None,
+            volume_weight=safe_float(row.get('volume_weight')) if pd.notna(row.get('volume_weight')) else None,
+            regime_weight=safe_float(row.get('regime_weight')) if pd.notna(row.get('regime_weight')) else None,
+            contextual_score=safe_float(row.get('contextual_score')) if pd.notna(row.get('contextual_score')) else None
         ))
 
     deep_patterns = extract_deep_patterns(trades_df)
-    
-    # SPY 로드 실패 플래그 (기회비용 또는 벤치마크 계산 중 하나라도 실패하면 True)
     benchmark_load_failed_final = benchmark_load_failed or spy_load_failed_opportunity
     
     return AnalysisResponse(

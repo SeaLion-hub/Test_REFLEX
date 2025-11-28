@@ -54,21 +54,32 @@ export const fetchExchangeRate = async (): Promise<number> => {
   }
 };
 
-// 통화 포맷팅 함수
+// 통화 포맷팅 함수 (수정됨: 한국 단위 버그 수정)
 export const formatCurrency = (amount: number, currency: Currency, exchangeRate: number): string => {
   if (currency === 'KRW') {
     const krwAmount = amount * exchangeRate;
-    if (Math.abs(krwAmount) >= 1000000) {
-      return `${(krwAmount / 1000000).toFixed(1)}만원`;
-    } else if (Math.abs(krwAmount) >= 1000) {
-      return `${(krwAmount / 1000).toFixed(0)}천원`;
+    const absAmount = Math.abs(krwAmount);
+    
+    // 1억 이상
+    if (absAmount >= 100000000) {
+      return `${(krwAmount / 100000000).toFixed(2)}억원`;
+    } 
+    // 1만 이상 (10,000원 -> 1만원, 1,300,000원 -> 130만원)
+    else if (absAmount >= 10000) {
+      return `${(krwAmount / 10000).toFixed(0)}만원`;
+    } 
+    // 그 외 (천원 단위 등) -> 그냥 원화로 표시
+    else {
+      return `${Math.round(krwAmount).toLocaleString()}원`;
     }
-    return `${Math.abs(krwAmount).toFixed(0)}원`;
   } else {
-    if (Math.abs(amount) >= 1000) {
-      return `$${(Math.abs(amount) / 1000).toFixed(1)}k`;
+    // USD 포맷팅
+    const absAmount = Math.abs(amount);
+    if (absAmount >= 1000000) {
+      return `$${(amount / 1000000).toFixed(1)}M`;
+    } else if (absAmount >= 1000) {
+      return `$${(amount / 1000).toFixed(1)}k`;
     }
-    return `$${Math.abs(amount).toFixed(0)}`;
+    return `$${amount.toFixed(0)}`;
   }
 };
-

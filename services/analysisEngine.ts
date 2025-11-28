@@ -456,7 +456,7 @@ export const analyzeTrades = async (rawRows: RawCsvRow[]): Promise<AnalysisResul
                 biasLossMapping,
                 biasPriority: undefined, 
                 behaviorShift: undefined,
-                benchmarkLoadFailed: json.benchmark_load_failed || false
+                benchmarkLoadFailed: false
             };
 };
 

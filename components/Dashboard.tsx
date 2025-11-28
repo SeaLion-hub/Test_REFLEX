@@ -193,7 +193,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset, showAnalysi
   const [loadingAI, setLoadingAI] = useState(false);
   const [showDeepDive, setShowDeepDive] = useState(false);
   const [showBiasFreeSimulation, setShowBiasFreeSimulation] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(false); // 기본값: 라이트 모드
   
   // Strategy Tagging State
   const [selectedTrade, setSelectedTrade] = useState<EnrichedTrade | null>(null);
@@ -262,14 +262,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset, showAnalysi
   }, []);
 
   useEffect(() => {
-    // Load theme preference from localStorage
+    // Load theme preference from localStorage (기본값: 라이트 모드)
     const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'light') {
-      setIsDarkMode(false);
-      document.documentElement.classList.remove('dark');
-    } else {
+    if (savedTheme === 'dark') {
       setIsDarkMode(true);
       document.documentElement.classList.add('dark');
+    } else {
+      setIsDarkMode(false);
+      document.documentElement.classList.remove('dark');
+      // 기본값을 라이트 모드로 설정
+      if (!savedTheme) {
+        localStorage.setItem('theme', 'light');
+      }
     }
   }, []);
 
@@ -968,6 +972,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onReset, showAnalysi
                 analysis={aiAnalysis} 
                 loading={loadingAI}
                 truthScore={currentMetrics.truthScore}
+                isDarkMode={isDarkMode}
               />
             </div>
           </div>

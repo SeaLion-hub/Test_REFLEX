@@ -9,24 +9,39 @@
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
       body {
         font-family: 'Inter', sans-serif;
+        background-color: #ffffff; /* white - 기본 라이트 모드 */
+        color: #18181b; /* zinc-900 - 기본 라이트 모드 텍스트 */
+        transition: background-color 0.3s ease, color 0.3s ease;
+      }
+      body.dark {
         background-color: #09090b; /* zinc-950 */
         color: #e4e4e7; /* zinc-200 */
       }
       .font-mono {
         font-family: 'JetBrains Mono', monospace;
       }
-      /* Custom Scrollbar */
+      /* Custom Scrollbar - 라이트 모드 */
       ::-webkit-scrollbar {
         width: 8px;
       }
       ::-webkit-scrollbar-track {
-        background: #18181b;
+        background: #f4f4f5; /* zinc-100 */
       }
       ::-webkit-scrollbar-thumb {
-        background: #3f3f46;
+        background: #d4d4d8; /* zinc-300 */
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
+        background: #a1a1aa; /* zinc-400 */
+      }
+      /* 다크 모드 스크롤바 */
+      body.dark ::-webkit-scrollbar-track {
+        background: #18181b;
+      }
+      body.dark ::-webkit-scrollbar-thumb {
+        background: #3f3f46;
+      }
+      body.dark ::-webkit-scrollbar-thumb:hover {
         background: #52525b;
       }
     </style>

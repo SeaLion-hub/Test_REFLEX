@@ -1,5 +1,5 @@
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Upload, FileText, AlertCircle, Skull, GitMerge, Database, FileSpreadsheet, FileSearch, TrendingUp, Brain, Shield } from 'lucide-react';
 import { parseCSV, analyzeTrades } from '../services/analysisEngine';
 import { AnalysisResult } from '../types';
@@ -41,6 +41,34 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [loadingStage, setLoadingStage] = useState<string>('');
   const [isRektMode, setIsRektMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false); // 기본값: 라이트 모드
+
+  // 다크모드 상태 동기화
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    const dark = savedTheme === 'dark';
+    setIsDarkMode(dark);
+    
+    // documentElement 클래스 동기화
+    if (dark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+
+    // 테마 변경 감지
+    const observer = new MutationObserver(() => {
+      const isDark = document.documentElement.classList.contains('dark');
+      setIsDarkMode(isDark);
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   const handleFile = async (file: File) => {
     const reader = new FileReader();
@@ -134,7 +162,7 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
   };
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-[#09090b]">
+    <div className="relative min-h-screen w-full overflow-hidden bg-white dark:bg-[#09090b] transition-colors duration-300">
       {/* Threads 배경 - 항상 표시하여 흰 화면 방지 */}
       <div className={`absolute inset-0 z-0 transition-all duration-1000 ${
         isRektMode ? 'bg-red-950/20' : ''
@@ -154,28 +182,28 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
         <div className="max-w-2xl w-full text-center space-y-10">
           <div className="space-y-6">
             {/* PRISM 타이틀 */}
-            <h1 className="text-7xl font-extrabold tracking-tighter text-white drop-shadow-[0_0_20px_rgba(16,185,129,0.5)]">
+            <h1 className="text-7xl font-extrabold tracking-tighter text-zinc-900 dark:text-white drop-shadow-[0_0_20px_rgba(16,185,129,0.5)]">
               PRISM
             </h1>
             <div className="space-y-3">
-              <h2 className="text-2xl font-bold text-white max-w-2xl mx-auto">
+              <h2 className="text-2xl font-bold text-zinc-900 dark:text-white max-w-2xl mx-auto">
                 당신의 거래 맹점을 발견하세요
               </h2>
-              <p className="text-lg text-zinc-300 max-w-2xl mx-auto leading-relaxed">
+              <p className="text-lg text-zinc-700 dark:text-zinc-300 max-w-2xl mx-auto leading-relaxed">
                 거래 내역을 업로드하면 AI가 당신의 돈을 잃게 만드는 심리적 패턴을 밝혀냅니다.
               </p>
             </div>
           </div>
 
           <div 
-            className="relative border-2 border-dashed border-zinc-800/50 rounded-3xl p-16 hover:border-emerald-500/50 hover:bg-zinc-900/50 transition-all cursor-pointer group bg-zinc-950/70 backdrop-blur-sm"
+            className="relative border-2 border-dashed border-zinc-300 dark:border-zinc-800/50 rounded-3xl p-16 hover:border-emerald-500/50 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-all cursor-pointer group bg-white/70 dark:bg-zinc-950/70 backdrop-blur-sm"
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
         >
           {isProcessing ? (
              <div className="flex flex-col items-center gap-6">
-                <div className="p-6 bg-zinc-900 rounded-full border border-zinc-800">
+                <div className="p-6 bg-zinc-100 dark:bg-zinc-900 rounded-full border border-zinc-300 dark:border-zinc-800">
                     {loadingStage.includes('파싱') && <FileSearch className="w-10 h-10 text-emerald-500" />}
                     {loadingStage.includes('시장 데이터') && <Database className="w-10 h-10 text-emerald-500 animate-spin" />}
                     {loadingStage.includes('패턴') && <TrendingUp className="w-10 h-10 text-emerald-500" />}
@@ -183,7 +211,7 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
                     {!loadingStage && <Database className="w-10 h-10 text-emerald-500 animate-spin" />}
                 </div>
                 <div className="space-y-2 text-center">
-                    <p className="text-zinc-200 font-medium">{loadingStage || '분석 중...'}</p>
+                    <p className="text-zinc-800 dark:text-zinc-200 font-medium">{loadingStage || '분석 중...'}</p>
                     <div className="flex items-center justify-center gap-2 text-xs text-zinc-500">
                       <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1s' }}></div>
                       <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '200ms', animationDuration: '1s' }}></div>
@@ -193,19 +221,19 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
              </div>
           ) : (
               <div className="flex flex-col items-center gap-6">
-                <div className="p-6 bg-zinc-900 rounded-full border border-zinc-800 group-hover:border-emerald-500/30 group-hover:text-emerald-400 transition-all">
-                  <Upload className="w-10 h-10 text-zinc-400 group-hover:text-emerald-400" />
+                <div className="p-6 bg-zinc-100 dark:bg-zinc-900 rounded-full border border-zinc-300 dark:border-zinc-800 group-hover:border-emerald-500/30 group-hover:text-emerald-400 transition-all">
+                  <Upload className="w-10 h-10 text-zinc-600 dark:text-zinc-400 group-hover:text-emerald-400" />
                 </div>
                 <div className="space-y-2">
-                  <p className="text-xl font-medium text-zinc-200">거래 내역을 드래그하여 업로드하세요</p>
-                  <div className="text-sm text-zinc-500">
+                  <p className="text-xl font-medium text-zinc-800 dark:text-zinc-200">거래 내역을 드래그하여 업로드하세요</p>
+                  <div className="text-sm text-zinc-600 dark:text-zinc-500">
                      <p>필수 형식: Ticker, Entry Date, Entry Price, Exit Date, Exit Price, Qty</p>
                      <button onClick={(e) => { e.stopPropagation(); downloadSample(); }} className="text-emerald-500 hover:underline mt-2 text-xs">
                         템플릿 CSV 다운로드
                      </button>
                   </div>
-                  <div className="mt-4 pt-4 border-t border-zinc-800/50">
-                    <div className="flex items-center gap-2 text-xs text-zinc-500">
+                  <div className="mt-4 pt-4 border-t border-zinc-300 dark:border-zinc-800/50">
+                    <div className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-500">
                       <Shield className="w-4 h-4" />
                       <span>데이터는 익명화되며 이 분석에만 사용됩니다. 원본 거래 내역은 저장하지 않습니다.</span>
                     </div>
@@ -223,38 +251,38 @@ export const UploadView: React.FC<UploadViewProps> = ({ onAnalyze }) => {
         </div>
 
         {error && (
-            <div className="flex items-center gap-2 text-red-400 bg-red-950/20 border border-red-900/30 p-4 rounded-lg justify-center">
+            <div className="flex items-center gap-2 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 p-4 rounded-lg justify-center">
               <AlertCircle className="w-5 h-5" />
               <span className="text-sm font-medium">{error}</span>
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t border-zinc-800/50">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t border-zinc-300 dark:border-zinc-800/50">
             <button 
               onClick={() => loadSample(SAMPLE_PAIRED)}
-              className="bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 px-4 py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:scale-[1.02]"
+              className="bg-zinc-100 dark:bg-zinc-900/50 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-300 dark:border-zinc-800 text-zinc-800 dark:text-zinc-300 px-4 py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:scale-[1.02]"
             >
               <FileSpreadsheet className="w-5 h-5 text-emerald-500" />
               <span className="text-sm font-medium">표준 CSV</span>
-              <span className="text-[10px] text-zinc-500">미리 매칭된 거래</span>
+              <span className="text-[10px] text-zinc-600 dark:text-zinc-500">미리 매칭된 거래</span>
             </button>
             
             <button 
               onClick={() => loadSample(SAMPLE_LOG)}
-              className="bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 px-4 py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:scale-[1.02]"
+              className="bg-zinc-100 dark:bg-zinc-900/50 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-300 dark:border-zinc-800 text-zinc-800 dark:text-zinc-300 px-4 py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:scale-[1.02]"
             >
               <GitMerge className="w-5 h-5 text-blue-500" />
               <span className="text-sm font-medium">실행 로그</span>
-              <span className="text-[10px] text-zinc-500">FIFO 로직 테스트</span>
+              <span className="text-[10px] text-zinc-600 dark:text-zinc-500">FIFO 로직 테스트</span>
             </button>
             
             <button 
               onClick={() => loadSample(REKT_LOG)}
-              className="bg-red-950/10 hover:bg-red-900/20 border border-red-900/30 text-red-400 px-4 py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:scale-[1.02]"
+              className="bg-red-50 dark:bg-red-950/10 hover:bg-red-100 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 px-4 py-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-all hover:scale-[1.02]"
             >
               <Skull className="w-5 h-5" />
               <span className="text-sm font-medium">"Rekt" 모드</span>
-              <span className="text-[10px] text-red-500/60">높은 FOMO & 복수 거래</span>
+              <span className="text-[10px] text-red-600 dark:text-red-500/60">높은 FOMO & 복수 거래</span>
             </button>
           </div>
         </div>
