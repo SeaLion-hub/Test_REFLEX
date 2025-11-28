@@ -1,0 +1,4310 @@
+{
+  "INTC": {
+    "2022-10-27": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-02-24": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-22": {
+      "news": [
+        "로이터 INTC, 신고가 경신... 매수세 폭주",
+        "[INTC] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-10-24": {
+      "news": [
+        "블룸버그 INTC, 신고가 경신... 매수세 폭주",
+        "[INTC] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-02": {
+      "news": [
+        "매경 INTC, 신고가 경신... 매수세 폭주",
+        "[INTC] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-22": {
+      "news": [
+        "한경 INTC, 신고가 경신... 매수세 폭주",
+        "[INTC] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-25": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-09-21": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-13": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-10": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-09-13": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-15": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-12": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-07-13": {
+      "news": [
+        "매경 INTC, 신고가 경신... 매수세 폭주",
+        "[INTC] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-01": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-08": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-01-11": {
+      "news": [
+        "CNBC INTC, 신고가 경신... 매수세 폭주",
+        "[INTC] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-01-12": {
+      "news": [
+        "로이터 INTC, 신고가 경신... 매수세 폭주",
+        "[INTC] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-01-13": {
+      "news": [
+        "CNBC INTC, 신고가 경신... 매수세 폭주",
+        "[INTC] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-01-18": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-01-20": {
+      "news": [
+        "한경 INTC, 신고가 경신... 매수세 폭주",
+        "[INTC] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-12-12": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-23": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-24": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-01": {
+      "news": [
+        "한경 INTC, 신고가 경신... 매수세 폭주",
+        "[INTC] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-30": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-31": {
+      "news": [
+        "블룸버그 INTC, 신고가 경신... 매수세 폭주",
+        "[INTC] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-09-26": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-09": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-04": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-02-15": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-07": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-02-06": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-28": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-07": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-08": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-14": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-01-19": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-09": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-02-13": {
+      "news": [
+        "매경 INTC, 신고가 경신... 매수세 폭주",
+        "[INTC] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-12-23": {
+      "news": [
+        "CNBC INTC, 신고가 경신... 매수세 폭주",
+        "[INTC] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-25": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-03": {
+      "news": [
+        "매경 INTC, 신고가 경신... 매수세 폭주",
+        "[INTC] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-10-11": {
+      "news": [
+        "INTC 보합권 등락",
+        "외국인 INTC 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-11": {
+      "news": [
+        "매경 INTC, 신고가 경신... 매수세 폭주",
+        "[INTC] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-02-06": {
+      "news": [
+        "CNBC INTC, 신고가 경신... 매수세 폭주",
+        "[INTC] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-07": {
+      "news": [
+        "블룸버그 INTC, 신고가 경신... 매수세 폭주",
+        "[INTC] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-04": {
+      "news": [
+        "한경 INTC, 신고가 경신... 매수세 폭주",
+        "[INTC] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    }
+  },
+  "GOOGL": {
+    "2022-08-12": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-09": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-06": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-01": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-07-03": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-17": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-24": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-02-16": {
+      "news": [
+        "CNBC GOOGL, 신고가 경신... 매수세 폭주",
+        "[GOOGL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-07-13": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-02-02": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-09-20": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-01-19": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-24": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-14": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-23": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-16": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-12-29": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-27": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-20": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-18": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-12-13": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-12-14": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-18": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-07": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-08": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-10": {
+      "news": [
+        "한경 GOOGL, 신고가 경신... 매수세 폭주",
+        "[GOOGL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-13": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-28": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-01": {
+      "news": [
+        "CNBC GOOGL, 신고가 경신... 매수세 폭주",
+        "[GOOGL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-03": {
+      "news": [
+        "한경 GOOGL, 신고가 경신... 매수세 폭주",
+        "[GOOGL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-04": {
+      "news": [
+        "한경 GOOGL, 신고가 경신... 매수세 폭주",
+        "[GOOGL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-05": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-29": {
+      "news": [
+        "CNBC GOOGL, 신고가 경신... 매수세 폭주",
+        "[GOOGL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-02": {
+      "news": [
+        "로이터 GOOGL, 신고가 경신... 매수세 폭주",
+        "[GOOGL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-02-28": {
+      "news": [
+        "CNBC GOOGL, 신고가 경신... 매수세 폭주",
+        "[GOOGL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-01": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-07": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-02-22": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-27": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-22": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-09-13": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-10-24": {
+      "news": [
+        "한경 GOOGL, 신고가 경신... 매수세 폭주",
+        "[GOOGL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-21": {
+      "news": [
+        "GOOGL 보합권 등락",
+        "외국인 GOOGL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-20": {
+      "news": [
+        "매경 GOOGL, 신고가 경신... 매수세 폭주",
+        "[GOOGL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-30": {
+      "news": [
+        "블룸버그 GOOGL, 신고가 경신... 매수세 폭주",
+        "[GOOGL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    }
+  },
+  "NFLX": {
+    "2022-06-27": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-01-12": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-26": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-02-28": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-09-15": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-10": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-14": {
+      "news": [
+        "로이터 NFLX, 신고가 경신... 매수세 폭주",
+        "[NFLX] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-16": {
+      "news": [
+        "CNBC NFLX, 신고가 경신... 매수세 폭주",
+        "[NFLX] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-29": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-12-19": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-16": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-02-01": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-02-22": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-05": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-26": {
+      "news": [
+        "CNBC NFLX, 신고가 경신... 매수세 폭주",
+        "[NFLX] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-09-11": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-10": {
+      "news": [
+        "매경 NFLX, 신고가 경신... 매수세 폭주",
+        "[NFLX] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-12": {
+      "news": [
+        "CNBC NFLX, 신고가 경신... 매수세 폭주",
+        "[NFLX] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-09-07": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-02-15": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-23": {
+      "news": [
+        "한경 NFLX, 신고가 경신... 매수세 폭주",
+        "[NFLX] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-22": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-01": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-10": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-01-06": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-09-01": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-02-02": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-06": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-10-10": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-07": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-10-28": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-22": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-10": {
+      "news": [
+        "블룸버그 NFLX, 신고가 경신... 매수세 폭주",
+        "[NFLX] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-04": {
+      "news": [
+        "로이터 NFLX, 신고가 경신... 매수세 폭주",
+        "[NFLX] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-29": {
+      "news": [
+        "NFLX 보합권 등락",
+        "외국인 NFLX 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-19": {
+      "news": [
+        "블룸버그 NFLX, 신고가 경신... 매수세 폭주",
+        "[NFLX] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-13": {
+      "news": [
+        "로이터 NFLX, 신고가 경신... 매수세 폭주",
+        "[NFLX] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    }
+  },
+  "NVDA": {
+    "2022-12-12": {
+      "news": [
+        "CNBC NVDA, 신고가 경신... 매수세 폭주",
+        "[NVDA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-03": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-27": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-06": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-24": {
+      "news": [
+        "매경 NVDA, 신고가 경신... 매수세 폭주",
+        "[NVDA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-02-15": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-16": {
+      "news": [
+        "한경 NVDA, 신고가 경신... 매수세 폭주",
+        "[NVDA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-16": {
+      "news": [
+        "한경 NVDA, 신고가 경신... 매수세 폭주",
+        "[NVDA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-07-13": {
+      "news": [
+        "CNBC NVDA, 신고가 경신... 매수세 폭주",
+        "[NVDA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-12": {
+      "news": [
+        "매경 NVDA, 신고가 경신... 매수세 폭주",
+        "[NVDA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-04": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-27": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-14": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-09-13": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-28": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-02-06": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-02": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-18": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-10-07": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-27": {
+      "news": [
+        "매경 NVDA, 신고가 경신... 매수세 폭주",
+        "[NVDA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-09-14": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-21": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-06": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-24": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-25": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-12-08": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-09": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-03": {
+      "news": [
+        "블룸버그 NVDA, 신고가 경신... 매수세 폭주",
+        "[NVDA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-09-21": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-12-29": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-13": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-10-03": {
+      "news": [
+        "NVDA 보합권 등락",
+        "외국인 NVDA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-23": {
+      "news": [
+        "CNBC NVDA, 신고가 경신... 매수세 폭주",
+        "[NVDA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    }
+  },
+  "META": {
+    "2024-01-17": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-09": {
+      "news": [
+        "매경 META, 신고가 경신... 매수세 폭주",
+        "[META] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-09": {
+      "news": [
+        "블룸버그 META, 신고가 경신... 매수세 폭주",
+        "[META] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-02": {
+      "news": [
+        "블룸버그 META, 신고가 경신... 매수세 폭주",
+        "[META] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-04": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-10-12": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-15": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-15": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-03": {
+      "news": [
+        "CNBC META, 신고가 경신... 매수세 폭주",
+        "[META] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-27": {
+      "news": [
+        "블룸버그 META, 신고가 경신... 매수세 폭주",
+        "[META] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-06": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-10": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-09-20": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-28": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-12-05": {
+      "news": [
+        "매경 META, 신고가 경신... 매수세 폭주",
+        "[META] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-02-13": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-25": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-26": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-09-22": {
+      "news": [
+        "로이터 META, 신고가 경신... 매수세 폭주",
+        "[META] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-07-25": {
+      "news": [
+        "한경 META, 신고가 경신... 매수세 폭주",
+        "[META] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-26": {
+      "news": [
+        "매경 META, 신고가 경신... 매수세 폭주",
+        "[META] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-07": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-12": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-13": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-20": {
+      "news": [
+        "매경 META, 신고가 경신... 매수세 폭주",
+        "[META] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-07-18": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-10-20": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-30": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-06": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-12-23": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-07-19": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-30": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-17": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-10": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-02-28": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-01": {
+      "news": [
+        "META 보합권 등락",
+        "외국인 META 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-19": {
+      "news": [
+        "매경 META, 신고가 경신... 매수세 폭주",
+        "[META] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-26": {
+      "news": [
+        "CNBC META, 신고가 경신... 매수세 폭주",
+        "[META] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-05": {
+      "news": [
+        "블룸버그 META, 신고가 경신... 매수세 폭주",
+        "[META] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-18": {
+      "news": [
+        "블룸버그 META, 신고가 경신... 매수세 폭주",
+        "[META] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    }
+  },
+  "AMZN": {
+    "2022-12-02": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-07-17": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-01-26": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-07-26": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-10-10": {
+      "news": [
+        "매경 AMZN, 신고가 경신... 매수세 폭주",
+        "[AMZN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-04": {
+      "news": [
+        "블룸버그 AMZN, 신고가 경신... 매수세 폭주",
+        "[AMZN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-08": {
+      "news": [
+        "매경 AMZN, 신고가 경신... 매수세 폭주",
+        "[AMZN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-12-15": {
+      "news": [
+        "CNBC AMZN, 신고가 경신... 매수세 폭주",
+        "[AMZN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-15": {
+      "news": [
+        "한경 AMZN, 신고가 경신... 매수세 폭주",
+        "[AMZN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-07-19": {
+      "news": [
+        "매경 AMZN, 신고가 경신... 매수세 폭주",
+        "[AMZN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-02-05": {
+      "news": [
+        "블룸버그 AMZN, 신고가 경신... 매수세 폭주",
+        "[AMZN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-30": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-28": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-29": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-20": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-16": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-08": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-05": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-26": {
+      "news": [
+        "매경 AMZN, 신고가 경신... 매수세 폭주",
+        "[AMZN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-01": {
+      "news": [
+        "매경 AMZN, 신고가 경신... 매수세 폭주",
+        "[AMZN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-05": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-11": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-07": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-11": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-23": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-25": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-27": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-17": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-25": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-09-19": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-01-03": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-20": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-21": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-22": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-03": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-02": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-27": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-07": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-08": {
+      "news": [
+        "한경 AMZN, 신고가 경신... 매수세 폭주",
+        "[AMZN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-28": {
+      "news": [
+        "한경 AMZN, 신고가 경신... 매수세 폭주",
+        "[AMZN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-09": {
+      "news": [
+        "AMZN 보합권 등락",
+        "외국인 AMZN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-02": {
+      "news": [
+        "CNBC AMZN, 신고가 경신... 매수세 폭주",
+        "[AMZN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    }
+  },
+  "AMD": {
+    "2022-11-21": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-12-29": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-27": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-20": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-01-31": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-01-10": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-17": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-24": {
+      "news": [
+        "로이터 AMD, 신고가 경신... 매수세 폭주",
+        "[AMD] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-24": {
+      "news": [
+        "매경 AMD, 신고가 경신... 매수세 폭주",
+        "[AMD] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-01-09": {
+      "news": [
+        "로이터 AMD, 신고가 경신... 매수세 폭주",
+        "[AMD] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-10": {
+      "news": [
+        "매경 AMD, 신고가 경신... 매수세 폭주",
+        "[AMD] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-15": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-24": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-12-12": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-19": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-02-13": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-27": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-02-15": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-19": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-23": {
+      "news": [
+        "블룸버그 AMD, 신고가 경신... 매수세 폭주",
+        "[AMD] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-14": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-17": {
+      "news": [
+        "블룸버그 AMD, 신고가 경신... 매수세 폭주",
+        "[AMD] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-20": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-24": {
+      "news": [
+        "매경 AMD, 신고가 경신... 매수세 폭주",
+        "[AMD] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-26": {
+      "news": [
+        "로이터 AMD, 신고가 경신... 매수세 폭주",
+        "[AMD] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-11": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-09-08": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-04": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-10-17": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-18": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-09": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-29": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-21": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-12-07": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-12": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-20": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-05": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-03": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-09": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-31": {
+      "news": [
+        "AMD 보합권 등락",
+        "외국인 AMD 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-04": {
+      "news": [
+        "CNBC AMD, 신고가 경신... 매수세 폭주",
+        "[AMD] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-12-05": {
+      "news": [
+        "로이터 AMD, 신고가 경신... 매수세 폭주",
+        "[AMD] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-13": {
+      "news": [
+        "매경 AMD, 신고가 경신... 매수세 폭주",
+        "[AMD] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-28": {
+      "news": [
+        "CNBC AMD, 신고가 경신... 매수세 폭주",
+        "[AMD] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-18": {
+      "news": [
+        "CNBC AMD, 신고가 경신... 매수세 폭주",
+        "[AMD] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    }
+  },
+  "MSFT": {
+    "2023-06-06": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-19": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-09": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-26": {
+      "news": [
+        "매경 MSFT, 신고가 경신... 매수세 폭주",
+        "[MSFT] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-21": {
+      "news": [
+        "매경 MSFT, 신고가 경신... 매수세 폭주",
+        "[MSFT] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-30": {
+      "news": [
+        "한경 MSFT, 신고가 경신... 매수세 폭주",
+        "[MSFT] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-12": {
+      "news": [
+        "매경 MSFT, 신고가 경신... 매수세 폭주",
+        "[MSFT] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-26": {
+      "news": [
+        "한경 MSFT, 신고가 경신... 매수세 폭주",
+        "[MSFT] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-09": {
+      "news": [
+        "로이터 MSFT, 신고가 경신... 매수세 폭주",
+        "[MSFT] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-27": {
+      "news": [
+        "한경 MSFT, 신고가 경신... 매수세 폭주",
+        "[MSFT] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-11": {
+      "news": [
+        "한경 MSFT, 신고가 경신... 매수세 폭주",
+        "[MSFT] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-13": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-10-10": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-29": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-01": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-09": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-10-07": {
+      "news": [
+        "블룸버그 MSFT, 신고가 경신... 매수세 폭주",
+        "[MSFT] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-21": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-12": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-12-20": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-02-03": {
+      "news": [
+        "CNBC MSFT, 신고가 경신... 매수세 폭주",
+        "[MSFT] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-25": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-04": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-07-12": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-30": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-08": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-07-14": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-28": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-09-30": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-09-23": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-07": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-13": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-24": {
+      "news": [
+        "MSFT 보합권 등락",
+        "외국인 MSFT 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-01-23": {
+      "news": [
+        "로이터 MSFT, 신고가 경신... 매수세 폭주",
+        "[MSFT] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-15": {
+      "news": [
+        "블룸버그 MSFT, 신고가 경신... 매수세 폭주",
+        "[MSFT] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-04": {
+      "news": [
+        "블룸버그 MSFT, 신고가 경신... 매수세 폭주",
+        "[MSFT] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-02": {
+      "news": [
+        "한경 MSFT, 신고가 경신... 매수세 폭주",
+        "[MSFT] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-16": {
+      "news": [
+        "매경 MSFT, 신고가 경신... 매수세 폭주",
+        "[MSFT] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    }
+  },
+  "TSLA": {
+    "2023-04-27": {
+      "news": [
+        "블룸버그 TSLA, 신고가 경신... 매수세 폭주",
+        "[TSLA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-24": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-16": {
+      "news": [
+        "CNBC TSLA, 신고가 경신... 매수세 폭주",
+        "[TSLA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-11": {
+      "news": [
+        "블룸버그 TSLA, 신고가 경신... 매수세 폭주",
+        "[TSLA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-13": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-14": {
+      "news": [
+        "로이터 TSLA, 신고가 경신... 매수세 폭주",
+        "[TSLA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-10": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-07-18": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-17": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-26": {
+      "news": [
+        "블룸버그 TSLA, 신고가 경신... 매수세 폭주",
+        "[TSLA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-28": {
+      "news": [
+        "한경 TSLA, 신고가 경신... 매수세 폭주",
+        "[TSLA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-29": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-02": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-04": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-05": {
+      "news": [
+        "블룸버그 TSLA, 신고가 경신... 매수세 폭주",
+        "[TSLA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-09": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-10": {
+      "news": [
+        "한경 TSLA, 신고가 경신... 매수세 폭주",
+        "[TSLA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-11": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-12": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-17": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-19": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-23": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-25": {
+      "news": [
+        "블룸버그 TSLA, 신고가 경신... 매수세 폭주",
+        "[TSLA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-29": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-18": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-21": {
+      "news": [
+        "한경 TSLA, 신고가 경신... 매수세 폭주",
+        "[TSLA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-14": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-08": {
+      "news": [
+        "로이터 TSLA, 신고가 경신... 매수세 폭주",
+        "[TSLA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-10-31": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-09-22": {
+      "news": [
+        "CNBC TSLA, 신고가 경신... 매수세 폭주",
+        "[TSLA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-01-30": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-02-08": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-07-13": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-16": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-12": {
+      "news": [
+        "블룸버그 TSLA, 신고가 경신... 매수세 폭주",
+        "[TSLA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-09-19": {
+      "news": [
+        "한경 TSLA, 신고가 경신... 매수세 폭주",
+        "[TSLA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-09-27": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-09-06": {
+      "news": [
+        "CNBC TSLA, 신고가 경신... 매수세 폭주",
+        "[TSLA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-30": {
+      "news": [
+        "TSLA 보합권 등락",
+        "외국인 TSLA 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-06": {
+      "news": [
+        "블룸버그 TSLA, 신고가 경신... 매수세 폭주",
+        "[TSLA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-07-03": {
+      "news": [
+        "블룸버그 TSLA, 신고가 경신... 매수세 폭주",
+        "[TSLA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-31": {
+      "news": [
+        "CNBC TSLA, 신고가 경신... 매수세 폭주",
+        "[TSLA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-02-15": {
+      "news": [
+        "한경 TSLA, 신고가 경신... 매수세 폭주",
+        "[TSLA] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    }
+  },
+  "COIN": {
+    "2022-06-30": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-18": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-02-17": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-09-22": {
+      "news": [
+        "로이터 COIN, 신고가 경신... 매수세 폭주",
+        "[COIN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-31": {
+      "news": [
+        "CNBC COIN, 신고가 경신... 매수세 폭주",
+        "[COIN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-12": {
+      "news": [
+        "한경 COIN, 신고가 경신... 매수세 폭주",
+        "[COIN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-04": {
+      "news": [
+        "로이터 COIN, 신고가 경신... 매수세 폭주",
+        "[COIN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-16": {
+      "news": [
+        "매경 COIN, 신고가 경신... 매수세 폭주",
+        "[COIN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-30": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-17": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-12": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-01-31": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-14": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-04": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-09-22": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-15": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-11": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-09": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-15": {
+      "news": [
+        "매경 COIN, 신고가 경신... 매수세 폭주",
+        "[COIN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-12-20": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-13": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-10": {
+      "news": [
+        "매경 COIN, 신고가 경신... 매수세 폭주",
+        "[COIN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-07": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-11": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-08": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-06": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-09-21": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-24": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-13": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-26": {
+      "news": [
+        "COIN 보합권 등락",
+        "외국인 COIN 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-10-17": {
+      "news": [
+        "한경 COIN, 신고가 경신... 매수세 폭주",
+        "[COIN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-09-12": {
+      "news": [
+        "한경 COIN, 신고가 경신... 매수세 폭주",
+        "[COIN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-12": {
+      "news": [
+        "CNBC COIN, 신고가 경신... 매수세 폭주",
+        "[COIN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-21": {
+      "news": [
+        "로이터 COIN, 신고가 경신... 매수세 폭주",
+        "[COIN] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    }
+  },
+  "PLTR": {
+    "2023-12-06": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-02-08": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-03": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-29": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-13": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-09-13": {
+      "news": [
+        "CNBC PLTR, 신고가 경신... 매수세 폭주",
+        "[PLTR] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-03": {
+      "news": [
+        "CNBC PLTR, 신고가 경신... 매수세 폭주",
+        "[PLTR] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-13": {
+      "news": [
+        "로이터 PLTR, 신고가 경신... 매수세 폭주",
+        "[PLTR] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-30": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-18": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-04": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-09": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-08": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-30": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-21": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-22": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-19": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-07-26": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-25": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-05": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-29": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-24": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-18": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-09-25": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-02": {
+      "news": [
+        "CNBC PLTR, 신고가 경신... 매수세 폭주",
+        "[PLTR] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-07-11": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-04": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-11": {
+      "news": [
+        "한경 PLTR, 신고가 경신... 매수세 폭주",
+        "[PLTR] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-11-15": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-18": {
+      "news": [
+        "로이터 PLTR, 신고가 경신... 매수세 폭주",
+        "[PLTR] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-05": {
+      "news": [
+        "PLTR 보합권 등락",
+        "외국인 PLTR 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-12-14": {
+      "news": [
+        "로이터 PLTR, 신고가 경신... 매수세 폭주",
+        "[PLTR] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    }
+  },
+  "AAPL": {
+    "2023-10-19": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-07-20": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-02-15": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-09-07": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-01-26": {
+      "news": [
+        "블룸버그 AAPL, 신고가 경신... 매수세 폭주",
+        "[AAPL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-08-18": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-24": {
+      "news": [
+        "블룸버그 AAPL, 신고가 경신... 매수세 폭주",
+        "[AAPL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-14": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-09-09": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-13": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-12": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-09-21": {
+      "news": [
+        "CNBC AAPL, 신고가 경신... 매수세 폭주",
+        "[AAPL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-02-07": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-25": {
+      "news": [
+        "매경 AAPL, 신고가 경신... 매수세 폭주",
+        "[AAPL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-05-26": {
+      "news": [
+        "CNBC AAPL, 신고가 경신... 매수세 폭주",
+        "[AAPL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-20": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-23": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-07-15": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-10-11": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-05": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-30": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-30": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2024-01-12": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-07-27": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-21": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-03-07": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-12-01": {
+      "news": [
+        "블룸버그 AAPL, 신고가 경신... 매수세 폭주",
+        "[AAPL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-12-13": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-06-01": {
+      "news": [
+        "매경 AAPL, 신고가 경신... 매수세 폭주",
+        "[AAPL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-06-01": {
+      "news": [
+        "한경 AAPL, 신고가 경신... 매수세 폭주",
+        "[AAPL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-02-27": {
+      "news": [
+        "로이터 AAPL, 신고가 경신... 매수세 폭주",
+        "[AAPL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-25": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-11-18": {
+      "news": [
+        "CNBC AAPL, 신고가 경신... 매수세 폭주",
+        "[AAPL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-26": {
+      "news": [
+        "CNBC AAPL, 신고가 경신... 매수세 폭주",
+        "[AAPL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-01-23": {
+      "news": [
+        "매경 AAPL, 신고가 경신... 매수세 폭주",
+        "[AAPL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-08-10": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2023-04-04": {
+      "news": [
+        "블룸버그 AAPL, 신고가 경신... 매수세 폭주",
+        "[AAPL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-05-24": {
+      "news": [
+        "매경 AAPL, 신고가 경신... 매수세 폭주",
+        "[AAPL] 과열 논란에도 급등"
+      ],
+      "verdict": "GUILTY",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    },
+    "2022-10-14": {
+      "news": [
+        "AAPL 보합권 등락",
+        "외국인 AAPL 관망세"
+      ],
+      "verdict": "INNOCENT",
+      "reasoning": "AI Generated",
+      "confidence": "HIGH"
+    }
+  }
+}
